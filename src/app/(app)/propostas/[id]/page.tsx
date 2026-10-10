@@ -60,7 +60,7 @@ export default async function PropostaPage({ params }: { params: Promise<{ id: s
         <div className="card mb-6 border-lime bg-lime/10">
           <h2 className="text-base font-semibold">Proposta aceita — próximos passos</h2>
           <p className="mt-1 text-sm text-muted">{contract ? <>Contrato <Link className="underline" href={`/contratos/${contract.id}`}>#{contract.number}</Link> ({contract.status}). Ao assinar, o cliente é ativado e o financeiro gerado automaticamente.</> : 'Nenhum contrato gerado ainda.'} Assinatura eletrônica: <Pending>integração pendente</Pending>.</p>
-          {!contract && canEdit && <form action={generateContract.bind(null, id)} className="mt-3"><SubmitButton pendingText="Gerando…">Gerar rascunho de contrato</SubmitButton></form>}
+          {!contract && canEdit && <form action={generateContract.bind(null, id, undefined)} className="mt-3"><SubmitButton pendingText="Gerando…">Gerar rascunho de contrato</SubmitButton></form>}
           {p.activated_at ? <p className="mt-3 text-sm">Ativada em {dateTimeBR(p.activated_at)}. {p.client_id && <Link className="underline" href={`/clientes/${p.client_id}`}>Ver cliente</Link>}</p>
             : canActivate ? <form action={activateProposal.bind(null, id)} className="mt-4 flex flex-wrap items-end gap-3"><Field label="Primeiro vencimento"><input type="date" name="first_due" required className="input w-48" /></Field><SubmitButton pendingText="Gerando…" confirm="Gerar cliente ativo, serviços e recebíveis previstos?">Ativar sem contrato (manual)</SubmitButton></form>
             : <p className="mt-3 text-sm text-muted">Aguardando o financeiro/administrador ativar.</p>}
@@ -98,6 +98,9 @@ export default async function PropostaPage({ params }: { params: Promise<{ id: s
                 <Field label="Vigência (meses)" hint="Multiplica a mensalidade no total."><input type="number" name="contract_months" min={1} max={120} defaultValue={p.contract_months} className="input" /></Field>
                 <Field label="Parcelas do valor pontual"><input type="number" name="installments" min={1} max={60} defaultValue={p.installments} className="input" /></Field>
                 <Field label="Desconto (R$)" hint="Somente administradores podem aplicar; fica registrado quem autorizou."><input name="discount_value" inputMode="decimal" defaultValue={Number(p.discount_value) ? String(p.discount_value).replace('.', ',') : ''} disabled={profile.role !== 'admin'} className="input" /></Field></div>
+              <Field label="Sobre o cliente"><textarea name="sobre_cliente" rows={4} defaultValue={c.sobre_cliente} className="input" /></Field>
+              <Field label="O que o cliente espera"><textarea name="expectativas" rows={3} defaultValue={c.expectativas} className="input" /></Field>
+              <Field label="Resultados que vamos entregar (um por linha)" hint="Só inclua o que a Muvens pode de fato se comprometer a entregar."><textarea name="resultados" rows={4} defaultValue={c.resultados.join('\n')} className="input" /></Field>
               <Field label="Apresentação (opcional — há um texto padrão)"><textarea name="intro" rows={3} defaultValue={c.intro} className="input" /></Field>
               <Field label="Contexto e diagnóstico"><textarea name="diagnostico" rows={4} defaultValue={c.diagnostico} className="input" /></Field>
               <Field label="Objetivos (um por linha)"><textarea name="objetivos" rows={3} defaultValue={c.objetivos.join('\n')} className="input" /></Field>

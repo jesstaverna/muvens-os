@@ -31,8 +31,11 @@ export function ProposalView({ p }: { p: ProposalViewData }) {
         </header>
 
         <Section n={num()} title="Sobre a Muvens">{c.intro || 'A Muvens é uma agência de marketing, design, branding, desenvolvimento web e tráfego pago, focada em transformar presença digital em resultado para o seu negócio.'}</Section>
+        {c.sobre_cliente && <Section n={num()} title={`Sobre ${p.client_name}`}>{c.sobre_cliente}</Section>}
+        {c.expectativas && <Section n={num()} title="O que você espera">{c.expectativas}</Section>}
         {c.diagnostico && <Section n={num()} title="Contexto e diagnóstico">{c.diagnostico}</Section>}
         {c.objetivos.some(Boolean) && <Section n={num()} title="Objetivos"><List items={c.objetivos} /></Section>}
+        {c.resultados.some(Boolean) && <Section n={num()} title="Resultados que vamos entregar"><List items={c.resultados} /></Section>}
         {c.solucao && <Section n={num()} title="A solução">{c.solucao}</Section>}
         {p.items.length > 0 && <Section n={num()} title="Serviços incluídos"><ul className="space-y-4">{p.items.map((i, k) => <li key={k}><div className="font-medium text-white">{i.description}</div>{i.details && <div className="text-sm text-white/55">{i.details}</div>}</li>)}</ul></Section>}
         {c.escopo.some(Boolean) && <Section n={num()} title="Escopo detalhado"><List items={c.escopo} /></Section>}

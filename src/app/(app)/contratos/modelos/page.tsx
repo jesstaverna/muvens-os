@@ -3,9 +3,9 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { saveAgency, saveTemplate } from '../actions';
+import { SERVICE_LABEL as LABEL } from '@/lib/proposal-templates';
 
 export const metadata = { title: 'Modelos de contrato' };
-const LABEL: Record<string, string> = { redes_sociais: 'Redes sociais', branding: 'Branding', site_institucional: 'Site institucional', landing_page: 'Landing page', trafego_pago: 'Tráfego pago', design_recorrente: 'Design recorrente', personalizado: 'Personalizado' };
 const VARS = ['servico', 'contratante_nome', 'contratante_documento', 'contratante_endereco', 'contratada_nome', 'contratada_documento', 'contratada_endereco', 'contratada_representante', 'escopo', 'entregaveis', 'prazo_execucao', 'valor_total', 'forma_pagamento', 'vigencia', 'reajuste', 'cidade', 'data'];
 
 export default async function Modelos() {

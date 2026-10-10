@@ -26,7 +26,8 @@ export async function createProposal(fd: FormData) {
   if (!display) flash('/propostas/nova', 'err', 'Informe o cliente ou selecione um lead.');
 
   const { data, error } = await supabase.from('proposals').insert({
-    title: tpl.title, template: tpl.key, lead_id: leadId, client_id: clientId, client_display_name: display, content: tpl.content,
+    title: tpl.title, template: tpl.key, lead_id: leadId, client_id: clientId, client_display_name: display,
+    content: { ...tpl.content, sobre_cliente: String(fd.get('sobre_cliente') ?? '').trim(), expectativas: String(fd.get('expectativas') ?? '').trim(), resultados: lines(fd.get('resultados')) },
     contract_months: tpl.contractMonths, installments: tpl.installments, owner_id: profile.id, created_by: profile.id,
     valid_until: new Date(Date.now() + 15 * 86_400_000).toISOString().slice(0, 10),
   }).select('id').single();
@@ -47,7 +48,7 @@ export async function saveProposal(id: string, fd: FormData) {
   const r = saveSchema.safeParse(Object.fromEntries(fd));
   if (!r.success) flash(back, 'err', r.error.issues[0].message);
   const content = {
-    intro: String(fd.get('intro') ?? ''), diagnostico: String(fd.get('diagnostico') ?? ''), solucao: String(fd.get('solucao') ?? ''), cronograma: String(fd.get('cronograma') ?? ''),
+    intro: String(fd.get('intro') ?? ''), sobre_cliente: String(fd.get('sobre_cliente') ?? ''), expectativas: String(fd.get('expectativas') ?? ''), resultados: lines(fd.get('resultados')), diagnostico: String(fd.get('diagnostico') ?? ''), solucao: String(fd.get('solucao') ?? ''), cronograma: String(fd.get('cronograma') ?? ''),
     objetivos: lines(fd.get('objetivos')), escopo: lines(fd.get('escopo')), entregaveis: lines(fd.get('entregaveis')),
     etapas: lines(fd.get('etapas')).map((l) => { const [t, ...d] = l.split('|'); return { title: t.trim(), description: d.join('|').trim() }; }),
   };

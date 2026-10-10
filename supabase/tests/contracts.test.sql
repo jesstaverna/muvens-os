@@ -41,6 +41,16 @@ select pg_temp.expect_error($$update contracts set status = 'assinado' where pro
 reset role;
 -- admin completa dados da agência e o texto
 set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
+-- troca de modelo (serviço) em revisão
+do $$ declare c uuid; t uuid; begin
+  select id into c from contracts where proposal_id = '22222222-2222-2222-2222-222222222222';
+  select id into t from contract_templates where service_template = 'consultoria';
+  assert t is not null, 'modelo de consultoria existe';
+  perform public.change_contract_template(c, t);
+  assert (select service_template from contracts where id = c) = 'consultoria', 'serviço do contrato trocado';
+  assert (select body from contracts where id = c) like '%Studio Aurora%', 'texto regerado com os dados da proposta';
+  assert exists (select 1 from contract_templates where service_template = 'design_posts'), 'modelo de design de posts existe';
+end $$;
 update agency_settings set legal_name = 'Muvens Agência LTDA', document = '00.000.000/0001-00', address = 'Rua B, 20', city = 'São Paulo', representative_name = 'Responsável', representative_role = 'Sócia';
 update contracts set body = regexp_replace(body, '\[PREENCHER[^\]]*\]', 'definido', 'g') where proposal_id = '22222222-2222-2222-2222-222222222222';
 update contracts set status = 'aprovado' where proposal_id = '22222222-2222-2222-2222-222222222222';
@@ -48,7 +58,8 @@ do $$ declare c contracts; begin
   select * into c from contracts where proposal_id = '22222222-2222-2222-2222-222222222222'; assert c.status = 'aprovado' and c.approved_by = auth.uid() and c.approved_at is not null, 'aprovação registra quem aprovou';
 end $$;
 select pg_temp.expect_error($$update contracts set body = body || ' x' where proposal_id = '22222222-2222-2222-2222-222222222222'$$, '23514');                  -- texto travado após aprovação
-select pg_temp.expect_error($$update contracts set status = 'enviado_assinatura' where proposal_id = '22222222-2222-2222-2222-222222222222'$$, '23514');        -- integração pendente
+select pg_temp.expect_error($$update contracts set status = 'enviado_assinatura' where proposal_id = '22222222-2222-2222-2222-222222222222'$$, '23514');
+select pg_temp.expect_error($$select public.change_contract_template((select id from contracts where proposal_id = '22222222-2222-2222-2222-222222222222'), (select id from contract_templates limit 1))$$, '23514');  -- aprovado não troca modelo        -- integração pendente
 reset role;
 -- comercial não registra assinatura; financeiro não altera contrato
 set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a2';

@@ -4,13 +4,15 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { dateTimeBR, money } from '@/lib/format';
-import { setContractStatus, saveContract } from '../actions';
+import { setContractStatus, saveContract, changeTemplate } from '../actions';
+import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { CONTRACT_STATUS } from '@/lib/domain';
 
 export default async function ContratoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const { supabase, profile } = await requireModule('contratos');
+  const { data: tpls } = await supabase.from('contract_templates').select('id, service_template').eq('active', true).order('service_template');
   const { data: c } = await supabase.from('contracts').select('*, clients(name), proposals(number, title)').eq('id', id).maybeSingle();
   if (!c) notFound();
   const canEdit = profile.role === 'admin' || profile.role === 'comercial';
@@ -24,7 +26,7 @@ export default async function ContratoPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <PageHeader title={`#${c.number} · ${c.title}`} subtitle={`${cl?.name ?? ''} · proposta #${pr?.number}`}
+      <PageHeader title={`#${c.number} · ${c.title}`} subtitle={`${cl?.name ?? ''} · ${SERVICE_LABEL[c.service_template ?? ''] ?? 'Serviço'} · proposta #${pr?.number}`}
         actions={<><span className={`badge ${st.tone}`}>{st.label}</span><Link href="/contratos" className="btn btn-sm">← Contratos</Link><Link href={`/propostas/${c.proposal_id}`} className="btn btn-sm">Ver proposta</Link><Link href={`/contratos/${id}/imprimir`} className="btn btn-sm">Imprimir / PDF</Link></>} />
 
       <div className="card mb-6 text-sm"><b>Revisão humana obrigatória.</b> O texto é gerado a partir de um modelo-base e dos dados da proposta; <u>não é assessoria jurídica</u>. Revise com o jurídico e complete os campos <code>[PREENCHER]</code> antes de aprovar.
@@ -50,6 +52,12 @@ export default async function ContratoPage({ params }: { params: Promise<{ id: s
           ) : <p className="mt-3 text-sm text-muted">Somente administradores registram a assinatura.</p>}
         </div>)}
       {c.status === 'assinado' && <div className="card mb-6 border-lime bg-lime/10 text-sm">Assinado em {dateTimeBR(c.signed_at)} ({c.signature_provider}). {c.signature_note}<br />Cliente ativado e recebíveis previstos gerados. Valor: {money(c.total_value)}.</div>}
+
+      {editable && (
+        <form action={changeTemplate.bind(null, id)} className="card mb-6 flex flex-wrap items-end gap-3">
+          <label className="min-w-64 flex-1"><span className="label">Serviço do contrato</span><select name="template_id" defaultValue={c.template_id ?? ''} className="input">{tpls?.map((t) => <option key={t.id} value={t.id}>{SERVICE_LABEL[t.service_template] ?? t.service_template}</option>)}</select></label>
+          <SubmitButton className="btn" pendingText="Aplicando…" confirm="Trocar o serviço regera o texto do contrato e descarta edições manuais. Continuar?">Aplicar modelo</SubmitButton>
+        </form>)}
 
       <form action={saveContract.bind(null, id)} className="card space-y-5">
         <fieldset disabled={!editable && !(canEdit && c.status === 'assinado')} className="space-y-5">

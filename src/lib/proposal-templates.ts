@@ -1,5 +1,8 @@
 export interface ProposalContent {
   intro: string;
+  sobre_cliente: string;
+  expectativas: string;
+  resultados: string[];
   diagnostico: string;
   objetivos: string[];
   solucao: string;
@@ -12,21 +15,21 @@ export interface ProposalContent {
 export interface TemplateItem { description: string; details?: string; billing: 'pontual' | 'mensal' }
 export interface ProposalTemplate { key: string; label: string; title: string; content: ProposalContent; items: TemplateItem[]; contractMonths: number; installments: number }
 
-const blank: ProposalContent = { intro: '', diagnostico: '', objetivos: [], solucao: '', escopo: [], entregaveis: [], etapas: [], cronograma: '' };
+const blank: ProposalContent = { intro: '', sobre_cliente: '', expectativas: '', resultados: [], diagnostico: '', objetivos: [], solucao: '', escopo: [], entregaveis: [], etapas: [], cronograma: '' };
 
 /**
  * Modelos estruturais. NÃO contêm preços, prazos nem promessas: valores e condições são definidos por uma pessoa
  * em cada proposta (a proposta não pode ser enviada com itens sem valor).
  */
 export const TEMPLATES: ProposalTemplate[] = [
-  { key: 'redes_sociais', label: 'Gestão de redes sociais', title: 'Gestão de redes sociais', contractMonths: 6, installments: 1,
+  { key: 'redes_sociais', label: 'Social media (gestão de redes sociais)', title: 'Gestão de redes sociais', contractMonths: 6, installments: 1,
     content: { ...blank, solucao: 'Planejamento, produção e publicação de conteúdo para as redes sociais, com acompanhamento de desempenho.',
       objetivos: ['Fortalecer a presença digital da marca', 'Gerar relacionamento e demanda qualificada'],
       escopo: ['Planejamento editorial mensal', 'Criação de artes e roteiros', 'Agendamento e publicação', 'Relatório mensal de desempenho'],
       entregaveis: ['Calendário editorial', 'Posts e stories conforme plano contratado', 'Relatório mensal'],
       etapas: [{ title: 'Onboarding e diagnóstico', description: 'Alinhamento de marca, público e objetivos.' }, { title: 'Planejamento', description: 'Calendário e linhas editoriais.' }, { title: 'Produção e publicação', description: 'Ciclo mensal com aprovação do cliente.' }] },
     items: [{ description: 'Gestão de redes sociais (plano mensal)', billing: 'mensal' }, { description: 'Setup inicial e planejamento', billing: 'pontual' }] },
-  { key: 'branding', label: 'Branding e identidade visual', title: 'Branding e identidade visual', contractMonths: 1, installments: 2,
+  { key: 'branding', label: 'Identidade visual (branding)', title: 'Branding e identidade visual', contractMonths: 1, installments: 2,
     content: { ...blank, solucao: 'Criação ou reposicionamento da identidade visual da marca, com manual de uso.',
       objetivos: ['Posicionar a marca de forma coerente e memorável'], escopo: ['Pesquisa e referências', 'Criação de logotipo e variações', 'Paleta, tipografia e elementos gráficos', 'Brandbook'],
       entregaveis: ['Logotipo e variações', 'Paleta e tipografia', 'Brandbook em PDF', 'Arquivos finais'],
@@ -55,6 +58,16 @@ export const TEMPLATES: ProposalTemplate[] = [
       objetivos: ['Manter a comunicação visual consistente e ágil'], escopo: ['Criação de peças conforme volume contratado', 'Rodadas de revisão', 'Organização de arquivos'],
       entregaveis: ['Peças finais em formatos digitais'], etapas: [{ title: 'Solicitação via briefing', description: '' }, { title: 'Criação e revisão', description: '' }, { title: 'Entrega', description: '' }] },
     items: [{ description: 'Pacote mensal de design', billing: 'mensal' }] },
+  { key: 'design_posts', label: 'Design de posts', title: 'Design de posts', contractMonths: 3, installments: 1,
+    content: { ...blank, solucao: 'Criação de posts, carrosséis e stories dentro de um volume mensal contratado.',
+      objetivos: ['Manter a comunicação visual consistente e profissional'], escopo: ['Criação de peças conforme volume contratado', 'Rodadas de revisão definidas na proposta', 'Entrega em formatos digitais'],
+      entregaveis: ['Peças finais (posts/carrosséis/stories) conforme plano'], etapas: [{ title: 'Briefing', description: '' }, { title: 'Criação', description: '' }, { title: 'Revisão e entrega', description: '' }] },
+    items: [{ description: 'Pacote mensal de design de posts', billing: 'mensal' }] },
+  { key: 'consultoria', label: 'Consultoria', title: 'Consultoria', contractMonths: 1, installments: 1,
+    content: { ...blank, solucao: 'Consultoria estratégica com diagnóstico, recomendações e acompanhamento.',
+      objetivos: ['Definir prioridades e um plano de ação claro'], escopo: ['Diagnóstico', 'Sessões de consultoria', 'Plano de ação e recomendações'],
+      entregaveis: ['Relatório/plano de ação'], etapas: [{ title: 'Diagnóstico', description: '' }, { title: 'Sessões', description: '' }, { title: 'Plano de ação', description: '' }] },
+    items: [{ description: 'Consultoria', billing: 'pontual' }] },
   { key: 'personalizado', label: 'Projeto personalizado', title: 'Proposta comercial', contractMonths: 1, installments: 1, content: blank, items: [{ description: 'Serviço', billing: 'pontual' }] },
 ];
 
@@ -64,8 +77,10 @@ export function normalizeContent(raw: unknown): ProposalContent {
   const c = (raw ?? {}) as Partial<ProposalContent>;
   const arr = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
   return {
-    intro: String(c.intro ?? ''), diagnostico: String(c.diagnostico ?? ''), solucao: String(c.solucao ?? ''), cronograma: String(c.cronograma ?? ''),
+    intro: String(c.intro ?? ''), sobre_cliente: String(c.sobre_cliente ?? ''), expectativas: String(c.expectativas ?? ''), resultados: arr(c.resultados), diagnostico: String(c.diagnostico ?? ''), solucao: String(c.solucao ?? ''), cronograma: String(c.cronograma ?? ''),
     objetivos: arr(c.objetivos), escopo: arr(c.escopo), entregaveis: arr(c.entregaveis),
     etapas: Array.isArray(c.etapas) ? c.etapas.map((e) => ({ title: String(e?.title ?? ''), description: String(e?.description ?? '') })) : [],
   };
 }
+
+export const SERVICE_LABEL: Record<string, string> = Object.fromEntries(TEMPLATES.map((t) => [t.key, t.label]));

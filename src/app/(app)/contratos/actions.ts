@@ -5,9 +5,10 @@ import { flash, requireModule } from '@/lib/session';
 const MSG: Record<string, string> = { '42501': 'Seu perfil não tem permissão para esta ação.', '23514': '' };
 const fail = (back: string, e: { code?: string; message: string }): never => flash(back, 'err', MSG[e.code ?? ''] || e.message || 'Não foi possível concluir a operação.');
 
-export async function generateContract(proposalId: string) {
+export async function generateContract(proposalId: string, fd?: FormData) {
   const { supabase } = await requireModule('contratos');
-  const { data, error } = await supabase.rpc('generate_contract', { p_proposal: proposalId });
+  const tpl = String(fd?.get('template_id') ?? '') || null;
+  const { data, error } = await supabase.rpc('generate_contract', { p_proposal: proposalId, p_template: tpl });
   if (error) fail(`/propostas/${proposalId}`, error);
   revalidatePath('/contratos');
   flash(`/contratos/${data}`, 'ok', 'Rascunho de contrato gerado. A revisão humana é obrigatória.');
@@ -36,6 +37,21 @@ export async function setContractStatus(id: string, status: string, fd?: FormDat
   if (error) fail(`/contratos/${id}`, error);
   revalidatePath('/contratos'); revalidatePath(`/contratos/${id}`);
   flash(`/contratos/${id}`, 'ok', { em_revisao: 'Enviado para revisão.', rascunho: 'Voltou para rascunho.', aprovado: 'Contrato aprovado.', assinado: 'Assinatura registrada. Cliente ativado e financeiro gerado.', cancelado: 'Contrato cancelado.' }[status] ?? 'Status atualizado.');
+}
+
+export async function changeTemplate(id: string, fd: FormData) {
+  const { supabase } = await requireModule('contratos');
+  const { error } = await supabase.rpc('change_contract_template', { p_contract: id, p_template: String(fd.get('template_id') ?? '') });
+  if (error) fail(`/contratos/${id}`, error);
+  revalidatePath(`/contratos/${id}`);
+  flash(`/contratos/${id}`, 'ok', 'Modelo aplicado: o texto foi regerado a partir do novo serviço. Revise novamente.');
+}
+
+/** Novo contrato a partir de uma proposta aceita, escolhendo o serviço (modelo). */
+export async function newContract(fd: FormData) {
+  const proposalId = String(fd.get('proposal_id') ?? '');
+  if (!proposalId) flash('/contratos', 'err', 'Escolha a proposta aceita.');
+  return generateContract(proposalId, fd);
 }
 
 export async function saveTemplate(id: string, fd: FormData) {
