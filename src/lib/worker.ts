@@ -22,10 +22,14 @@ export const handlers: Record<string, Handler> = {
     if (nErr) throw new Error(nErr.message);
   },
   // O banco já criou cliente + notificação. O contrato (Fase 2) será gerado aqui, sempre como rascunho para revisão humana.
-  'proposal.accepted': async () => {},
+  'proposal.accepted': async () => {}, // o rascunho do contrato é criado pelo banco (trigger) no momento do aceite
+  // Onboarding/projeto inicial entram com o módulo de Projetos (Fase 2, próxima etapa). O banco já ativou cliente e financeiro.
+  'contract.signed': async () => {},
   'scan.all': async (db) => {
     const { error } = await db.rpc('run_scheduled_scans');
     if (error) throw new Error(error.message);
+    const { error: cErr } = await db.rpc('run_contract_scans');
+    if (cErr) throw new Error(cErr.message);
   },
 };
 

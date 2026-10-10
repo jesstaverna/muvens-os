@@ -66,5 +66,12 @@ ok((await com.from('jobs').select('id')).data?.length === 0, 'Jobs invisíveis p
 ok((await des.from('fin_transactions').select('id')).data?.length === 0, 'Designer não vê financeiro');
 ok(!(await des.from('clients').select('id, name')).error, 'Designer vê clientes (necessário p/ produção)');
 
+const ctr = must(await com.from('contracts').select('id, number, title, status, total_value, starts_on, ends_on, client_id, clients(name)').order('number', { ascending: false }).limit(300), 'Contratos: lista com cliente');
+must(await com.from('contracts').select('*, clients(name), proposals(number, title)').eq('id', ctr?.[0]?.id).maybeSingle(), 'Contratos: detalhe com cliente e proposta');
+must(await com.from('contract_templates').select('*').order('service_template'), 'Contratos: modelos');
+must(await com.from('agency_settings').select('*').eq('id', 1).single(), 'Contratos: dados da agência');
+ok((await des.from('contracts').select('id')).data?.length === 0, 'Designer não vê contratos');
+ok((await anon.from('contracts').select('id')).error != null, 'Anônimo não lê contratos');
+
 console.log(fails ? `\n${fails} falha(s)` : '\nTodas as consultas OK');
 process.exit(fails ? 1 : 0);

@@ -47,8 +47,9 @@ Pastas: `src/app/(app)/<módulo>` (página + `actions.ts`), `src/components` (UI
 | `/metas` | Metas e projeções | admin (edita), comercial/financeiro (lê) | ✅ |
 | `/automacoes` | Fila, falhas, última varredura | admin | ✅ |
 | `/configuracoes` | Usuários/perfis, etapas do funil, integrações, auditoria | admin | ✅ |
+| `/contratos`, `/contratos/[id]`, `/contratos/modelos` | Contratos: rascunho automático ao aceitar a proposta, revisão humana obrigatória, assinatura (manual; Clicksign/ZapSign pendentes), modelos e dados da agência | admin, comercial (financeiro lê) | ✅ (Fase 2) |
 | `/atendimento-ia` | MUVENS AI — Atendimento Comercial (RD Conversas) | admin, comercial | ⏳ Fase 3 (integração pendente) |
-| `/contratos` `/brand` `/projetos` `/calendario` `/portal` | Operação | vários | ⏳ Fase 2 |
+| `/brand` `/projetos` `/calendario` `/portal` | Operação | vários | ⏳ Fase 2 (próximas etapas) |
 | `/trafego` | Meta/Google Ads | admin, tráfego | ⏳ Fase 3 |
 | `/relatorios` `/ia` | Relatórios e MUVENS AI executiva | vários | ⏳ Fase 4 |
 
@@ -92,8 +93,9 @@ Gatilhos no banco (instantâneos, transacionais) → enfileiram `jobs`/`notifica
 | Lembretes vencidos → notificação | ✅ |
 | Propostas vencidas → status “Expirada” | ✅ |
 | Despesas fixas/assinaturas do mês → geradas automaticamente | ✅ |
-| Contrato assinado → onboarding + projeto + financeiro | ⏳ Fase 2 |
-| Contrato perto do vencimento; projeto atrasado | ⏳ Fase 2 |
+| Contrato assinado → cliente ativo + serviços + recebíveis previstos + job `contract.signed` | ✅ (projeto/onboarding: com o módulo de Projetos) |
+| Contrato perto do vencimento / reajuste (30 dias) → alerta | ✅ |
+| Projeto atrasado | ⏳ Fase 2 |
 | Campanha crítica (CPL↑, conversões↓, orçamento) | ⏳ Fase 3 |
 | Cliente sem contato → sugerir follow-up com IA | ⏳ Fase 4 |
 

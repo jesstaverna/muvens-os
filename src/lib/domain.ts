@@ -78,3 +78,9 @@ export const PROPOSAL_STATUS: Record<string, { label: string; tone: string }> = 
 
 export const TX_STATUS_LABEL = (direction: 'in' | 'out', status: string) =>
   ({ previsto: 'Previsto', emitido: 'Emitido', cancelado: 'Cancelado', liquidado: direction === 'in' ? 'Recebido' : 'Pago' }[status] ?? status);
+
+export const CONTRACT_STATUS: Record<string, { label: string; tone: string }> = {
+  rascunho: { label: 'Rascunho', tone: 'bg-subtle text-muted' }, em_revisao: { label: 'Em revisão', tone: 'bg-amber-500/15 text-warn' },
+  aprovado: { label: 'Aprovado', tone: 'bg-blue-500/10 text-blue-600' }, enviado_assinatura: { label: 'Enviado p/ assinatura', tone: 'bg-violet-500/10 text-violet-600' },
+  assinado: { label: 'Assinado', tone: 'bg-lime/40' }, cancelado: { label: 'Cancelado', tone: 'bg-danger/10 text-danger' },
+};

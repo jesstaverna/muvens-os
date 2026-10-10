@@ -7,7 +7,9 @@ Sistema de gestão da **MUVENS AGÊNCIA** — CRM, propostas online, clientes, f
 ## O que existe (Fase 1)
 Login e perfis (admin, comercial, financeiro, designer, tráfego, cliente) com RLS · Dashboard com dados reais e filtros (mês, período, cliente) · CRM (Kanban com arrastar, lista, calendário; anti-duplicidade; motivo de perda; lembretes) · Clientes (visão 360°) · Propostas (modelos, itens, desconto autorizado por admin, versões, link exclusivo, aceite/pedido de alteração, PDF por impressão, histórico) · Financeiro (previsto/emitido/recebido, parcelas, recorrências e assinaturas, inadimplência, comprovantes privados) · Metas e projeções · Fila de automações + worker + alertas · Auditoria.
 
-**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); contratos, projetos, Brand Center, portal (Fase 2).
+Fase 2 (parcial): **Contratos** — rascunho automático ao aceitar a proposta, revisão humana obrigatória (bloqueia aprovação com `[PREENCHER]`), texto travado após aprovar, assinatura registrada manualmente (admin) que ativa cliente e financeiro, alertas de vencimento/reajuste.
+
+**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); projetos, Brand Center, portal do cliente (Fase 2, próximas etapas).
 
 ## Rodando
 ```bash

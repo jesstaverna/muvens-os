@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!s) redirect('/login');
   if (!s.profile.active || s.profile.role === 'cliente') redirect('/sem-acesso');
 
-  const items = MODULES.filter((m) => m.roles.includes(s.profile.role)).map(({ key, label, href, icon, phase }) => ({ key, label, href, icon, phase }));
+  const items = MODULES.filter((m) => m.roles.includes(s.profile.role)).map(({ key, label, href, icon, phase, done }) => ({ key, label, href, icon, phase: done ? 1 : phase }));
   const supabase = await createClient();
   const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null);
 

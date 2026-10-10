@@ -7,6 +7,7 @@ import { CopyButton } from '@/components/ClientButtons';
 import { dateTimeBR, money } from '@/lib/format';
 import { PROPOSAL_STATUS, proposalTotals } from '@/lib/domain';
 import { normalizeContent } from '@/lib/proposal-templates';
+import { generateContract } from '../../contratos/actions';
 import { activateProposal, deleteItem, duplicateProposal, saveItem, saveProposal, sendProposal, setProposalStatus } from '../actions';
 
 const EVENT: Record<string, string> = { enviada: 'Enviada', visualizada: 'Visualizada pelo cliente', alteracao_solicitada: 'Alteração solicitada', aceita: 'Aceite registrado', recusada: 'Recusada', expirada: 'Expirada', status_alterado: 'Status alterado', ativada: 'Ativada', nota: 'Nota' };
@@ -18,11 +19,12 @@ export default async function PropostaPage({ params }: { params: Promise<{ id: s
   const canEdit = profile.role === 'admin' || profile.role === 'comercial';
   const canActivate = profile.role === 'admin' || profile.role === 'financeiro';
 
-  const [{ data: p }, { data: items }, { data: events }, { data: versions }] = await Promise.all([
+  const [{ data: p }, { data: items }, { data: events }, { data: versions }, { data: contract }] = await Promise.all([
     supabase.from('proposals').select('*').eq('id', id).maybeSingle(),
     supabase.from('proposal_items').select('*').eq('proposal_id', id).order('position').order('description'),
     supabase.from('proposal_events').select('id, kind, message, actor_name, created_at').eq('proposal_id', id).order('created_at', { ascending: false }).limit(50),
     supabase.from('proposal_versions').select('id, version, note, created_at').eq('proposal_id', id).order('version', { ascending: false }),
+    supabase.from('contracts').select('id, number, status').eq('proposal_id', id).neq('status', 'cancelado').maybeSingle(),
   ]);
   if (!p) notFound();
   const c = normalizeContent(p.content);
@@ -57,9 +59,10 @@ export default async function PropostaPage({ params }: { params: Promise<{ id: s
       {p.status === 'aceita' && (
         <div className="card mb-6 border-lime bg-lime/10">
           <h2 className="text-base font-semibold">Proposta aceita — próximos passos</h2>
-          <p className="mt-1 text-sm text-muted">O módulo de Contratos (assinatura eletrônica) chega na Fase 2 <Pending>pendente</Pending>. Enquanto isso, é possível ativar o cliente e gerar os recebíveis previstos no Financeiro.</p>
+          <p className="mt-1 text-sm text-muted">{contract ? <>Contrato <Link className="underline" href={`/contratos/${contract.id}`}>#{contract.number}</Link> ({contract.status}). Ao assinar, o cliente é ativado e o financeiro gerado automaticamente.</> : 'Nenhum contrato gerado ainda.'} Assinatura eletrônica: <Pending>integração pendente</Pending>.</p>
+          {!contract && canEdit && <form action={generateContract.bind(null, id)} className="mt-3"><SubmitButton pendingText="Gerando…">Gerar rascunho de contrato</SubmitButton></form>}
           {p.activated_at ? <p className="mt-3 text-sm">Ativada em {dateTimeBR(p.activated_at)}. {p.client_id && <Link className="underline" href={`/clientes/${p.client_id}`}>Ver cliente</Link>}</p>
-            : canActivate ? <form action={activateProposal.bind(null, id)} className="mt-4 flex flex-wrap items-end gap-3"><Field label="Primeiro vencimento"><input type="date" name="first_due" required className="input w-48" /></Field><SubmitButton pendingText="Gerando…" confirm="Gerar cliente ativo, serviços e recebíveis previstos?">Ativar cliente e gerar financeiro</SubmitButton></form>
+            : canActivate ? <form action={activateProposal.bind(null, id)} className="mt-4 flex flex-wrap items-end gap-3"><Field label="Primeiro vencimento"><input type="date" name="first_due" required className="input w-48" /></Field><SubmitButton pendingText="Gerando…" confirm="Gerar cliente ativo, serviços e recebíveis previstos?">Ativar sem contrato (manual)</SubmitButton></form>
             : <p className="mt-3 text-sm text-muted">Aguardando o financeiro/administrador ativar.</p>}
         </div>)}
 

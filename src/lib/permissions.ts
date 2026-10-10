@@ -25,6 +25,8 @@ export interface ModuleDef {
   icon: string;
   summary: string;
   planned?: string[];
+  /** true = módulo de fase futura que já foi entregue */
+  done?: boolean;
 }
 
 export const MODULES: ModuleDef[] = [
@@ -33,8 +35,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'atendimento-ia', label: 'Atendimento com IA', href: '/atendimento-ia', roles: ['admin', 'comercial'], phase: 3, icon: 'message-circle', summary: 'MUVENS AI — Atendimento Comercial via RD Conversas.',
     planned: ['Indicadores: leads atendidos pela IA, qualificados, transferidos, propostas originadas, conversões, faturamento atribuído', 'Regras de transferência para humano', 'Respeito à janela de 24h e templates do WhatsApp', 'Registro automático no CRM'] },
   { key: 'propostas', label: 'Propostas Comerciais', href: '/propostas', roles: ['admin', 'comercial', 'financeiro'], phase: 1, icon: 'file-text', summary: 'Propostas online com link exclusivo e aceite.' },
-  { key: 'contratos', label: 'Contratos', href: '/contratos', roles: ['admin', 'comercial', 'financeiro'], phase: 2, icon: 'file-signature', summary: 'Contratos gerados a partir das propostas aceitas.',
-    planned: ['Modelos por serviço com preenchimento automático', 'Rascunho com revisão humana obrigatória', 'Assinatura via Clicksign/ZapSign (integração pendente)', 'Alertas de vencimento, renovação e reajuste'] },
+  { key: 'contratos', label: 'Contratos', href: '/contratos', roles: ['admin', 'comercial', 'financeiro'], phase: 2, done: true, icon: 'file-signature', summary: 'Contratos gerados a partir das propostas aceitas.' },
   { key: 'clientes', label: 'Clientes', href: '/clientes', roles: STAFF, phase: 1, icon: 'users', summary: 'Cadastro e visão 360° de cada cliente.' },
   { key: 'brand', label: 'Brand Center / KV', href: '/brand', roles: ['admin', 'comercial', 'designer'], phase: 2, icon: 'palette', summary: 'Biblioteca de identidade visual por cliente.',
     planned: ['Logos, paletas, tipografias, KV, brandbooks', 'Armazenamento privado com download autorizado', 'Regras de design e tom de voz (base de conhecimento para a IA)'] },
