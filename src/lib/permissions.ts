@@ -37,8 +37,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'propostas', label: 'Propostas Comerciais', href: '/propostas', roles: ['admin', 'comercial', 'financeiro'], phase: 1, icon: 'file-text', summary: 'Propostas online com link exclusivo e aceite.' },
   { key: 'contratos', label: 'Contratos', href: '/contratos', roles: ['admin', 'comercial', 'financeiro'], phase: 2, done: true, icon: 'file-signature', summary: 'Contratos gerados a partir das propostas aceitas.' },
   { key: 'clientes', label: 'Clientes', href: '/clientes', roles: STAFF, phase: 1, icon: 'users', summary: 'Cadastro e visão 360° de cada cliente.' },
-  { key: 'brand', label: 'Brand Center / KV', href: '/brand', roles: ['admin', 'comercial', 'designer'], phase: 2, icon: 'palette', summary: 'Biblioteca de identidade visual por cliente.',
-    planned: ['Logos, paletas, tipografias, KV, brandbooks', 'Armazenamento privado com download autorizado', 'Regras de design e tom de voz (base de conhecimento para a IA)'] },
+  { key: 'brand', label: 'Brand Center / KV', href: '/brand', roles: ['admin', 'comercial', 'designer', 'trafego'], phase: 2, done: true, icon: 'palette', summary: 'Biblioteca de identidade visual por cliente.' },
   { key: 'projetos', label: 'Projetos e Tarefas', href: '/projetos', roles: STAFF, phase: 2, done: true, icon: 'list-checks', summary: 'Kanban, lista e controle de entregáveis.' },
   { key: 'calendario', label: 'Calendário de Produção', href: '/calendario', roles: STAFF, phase: 2, done: true, icon: 'calendar', summary: 'Prazos e entregas de produção.' },
 

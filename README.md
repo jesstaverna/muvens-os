@@ -11,7 +11,9 @@ Fase 2 (parcial): **Contratos** — rascunho automático ao aceitar a proposta, 
 
 Fase 2 (parcial): **Projetos e Tarefas** (Kanban, lista, calendário de produção, entregáveis contratados com contagem de iniciados/produzidos/enviados/aprovados/entregues, fluxo de aprovação sem pular etapas, fora do escopo automático, apontamento de horas, checklist, comentários, arquivos privados, histórico, rentabilidade por cliente com custo/hora) e onboarding automático ao assinar contrato.
 
-**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); Brand Center e portal do cliente (Fase 2, próximas etapas); aprovação pelo próprio cliente (virá com o portal — por ora a equipe registra a aprovação).
+Fase 2 (parcial): **Brand Center / KV** — por cliente: paleta, tipografia, links Figma/Drive, arquivos em bucket privado (10 categorias, tags, busca, miniaturas, download autorizado — arquivos restritos só o administrador baixa), regras de design, restrições, tom de voz e instruções para a IA, com uma base de conhecimento pronta para a Fase 4 (texto copiável hoje).
+
+**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); portal do cliente (Fase 2, próxima etapa); aprovação pelo próprio cliente (virá com o portal — por ora a equipe registra a aprovação).
 
 ## Rodando
 ```bash

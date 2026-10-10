@@ -51,7 +51,8 @@ Pastas: `src/app/(app)/<módulo>` (página + `actions.ts`), `src/components` (UI
 | `/atendimento-ia` | MUVENS AI — Atendimento Comercial (RD Conversas) | admin, comercial | ⏳ Fase 3 (integração pendente) |
 | `/projetos`, `/projetos/novo`, `/projetos/[id]`, `/projetos/tarefas/nova`, `/projetos/tarefas/[id]` | Projetos e tarefas: Kanban, lista, por cliente, entregáveis contratados, fluxo de aprovação, horas, checklist, comentários, arquivos, histórico, rentabilidade (admin/financeiro) | equipe (financeiro lê) | ✅ (Fase 2) |
 | `/calendario` | Calendário de produção (mês, filtros) | equipe | ✅ (Fase 2) |
-| `/brand` `/portal` | Brand Center e Portal do Cliente | vários | ⏳ Fase 2 (próximas etapas) |
+| `/brand`, `/brand/[id]` | Brand Center: paleta, fontes, links, arquivos privados (busca, categorias, download autorizado), regras/tom de voz, base de conhecimento para a IA | admin, comercial, designer (escrita); tráfego lê | ✅ (Fase 2) |
+| `/portal` | Portal do Cliente | cliente | ⏳ Fase 2 (próxima etapa) |
 | `/trafego` | Meta/Google Ads | admin, tráfego | ⏳ Fase 3 |
 | `/relatorios` `/ia` | Relatórios e MUVENS AI executiva | vários | ⏳ Fase 4 |
 

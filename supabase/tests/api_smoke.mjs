@@ -86,5 +86,14 @@ ok((await des.rpc('client_profitability', { p_from: '2020-01-01', p_to: '2099-01
 must(await fin.rpc('client_profitability', { p_from: '2020-01-01', p_to: '2099-01-01' }), 'Rentabilidade (financeiro)');
 ok((await fin.from('tasks').update({ title: 'x' }).eq('id', tk).select()).data?.length === 0, 'Financeiro não altera tarefas');
 
+const bc = (await des.from('clients').select('id').limit(1)).data?.[0]?.id;
+must(await des.from('brand_colors').select('client_id, hex, position').order('position'), 'Brand: cores');
+must(await des.from('brand_assets').select('id, name, category, tags, client_id, clients(name)').or('name.ilike.%logo%,description.ilike.%logo%,tags.cs.{logo}').order('created_at', { ascending: false }).limit(100), 'Brand: busca por nome/descrição/tag');
+must(await des.from('brand_assets').select('*').eq('client_id', bc).eq('category', 'logo').order('created_at', { ascending: false }), 'Brand: arquivos por categoria');
+must(await des.from('brand_profiles').select('*').eq('client_id', bc).maybeSingle(), 'Brand: regras da marca');
+must(await des.rpc('brand_knowledge', { p_client: bc }), 'Brand: base de conhecimento (rpc)');
+ok((await fin.from('brand_assets').select('id')).data?.length === 0, 'Financeiro não vê o Brand Center');
+ok((await anon.rpc('brand_knowledge', { p_client: bc })).error != null, 'Anônimo não consulta a base de conhecimento');
+
 console.log(fails ? `\n${fails} falha(s)` : '\nTodas as consultas OK');
 process.exit(fails ? 1 : 0);
