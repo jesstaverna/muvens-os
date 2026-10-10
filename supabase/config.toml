@@ -1,0 +1,8 @@
+# Configuração mínima para a CLI/integração GitHub do Supabase. O project_id local é só um rótulo.
+project_id = "muvens-os"
+
+[db]
+major_version = 15
+
+[auth]
+enable_signup = false
