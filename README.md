@@ -9,7 +9,9 @@ Login e perfis (admin, comercial, financeiro, designer, tráfego, cliente) com R
 
 Fase 2 (parcial): **Contratos** — rascunho automático ao aceitar a proposta, revisão humana obrigatória (bloqueia aprovação com `[PREENCHER]`), texto travado após aprovar, assinatura registrada manualmente (admin) que ativa cliente e financeiro, alertas de vencimento/reajuste.
 
-**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); projetos, Brand Center, portal do cliente (Fase 2, próximas etapas).
+Fase 2 (parcial): **Projetos e Tarefas** (Kanban, lista, calendário de produção, entregáveis contratados com contagem de iniciados/produzidos/enviados/aprovados/entregues, fluxo de aprovação sem pular etapas, fora do escopo automático, apontamento de horas, checklist, comentários, arquivos privados, histórico, rentabilidade por cliente com custo/hora) e onboarding automático ao assinar contrato.
+
+**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); Brand Center e portal do cliente (Fase 2, próximas etapas); aprovação pelo próprio cliente (virá com o portal — por ora a equipe registra a aprovação).
 
 ## Rodando
 ```bash

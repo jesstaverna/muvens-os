@@ -49,7 +49,9 @@ Pastas: `src/app/(app)/<módulo>` (página + `actions.ts`), `src/components` (UI
 | `/configuracoes` | Usuários/perfis, etapas do funil, integrações, auditoria | admin | ✅ |
 | `/contratos`, `/contratos/[id]`, `/contratos/modelos` | Contratos: rascunho automático ao aceitar a proposta, revisão humana obrigatória, assinatura (manual; Clicksign/ZapSign pendentes), modelos e dados da agência | admin, comercial (financeiro lê) | ✅ (Fase 2) |
 | `/atendimento-ia` | MUVENS AI — Atendimento Comercial (RD Conversas) | admin, comercial | ⏳ Fase 3 (integração pendente) |
-| `/brand` `/projetos` `/calendario` `/portal` | Operação | vários | ⏳ Fase 2 (próximas etapas) |
+| `/projetos`, `/projetos/novo`, `/projetos/[id]`, `/projetos/tarefas/nova`, `/projetos/tarefas/[id]` | Projetos e tarefas: Kanban, lista, por cliente, entregáveis contratados, fluxo de aprovação, horas, checklist, comentários, arquivos, histórico, rentabilidade (admin/financeiro) | equipe (financeiro lê) | ✅ (Fase 2) |
+| `/calendario` | Calendário de produção (mês, filtros) | equipe | ✅ (Fase 2) |
+| `/brand` `/portal` | Brand Center e Portal do Cliente | vários | ⏳ Fase 2 (próximas etapas) |
 | `/trafego` | Meta/Google Ads | admin, tráfego | ⏳ Fase 3 |
 | `/relatorios` `/ia` | Relatórios e MUVENS AI executiva | vários | ⏳ Fase 4 |
 
@@ -95,7 +97,9 @@ Gatilhos no banco (instantâneos, transacionais) → enfileiram `jobs`/`notifica
 | Despesas fixas/assinaturas do mês → geradas automaticamente | ✅ |
 | Contrato assinado → cliente ativo + serviços + recebíveis previstos + job `contract.signed` | ✅ (projeto/onboarding: com o módulo de Projetos) |
 | Contrato perto do vencimento / reajuste (30 dias) → alerta | ✅ |
-| Projeto atrasado | ⏳ Fase 2 |
+| Contrato assinado → projeto de onboarding com 4 tarefas genéricas | ✅ |
+| Tarefa atrasada → alerta ao responsável (semanal por tarefa) | ✅ |
+| Tarefa/entregável acima da quantidade contratada → marcada “fora do escopo” | ✅ |
 | Campanha crítica (CPL↑, conversões↓, orçamento) | ⏳ Fase 3 |
 | Cliente sem contato → sugerir follow-up com IA | ⏳ Fase 4 |
 

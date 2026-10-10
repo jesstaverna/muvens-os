@@ -30,6 +30,8 @@ export const handlers: Record<string, Handler> = {
     if (error) throw new Error(error.message);
     const { error: cErr } = await db.rpc('run_contract_scans');
     if (cErr) throw new Error(cErr.message);
+    const { error: pErr } = await db.rpc('run_project_scans');
+    if (pErr) throw new Error(pErr.message);
   },
 };
 

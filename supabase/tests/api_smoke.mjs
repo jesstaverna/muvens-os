@@ -73,5 +73,18 @@ must(await com.from('agency_settings').select('*').eq('id', 1).single(), 'Contra
 ok((await des.from('contracts').select('id')).data?.length === 0, 'Designer não vê contratos');
 ok((await anon.from('contracts').select('id')).error != null, 'Anônimo não lê contratos');
 
+must(await des.from('tasks').select('id, title, status, priority, due_on, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000), 'Projetos: kanban com embeds');
+must(await des.from('projects').select('id, name, status, due_on, client_id, clients(name), owner:profiles!projects_owner_id_fkey(full_name)').order('created_at', { ascending: false }), 'Projetos: lista com cliente e responsável');
+must(await des.from('deliverable_progress').select('*').order('period_month', { ascending: false }), 'Projetos: progresso de entregáveis (view)');
+const tk = (await des.from('tasks').select('id').limit(1)).data?.[0]?.id;
+must(await des.from('tasks').select('*, projects(id, name, client_id, clients(name))').eq('id', tk).maybeSingle(), 'Tarefa: detalhe');
+must(await des.from('task_comments').select('id, body, created_at, author:profiles(full_name)').eq('task_id', tk), 'Tarefa: comentários com autor');
+must(await des.from('task_events').select('id, kind, detail, created_at, actor:profiles(full_name)').eq('task_id', tk).order('created_at', { ascending: false }).limit(60), 'Tarefa: histórico');
+must(await des.from('time_entries').select('id, minutes, worked_on, note, user_id, who:profiles(full_name)').eq('task_id', tk), 'Tarefa: horas');
+must(await des.from('tasks').select('id, projects!inner(client_id)', { count: 'exact', head: true }).lt('due_on', '2099-01-01').in('status', ['a_fazer']), 'Dashboard: contagem de tarefas atrasadas');
+ok((await des.rpc('client_profitability', { p_from: '2020-01-01', p_to: '2099-01-01' })).error != null, 'Rentabilidade negada ao designer');
+must(await fin.rpc('client_profitability', { p_from: '2020-01-01', p_to: '2099-01-01' }), 'Rentabilidade (financeiro)');
+ok((await fin.from('tasks').update({ title: 'x' }).eq('id', tk).select()).data?.length === 0, 'Financeiro não altera tarefas');
+
 console.log(fails ? `\n${fails} falha(s)` : '\nTodas as consultas OK');
 process.exit(fails ? 1 : 0);

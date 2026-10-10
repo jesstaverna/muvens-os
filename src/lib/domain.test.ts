@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { elapsedFraction, goalProgress, monthRange, normEmail, normPhone, proposalTotals, splitInstallments, todayBR } from './domain';
+import { fmtMinutes, parseDuration, elapsedFraction, goalProgress, monthRange, normEmail, normPhone, proposalTotals, splitInstallments, todayBR } from './domain';
 
 describe('normalização (paridade com o SQL)', () => {
   it('telefones equivalentes viram a mesma chave', () => {
@@ -70,4 +70,21 @@ describe('datas', () => {
     expect(elapsedFraction('2026-04-01', '2026-04-30', '2026-04-15')).toBeCloseTo(0.5, 1);
     expect(elapsedFraction('2026-04-01', '2026-04-30', '2026-05-10')).toBe(1);
   });
+});
+
+describe('horas', () => {
+  it('interpreta formatos comuns', () => {
+    expect(parseDuration('1:30')).toBe(90);
+    expect(parseDuration('1,5')).toBe(90);
+    expect(parseDuration('0.25')).toBe(15);
+    expect(parseDuration('2')).toBe(120);
+  });
+  it('rejeita inválidos', () => {
+    expect(parseDuration('')).toBeNull();
+    expect(parseDuration('abc')).toBeNull();
+    expect(parseDuration('0')).toBeNull();
+    expect(parseDuration('25')).toBeNull();
+    expect(parseDuration('1:75')).toBeNull();
+  });
+  it('formata', () => expect(fmtMinutes(95)).toBe('1h35'));
 });

@@ -85,13 +85,13 @@ export async function generateMonth() {
   flash(`${BACK}?tab=recorrentes`, 'ok', data ? `${data} lançamento(s) gerado(s) para este mês.` : 'Nada novo a gerar: este mês já está completo.');
 }
 
-const MAX = 5 * 1024 * 1024, TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
+const MAX = 4 * 1024 * 1024, TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 export async function uploadReceipt(id: string, tab: string, fd: FormData) {
   const { supabase } = await requireModule('financeiro');
   const file = fd.get('file');
   if (!(file instanceof File) || !file.size) flash(`${BACK}?tab=${tab}`, 'err', 'Selecione um arquivo.');
   const f = file as File;
-  if (f.size > MAX) flash(`${BACK}?tab=${tab}`, 'err', 'Arquivo acima de 5 MB.');
+  if (f.size > MAX) flash(`${BACK}?tab=${tab}`, 'err', 'Arquivo acima de 4 MB (limite do envio pelo servidor).');
   if (!TYPES.includes(f.type)) flash(`${BACK}?tab=${tab}`, 'err', 'Use PDF, PNG ou JPG.');
   const path = `${id}/${Date.now()}-${f.name.replace(/[^\w.-]+/g, '_').slice(-80)}`;
   const up = await supabase.storage.from('finance-receipts').upload(path, f, { contentType: f.type, upsert: false });

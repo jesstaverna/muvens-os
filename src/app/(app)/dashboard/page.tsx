@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireModule } from '@/lib/session';
-import { PageHeader, Stat, Empty, Pending } from '@/components/ui';
+import { PageHeader, Stat, Empty } from '@/components/ui';
 import { ProgressBar, RevenueChart } from '@/components/Charts';
 import { money, moneyCompact, pct, dateBR } from '@/lib/format';
 import { elapsedFraction, goalProgress, monthRange, todayBR, type Basis } from '@/lib/domain';
@@ -30,12 +30,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const seeFinance = profile.role === 'admin' || profile.role === 'financeiro';
   const seeSales = profile.role === 'admin' || profile.role === 'comercial';
 
-  const [{ data: metrics, error }, { data: clients }, { data: series }, { data: goal }, { data: alerts }] = await Promise.all([
+  const [{ data: metrics, error }, { data: clients }, { data: series }, { data: goal }, { data: alerts }, { count: projectsActive }, { count: tasksLate }] = await Promise.all([
     supabase.rpc('dashboard_metrics', { p_from: from, p_to: to, p_client: clientId }),
     supabase.from('clients').select('id, name').order('name'),
     seeFinance ? supabase.rpc('finance_monthly_series', { p_months: 12 }) : Promise.resolve({ data: null }),
     supabase.from('goals').select('basis, revenue_target').eq('period_type', 'mensal').eq('period_start', from.slice(0, 8) + '01').maybeSingle(),
     supabase.from('notifications').select('id, severity, title, link').is('read_at', null).order('created_at', { ascending: false }).limit(5),
+    (() => { let q = supabase.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'em_andamento'); if (clientId) q = q.eq('client_id', clientId); return q; })(),
+    (() => { let q = supabase.from('tasks').select('id, projects!inner(client_id)', { count: 'exact', head: true }).lt('due_on', today).in('status', ['a_fazer', 'em_andamento', 'produzido', 'ajustes']); if (clientId) q = q.eq('projects.client_id', clientId); return q; })(),
   ]);
 
   if (error || !metrics) return <Empty title="Não foi possível carregar os indicadores" text={error?.message ?? 'Tente novamente em instantes.'} />;
@@ -125,8 +127,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <Stat label="Contratos fechados" value={n('contracts_closed')} hint="Propostas aceitas no período" />
           <Stat label="Pipeline ponderado" value={moneyCompact(n('pipeline_weighted'))} hint="Potencial × probabilidade da etapa" />
         </>}
-        <div className="card"><div className="text-xs font-medium uppercase tracking-wider text-muted">Projetos em andamento</div><div className="mt-3"><Pending>Fase 2</Pending></div></div>
-        <div className="card"><div className="text-xs font-medium uppercase tracking-wider text-muted">Tarefas atrasadas</div><div className="mt-3"><Pending>Fase 2</Pending></div></div>
+        <Stat label="Projetos em andamento" value={projectsActive ?? 0} href="/projetos?view=projetos" />
+        <Stat label="Tarefas atrasadas" value={tasksLate ?? 0} tone={tasksLate ? 'danger' : undefined} href="/projetos?view=lista" />
       </section>
     </>
   );

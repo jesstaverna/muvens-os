@@ -39,9 +39,9 @@ export const MODULES: ModuleDef[] = [
   { key: 'clientes', label: 'Clientes', href: '/clientes', roles: STAFF, phase: 1, icon: 'users', summary: 'Cadastro e visão 360° de cada cliente.' },
   { key: 'brand', label: 'Brand Center / KV', href: '/brand', roles: ['admin', 'comercial', 'designer'], phase: 2, icon: 'palette', summary: 'Biblioteca de identidade visual por cliente.',
     planned: ['Logos, paletas, tipografias, KV, brandbooks', 'Armazenamento privado com download autorizado', 'Regras de design e tom de voz (base de conhecimento para a IA)'] },
-  { key: 'projetos', label: 'Projetos e Tarefas', href: '/projetos', roles: STAFF, phase: 2, icon: 'list-checks', summary: 'Kanban, lista e controle de entregáveis.',
-    planned: ['Tarefas com checklist, arquivos, comentários e horas', 'Controle de entregáveis contratados (ex.: 12 posts/mês)', 'Fluxo de aprovação e escopo extra'] },
-  { key: 'calendario', label: 'Calendário de Produção', href: '/calendario', roles: STAFF, phase: 2, icon: 'calendar', summary: 'Prazos e entregas de produção.', planned: ['Calendário de entregas por cliente e responsável'] },
+  { key: 'projetos', label: 'Projetos e Tarefas', href: '/projetos', roles: STAFF, phase: 2, done: true, icon: 'list-checks', summary: 'Kanban, lista e controle de entregáveis.' },
+  { key: 'calendario', label: 'Calendário de Produção', href: '/calendario', roles: STAFF, phase: 2, done: true, icon: 'calendar', summary: 'Prazos e entregas de produção.' },
+
   { key: 'trafego', label: 'Tráfego Pago', href: '/trafego', roles: ['admin', 'trafego'], phase: 3, icon: 'bar-chart-3', summary: 'Meta Ads e Google Ads por cliente.',
     planned: ['Investimento, CTR, CPC, CPM, CPL, ROAS', 'Alertas de custo por lead e orçamento', 'Relatórios compartilháveis', 'Integrações pendentes: contas e tokens Meta/Google'] },
   { key: 'financeiro', label: 'Financeiro', href: '/financeiro', roles: ['admin', 'financeiro'], phase: 1, icon: 'wallet', summary: 'Entradas, saídas, recorrências e previsão.' },

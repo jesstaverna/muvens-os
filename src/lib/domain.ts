@@ -84,3 +84,29 @@ export const CONTRACT_STATUS: Record<string, { label: string; tone: string }> = 
   aprovado: { label: 'Aprovado', tone: 'bg-blue-500/10 text-blue-600' }, enviado_assinatura: { label: 'Enviado p/ assinatura', tone: 'bg-violet-500/10 text-violet-600' },
   assinado: { label: 'Assinado', tone: 'bg-lime/40' }, cancelado: { label: 'Cancelado', tone: 'bg-danger/10 text-danger' },
 };
+
+export const TASK_STATUS: Record<string, { label: string; tone: string }> = {
+  a_fazer: { label: 'A fazer', tone: 'bg-subtle text-muted' },
+  em_andamento: { label: 'Em andamento', tone: 'bg-blue-500/10 text-blue-600' },
+  produzido: { label: 'Produzido (revisão interna)', tone: 'bg-violet-500/10 text-violet-600' },
+  enviado: { label: 'Enviado ao cliente', tone: 'bg-amber-500/15 text-warn' },
+  ajustes: { label: 'Ajustes solicitados', tone: 'bg-danger/10 text-danger' },
+  aprovado: { label: 'Aprovado', tone: 'bg-lime/40' },
+  entregue: { label: 'Entregue', tone: 'bg-lime/60' },
+  cancelada: { label: 'Cancelada', tone: 'bg-subtle text-muted' },
+};
+export const TASK_FLOW = ['a_fazer', 'em_andamento', 'produzido', 'enviado', 'ajustes', 'aprovado', 'entregue'] as const;
+export const PRIORITY: Record<string, { label: string; tone: string }> = {
+  baixa: { label: 'Baixa', tone: 'text-muted' }, media: { label: 'Média', tone: '' }, alta: { label: 'Alta', tone: 'text-warn' }, urgente: { label: 'Urgente', tone: 'text-danger font-medium' },
+};
+export const PROJECT_STATUS: Record<string, string> = { planejamento: 'Planejamento', em_andamento: 'Em andamento', pausado: 'Pausado', concluido: 'Concluído', cancelado: 'Cancelado' };
+
+/** "1,5" ou "1.5" (horas) ou "1:30" → minutos; null se inválido. */
+export function parseDuration(input: string): number | null {
+  const t = input.trim();
+  if (!t) return null;
+  const hm = /^(\d{1,2}):([0-5]\d)$/.exec(t);
+  const m = hm ? Number(hm[1]) * 60 + Number(hm[2]) : /^\d+([.,]\d+)?$/.test(t) ? Math.round(Number(t.replace(',', '.')) * 60) : null;
+  return m && m > 0 && m <= 1440 ? m : null;
+}
+export const fmtMinutes = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
