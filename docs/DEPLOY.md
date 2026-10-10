@@ -12,7 +12,7 @@ Crie **3 projetos Supabase** (dev, homologação, produção) e 3 deploys do app
 ## 3. Automações 24/7 (obrigatório)
 O worker é `GET/POST /api/worker` com `Authorization: Bearer $CRON_SECRET`. Escolha **um** agendador externo (a cada 5 min):
 
-- **Vercel Cron** (`vercel.json`, já incluído; a Vercel envia `Authorization: Bearer $CRON_SECRET` automaticamente quando `CRON_SECRET` está definido). Verifique no seu plano a frequência mínima permitida para crons.
+- **Vercel Cron** (`vercel.json`, já incluído; roda **1x por dia** porque o plano Hobby só permite cron diário — com plano Pro dá para usar `*/5 * * * *`). A Vercel envia `Authorization: Bearer $CRON_SECRET` automaticamente quando `CRON_SECRET` está definido. **Para automações a cada 5 min no plano gratuito, use o `pg_cron` abaixo.**
 - **Supabase `pg_cron` + `pg_net`** (independe do host do app):
   ```sql
   select cron.schedule('muvens-worker', '*/5 * * * *', $$
