@@ -13,6 +13,7 @@ let fails = 0;
 const ok = (cond, msg) => { if (!cond) { fails++; console.error('✗', msg); } else console.log('✓', msg); };
 const must = (r, msg) => { if (r.error) { fails++; console.error('✗', msg, '→', r.error.message); return null; } console.log('✓', msg); return r.data; };
 
+const cli = as('00000000-0000-0000-0000-0000000000b1'), cliB = as('00000000-0000-0000-0000-0000000000b2');
 const admin = as(U(1)), com = as(U(2)), fin = as(U(3)), des = as(U(4)), anon = as(null);
 
 const leads = must(await com.from('leads').select('id, name, company, whatsapp, phone, email, source, service_interest, potential_value, stage_id, owner:profiles!leads_owner_id_fkey(full_name), owner_id, last_contact_at, created_at, next_action, next_action_at, pipeline_stages(name, kind)').order('created_at', { ascending: false }).limit(500), 'CRM: leads com embeds (owner + etapa)');
@@ -94,6 +95,19 @@ must(await des.from('brand_profiles').select('*').eq('client_id', bc).maybeSingl
 must(await des.rpc('brand_knowledge', { p_client: bc }), 'Brand: base de conhecimento (rpc)');
 ok((await fin.from('brand_assets').select('id')).data?.length === 0, 'Financeiro não vê o Brand Center');
 ok((await anon.rpc('brand_knowledge', { p_client: bc })).error != null, 'Anônimo não consulta a base de conhecimento');
+
+for (const fn of ['portal_overview', 'portal_projects', 'portal_approvals', 'portal_requests', 'portal_documents', 'portal_proposals', 'portal_contracts']) must(await cli.rpc(fn), `Portal: ${fn}`);
+ok((await cli.rpc('portal_projects')).data?.[0]?.tasks?.length >= 1, 'Portal: projeto visível traz tarefas');
+ok(!JSON.stringify((await cliB.rpc('portal_projects')).data).includes('Aurora'), 'Portal: cliente B não vê dados do cliente A');
+ok((await cli.from('tasks').select('id')).data?.length === 0, 'Portal: cliente não lê tarefas diretamente');
+ok((await cli.from('clients').select('id, notes')).data?.length === 0, 'Portal: cliente não lê a ficha do cliente');
+ok((await cli.from('fin_transactions').select('id')).data?.length === 0, 'Portal: cliente não lê financeiro');
+ok((await cli.rpc('dashboard_metrics', { p_from: '2020-01-01', p_to: '2099-01-01', p_client: null })).data?.contracted == 0, 'Portal: métricas vazias para cliente');
+ok((await admin.rpc('portal_overview')).error != null, 'Portal: equipe não usa as funções do portal');
+ok((await anon.rpc('portal_overview')).error != null, 'Portal: anônimo negado');
+must(await com.from('client_requests').select('id, kind, subject, body, status, response, created_at, clients(name)').order('created_at', { ascending: false }).limit(200), 'Gestão do portal: solicitações com cliente');
+must(await com.from('client_documents').select('id, name, category, created_at, clients(name)').order('created_at', { ascending: false }), 'Gestão do portal: documentos');
+must(await admin.from('profiles').select('id, full_name, email, active, client_id, clients!profiles_client_fk(name)').eq('role', 'cliente'), 'Gestão do portal: usuários de clientes');
 
 console.log(fails ? `\n${fails} falha(s)` : '\nTodas as consultas OK');
 process.exit(fails ? 1 : 0);

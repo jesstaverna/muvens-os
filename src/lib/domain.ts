@@ -110,3 +110,12 @@ export function parseDuration(input: string): number | null {
   return m && m > 0 && m <= 1440 ? m : null;
 }
 export const fmtMinutes = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
+
+/** Rótulos de status mostrados ao cliente (sem jargão interno). */
+export const CLIENT_TASK_STATUS: Record<string, { label: string; tone: string }> = {
+  a_fazer: { label: 'Na fila', tone: 'bg-subtle text-muted' }, em_andamento: { label: 'Em produção', tone: 'bg-blue-500/10 text-blue-600' },
+  produzido: { label: 'Em produção', tone: 'bg-blue-500/10 text-blue-600' }, enviado: { label: 'Aguardando sua aprovação', tone: 'bg-amber-500/15 text-warn' },
+  ajustes: { label: 'Ajustes em andamento', tone: 'bg-violet-500/10 text-violet-600' }, aprovado: { label: 'Aprovado', tone: 'bg-lime/40' }, entregue: { label: 'Entregue', tone: 'bg-lime/60' },
+};
+export const REQUEST_KIND: Record<string, string> = { briefing: 'Briefing', alteracao: 'Solicitação de alteração', atendimento: 'Atendimento' };
+export const REQUEST_STATUS: Record<string, string> = { aberta: 'Aberta', em_andamento: 'Em andamento', resolvida: 'Resolvida' };

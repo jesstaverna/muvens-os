@@ -22,7 +22,17 @@ export function flash(path: string, kind: 'ok' | 'err', message: string): never 
 export async function requireModule(key: ModuleKey) {
   const s = await getSession();
   if (!s) redirect('/login');
+  if (s.profile.active && s.profile.role === 'cliente' && s.profile.client_id) redirect('/cliente');
   if (!s.profile.active || s.profile.role === 'cliente') redirect('/sem-acesso');
   if (!canAccess(s.profile.role, key)) flash('/dashboard', 'err', 'Seu perfil não tem acesso a este módulo.');
+  return { supabase: await createClient(), ...s };
+}
+
+/** Páginas do Portal do Cliente: exige usuário 'cliente' ativo e vinculado a uma empresa. */
+export async function requirePortal() {
+  const s = await getSession();
+  if (!s) redirect('/login');
+  if (s.profile.role !== 'cliente') redirect('/dashboard');
+  if (!s.profile.active || !s.profile.client_id) redirect('/sem-acesso');
   return { supabase: await createClient(), ...s };
 }

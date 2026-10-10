@@ -33,6 +33,7 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
           <Field label="Situação"><select name="status" defaultValue={p.status} className="input">{Object.entries(PROJECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
           <Field label="Responsável"><select name="owner_id" defaultValue={p.owner_id ?? ''} className="input"><option value="">—</option>{people?.map((x) => <option key={x.id} value={x.id}>{x.full_name}</option>)}</select></Field>
           <div className="grid grid-cols-2 gap-3"><Field label="Início"><input type="date" name="starts_on" defaultValue={p.starts_on ?? ''} className="input" /></Field><Field label="Prazo"><input type="date" name="due_on" defaultValue={p.due_on ?? ''} className="input" /></Field></div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="client_visible" defaultChecked={p.client_visible} /> Visível no Portal do Cliente</label>
           <Field label="Observações"><textarea name="notes" rows={3} defaultValue={p.notes ?? ''} className="input" /></Field></fieldset>
           {canWrite && <SubmitButton>Salvar</SubmitButton>}{p.contract_id && <Link href={`/contratos/${p.contract_id}`} className="block text-sm underline">Ver contrato</Link>}</form>
       </div>

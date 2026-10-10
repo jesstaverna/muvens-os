@@ -14,9 +14,10 @@ async function signOut() { 'use server'; const s = await createClient(); await s
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await getSession();
   if (!s) redirect('/login');
+  if (s.profile.active && s.profile.role === 'cliente' && s.profile.client_id) redirect('/cliente');
   if (!s.profile.active || s.profile.role === 'cliente') redirect('/sem-acesso');
 
-  const items = MODULES.filter((m) => m.roles.includes(s.profile.role)).map(({ key, label, href, icon, phase, done }) => ({ key, label, href, icon, phase: done ? 1 : phase }));
+  const items = MODULES.filter((m) => m.roles.includes(s.profile.role)).map(({ key, label, href, icon, phase, done, group }) => ({ key, label, href, icon, group, phase: done ? 1 : phase }));
   const supabase = await createClient();
   const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null);
 

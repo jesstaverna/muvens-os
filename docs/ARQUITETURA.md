@@ -52,7 +52,8 @@ Pastas: `src/app/(app)/<módulo>` (página + `actions.ts`), `src/components` (UI
 | `/projetos`, `/projetos/novo`, `/projetos/[id]`, `/projetos/tarefas/nova`, `/projetos/tarefas/[id]` | Projetos e tarefas: Kanban, lista, por cliente, entregáveis contratados, fluxo de aprovação, horas, checklist, comentários, arquivos, histórico, rentabilidade (admin/financeiro) | equipe (financeiro lê) | ✅ (Fase 2) |
 | `/calendario` | Calendário de produção (mês, filtros) | equipe | ✅ (Fase 2) |
 | `/brand`, `/brand/[id]` | Brand Center: paleta, fontes, links, arquivos privados (busca, categorias, download autorizado), regras/tom de voz, base de conhecimento para a IA | admin, comercial, designer (escrita); tráfego lê | ✅ (Fase 2) |
-| `/portal` | Portal do Cliente | cliente | ⏳ Fase 2 (próxima etapa) |
+| `/cliente`, `/cliente/projetos`, `/aprovacoes`, `/calendario`, `/solicitacoes`, `/documentos`, `/contratos` | **Portal do Cliente** (área externa, login individual): projetos e tarefas liberados, aprovação/pedido de ajustes de peças, calendário de entregas, briefings e solicitações, documentos e arquivos finais, propostas e contratos | cliente (só a própria empresa) | ✅ (Fase 2) |
+| `/portal` | Gestão do portal: solicitações/briefings (responder), documentos publicados, acessos | admin, comercial | ✅ (Fase 2) |
 | `/trafego` | Meta/Google Ads | admin, tráfego | ⏳ Fase 3 |
 | `/relatorios` `/ia` | Relatórios e MUVENS AI executiva | vários | ⏳ Fase 4 |
 
@@ -81,6 +82,8 @@ lead ──(proposta aceita)──► client ◄── client_contacts
 goals ◄── dashboard_metrics() ◄── propostas + lançamentos + serviços + funil
 ```
 Um único cadastro de cliente; todos os módulos referenciam `clients.id`.
+
+**Isolamento do Portal do Cliente:** usuários `cliente` não têm policy de leitura em nenhuma tabela. Todo acesso passa por funções `portal_*` (security definer) que exigem papel `cliente` ativo com `client_id`, filtram por esse `client_id` e devolvem somente colunas/itens liberados (projeto “visível no portal”, tarefa não “interna”, arquivo “visível ao cliente”, briefing interno nunca). Downloads: a função autoriza e só então o servidor assina a URL (60 s). Coberto por `supabase/tests/portal.test.sql`.
 
 ## 5. Fluxos de automação (24/7)
 

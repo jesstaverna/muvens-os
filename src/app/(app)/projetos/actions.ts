@@ -13,7 +13,7 @@ const dbErr = (back: string, e: { code?: string; message: string }): never =>
 const projectSchema = z.object({
   client_id: z.string().uuid('Escolha o cliente'), name: z.string().trim().min(2, 'Informe o nome do projeto'),
   status: z.enum(['planejamento', 'em_andamento', 'pausado', 'concluido', 'cancelado']).default('planejamento'),
-  starts_on: optDate, due_on: optDate, owner_id: optId, notes: optText,
+  starts_on: optDate, due_on: optDate, owner_id: optId, notes: optText, client_visible: z.preprocess((v) => v === 'on', z.boolean()),
 });
 
 export async function createProject(fd: FormData) {
@@ -60,7 +60,7 @@ export async function updateTask(id: string, fd: FormData) {
   const back = `/projetos/tarefas/${id}`;
   const r = taskSchema.safeParse(Object.fromEntries(fd));
   if (!r.success) flash(back, 'err', r.error.issues[0].message);
-  const { error } = await supabase.from('tasks').update({ ...r.data, out_of_scope: fd.get('out_of_scope') === 'on', out_of_scope_note: String(fd.get('out_of_scope_note') ?? '').trim() || null }).eq('id', id);
+  const { error } = await supabase.from('tasks').update({ ...r.data, internal: fd.get('internal') === 'on', briefing_public: String(fd.get('briefing_public') ?? '').trim() || null, out_of_scope: fd.get('out_of_scope') === 'on', out_of_scope_note: String(fd.get('out_of_scope_note') ?? '').trim() || null }).eq('id', id);
   if (error) dbErr(back, error);
   revalidatePath(back);
   flash(back, 'ok', 'Tarefa atualizada.');
@@ -179,4 +179,11 @@ export async function saveRate(fd: FormData) {
   if (error) flash('/projetos?view=rentabilidade', 'err', 'Apenas administrador ou financeiro define custo/hora.');
   revalidatePath('/projetos');
   flash('/projetos?view=rentabilidade', 'ok', 'Custo/hora salvo.');
+}
+
+export async function toggleFileVisible(taskId: string, fileId: string, visible: boolean) {
+  const { supabase } = await requireModule('projetos');
+  await supabase.from('task_files').update({ client_visible: visible }).eq('id', fileId);
+  revalidatePath(`/projetos/tarefas/${taskId}`);
+  flash(`/projetos/tarefas/${taskId}`, 'ok', visible ? 'Arquivo visível ao cliente (aparece na aprovação e, depois de aprovado, nos documentos).' : 'Arquivo oculto do cliente.');
 }

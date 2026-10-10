@@ -13,7 +13,9 @@ Fase 2 (parcial): **Projetos e Tarefas** (Kanban, lista, calendário de produç�
 
 Fase 2 (parcial): **Brand Center / KV** — por cliente: paleta, tipografia, links Figma/Drive, arquivos em bucket privado (10 categorias, tags, busca, miniaturas, download autorizado — arquivos restritos só o administrador baixa), regras de design, restrições, tom de voz e instruções para a IA, com uma base de conhecimento pronta para a Fase 4 (texto copiável hoje).
 
-**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); portal do cliente (Fase 2, próxima etapa); aprovação pelo próprio cliente (virá com o portal — por ora a equipe registra a aprovação).
+Fase 2 (parcial): **Portal do Cliente** (`/cliente`) — login individual, cada cliente vê só a própria empresa: projetos e tarefas liberados pela equipe, aprovação ou pedido de ajustes de peças (registrado no histórico e avisado à equipe), calendário de entregas, briefings e solicitações com resposta, documentos/arquivos finais/relatórios, propostas e contratos. Gestão em `/portal`. Menu lateral agrupado por área.
+
+**Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); relatórios de desempenho automáticos e assinatura pelo próprio portal (dependem das integrações da Fase 3).
 
 ## Rodando
 ```bash

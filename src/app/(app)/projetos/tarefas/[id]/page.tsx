@@ -4,7 +4,7 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { FileUploader } from '../../FileUploader';
-import { addChecklistItem, addComment, deleteTaskFile, deleteTime, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
+import { addChecklistItem, addComment, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
 import { PRIORITY, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateTimeBR } from '@/lib/format';
 
@@ -23,7 +23,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
     supabase.from('task_checklist_items').select('*').eq('task_id', id).order('position'),
     supabase.from('task_comments').select('id, body, created_at, author:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }),
     supabase.from('task_events').select('id, kind, detail, created_at, actor:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }).limit(60),
-    supabase.from('task_files').select('id, name, size, created_at').eq('task_id', id).order('created_at', { ascending: false }),
+    supabase.from('task_files').select('id, name, size, created_at, client_visible').eq('task_id', id).order('created_at', { ascending: false }),
     supabase.from('time_entries').select('id, minutes, worked_on, note, user_id, who:profiles(full_name)').eq('task_id', id).order('worked_on', { ascending: false }),
   ]);
   const proj = one(t.projects) as { id: string; name: string; clients: { name: string } | { name: string }[] | null } | null;
@@ -56,7 +56,9 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
               <Field label="Responsável"><select name="assignee_id" defaultValue={t.assignee_id ?? ''} className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
               <Field label="Prazo"><input type="date" name="due_on" defaultValue={t.due_on ?? ''} className={`input ${late ? 'border-danger' : ''}`} /></Field>
               <Field label="Prioridade"><select name="priority" defaultValue={t.priority} className="input">{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field></div>
-            <Field label="Briefing"><textarea name="briefing" rows={6} defaultValue={t.briefing ?? ''} className="input" /></Field>
+            <Field label="Briefing (interno)"><textarea name="briefing" rows={6} defaultValue={t.briefing ?? ''} className="input" /></Field>
+            <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-start"><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" name="internal" defaultChecked={t.internal} /> Interna (oculta no portal)</label>
+              <Field label="Descrição para o cliente" hint="Texto mostrado ao cliente na aprovação. O briefing interno nunca aparece no portal."><textarea name="briefing_public" rows={2} defaultValue={t.briefing_public ?? ''} className="input" /></Field></div>
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-end"><label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" name="out_of_scope" defaultChecked={t.out_of_scope} /> Fora do escopo</label><Field label="Observação sobre o escopo"><input name="out_of_scope_note" defaultValue={t.out_of_scope_note ?? ''} className="input" /></Field></div></fieldset>
             {canWrite && <SubmitButton>Salvar</SubmitButton>}</form>
 
@@ -76,7 +78,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
             <ul className="space-y-2 text-sm">{time?.map((e) => (<li key={e.id} className="flex items-start justify-between gap-2"><span>{fmtMinutes(e.minutes)} · {one(e.who)?.full_name}<span className="block text-xs text-muted">{e.worked_on.split('-').reverse().join('/')}{e.note ? ` — ${e.note}` : ''}</span></span>{(e.user_id === profile.id || profile.role === 'admin') && <form action={deleteTime.bind(null, id, e.id)}><button className="text-xs text-muted hover:text-danger">remover</button></form>}</li>))}</ul></section>
 
           <section className="card"><h2 className="mb-4 text-base font-semibold">Arquivos</h2>
-            <ul className="mb-4 space-y-2 text-sm">{files?.map((f) => (<li key={f.id} className="flex items-center justify-between gap-2"><a className="truncate underline" href={`/projetos/tarefas/${id}/arquivo?f=${f.id}`} target="_blank" rel="noreferrer">{f.name}</a>{canWrite && <form action={deleteTaskFile.bind(null, id, f.id)}><button className="text-xs text-muted hover:text-danger">remover</button></form>}</li>))}{!files?.length && <li className="text-muted">Nenhum arquivo.</li>}</ul>
+            <ul className="mb-4 space-y-2 text-sm">{files?.map((f) => (<li key={f.id} className="flex items-center justify-between gap-2"><a className="truncate underline" href={`/projetos/tarefas/${id}/arquivo?f=${f.id}`} target="_blank" rel="noreferrer">{f.name}</a>{canWrite && <span className="flex shrink-0 items-center gap-2"><form action={toggleFileVisible.bind(null, id, f.id, !f.client_visible)}><button className={`badge ${f.client_visible ? 'bg-lime/40' : ''}`} title="Alternar visibilidade para o cliente">{f.client_visible ? 'visível ao cliente' : 'só equipe'}</button></form><form action={deleteTaskFile.bind(null, id, f.id)}><button className="text-xs text-muted hover:text-danger">remover</button></form></span>}</li>))}{!files?.length && <li className="text-muted">Nenhum arquivo.</li>}</ul>
             {canWrite && <FileUploader taskId={id} />}</section>
 
           <section className="card"><h2 className="mb-4 text-base font-semibold">Histórico de alterações</h2>

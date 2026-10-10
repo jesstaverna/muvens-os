@@ -16,6 +16,7 @@ export default async function NovoProjeto() {
         <Field label="Situação"><select name="status" defaultValue="em_andamento" className="input">{Object.entries(PROJECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
         <Field label="Responsável"><select name="owner_id" defaultValue={profile.id} className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
         <Field label="Início"><input type="date" name="starts_on" className="input" /></Field><Field label="Prazo"><input type="date" name="due_on" className="input" /></Field></div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="client_visible" /> Visível no Portal do Cliente <span className="text-xs text-muted">(o cliente vê o projeto e as tarefas que não forem internas)</span></label>
         <Field label="Observações"><textarea name="notes" rows={3} className="input" /></Field><SubmitButton>Criar projeto</SubmitButton></form></>
   );
 }
