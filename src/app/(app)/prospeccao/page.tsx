@@ -9,6 +9,7 @@ import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
 import { LinkButton } from '@/components/LinkButton';
+import { AutoAnalyze } from './AutoAnalyze';
 import { groupCampaigns, slug } from '@/lib/prospecting/groups';
 
 export const metadata = { title: 'Prospecção' };
@@ -28,6 +29,12 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   const grp = sp.grp ?? '';
   const current = grp === 'todos' ? { title: 'Todos os prospectos' } : grp === 'manual' ? { title: 'Cadastrados manualmente' } : groups.get(grp) ? { title: `${groups.get(grp)!.niche} (${groups.get(grp)!.city})` } : null;
   const listMode = tab === 'prospectos' && !!current;
+  let pendingCount = 0;
+  if (listMode) {
+    let pcq = supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('status', 'novo').is('analyzed_at', null);
+    if (grp === 'manual') pcq = pcq.is('campaign_id', null); else if (groups.get(grp)) pcq = pcq.in('campaign_id', groups.get(grp)!.ids);
+    pendingCount = (await pcq).count ?? 0;
+  }
 
   let pq = supabase.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300);
   if (sp.status && sp.status in PROSPECT_STATUS) pq = pq.eq('status', sp.status);
@@ -101,6 +108,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
       {tab === 'prospectos' && listMode && (
         <>
           <div className="mb-5 flex flex-wrap items-center gap-3"><LinkButton href="/prospeccao?tab=prospectos" className="btn btn-sm">← Todos os grupos</LinkButton><h2 className="text-lg font-semibold">{current!.title}</h2></div>
+          <AutoAnalyze grp={grp} pending={pendingCount} />
           <form method="get" className="mb-5 flex flex-wrap gap-2"><input type="hidden" name="tab" value="prospectos" /><input type="hidden" name="grp" value={grp} />
             <select name="status" defaultValue={sp.status ?? ''} className="input w-48" aria-label="Status"><option value="">Todos os status</option>{Object.entries(PROSPECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
             <input name="min" type="number" min={0} max={100} defaultValue={sp.min} placeholder="Pontuação mín." className="input w-40" aria-label="Pontuação mínima" /><button className="btn btn-dark">Filtrar</button></form>

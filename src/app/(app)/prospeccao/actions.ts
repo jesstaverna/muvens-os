@@ -3,7 +3,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { placesConfigured, searchPlaces } from '@/integrations/google-places';
-import { analyzeProspect } from '@/lib/prospecting/pipeline';
+import { analyzeMany, analyzeNextBatch, analyzeProspect } from '@/lib/prospecting/pipeline';
+import { groupCampaigns } from '@/lib/prospecting/groups';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { slug } from '@/lib/prospecting/groups';
 
@@ -33,8 +34,9 @@ async function searchInto(supabase: Db, c: Campaign) {
     if (error) { if (error.code === '23505') dup++; continue; }
     created++; ids.push(data!.id);
   }
-  await Promise.all(ids.slice(0, 8).map((pid) => analyzeProspect(supabase, pid)));   // os demais são analisados pelo worker
-  return { created, dup, analyzed: Math.min(ids.length, 8), found: places.length };
+  // analisa todos em paralelo limitado (5 por vez) dentro de um orçamento de tempo; o que sobrar é concluído pela tela (análise automática) e pelo worker
+  const an = await analyzeMany(supabase, ids, { concurrency: 5, deadlineMs: 35_000 });
+  return { created, dup, analyzed: an.analyzed, left: ids.length - an.analyzed - an.failed, found: places.length };
 }
 
 /** Busca no Google Maps a partir de uma campanha existente. Integração pendente sem chave. */
@@ -47,7 +49,7 @@ export async function runCampaign(id: string) {
   if (c!.status !== 'ativa') flash(back, 'err', 'A campanha não está ativa.');
   let r; try { r = await searchInto(supabase, c!); } catch (e) { return flash(back, 'err', `Falha na busca: ${e instanceof Error ? e.message : 'erro'}`); }
   revalidatePath(B);
-  flash(`${B}?tab=prospectos&grp=${slug(c!.niche)}--${slug(c!.city)}`, 'ok', `${r.created} prospecto(s) novo(s)${r.dup ? `, ${r.dup} já existia(m)` : ''}. ${r.analyzed} analisado(s) agora; o restante será analisado automaticamente.`);
+  flash(`${B}?tab=prospectos&grp=${slug(c!.niche)}--${slug(c!.city)}`, 'ok', `${r.created} prospecto(s) novo(s)${r.dup ? `, ${r.dup} já existia(m)` : ''}. ${r.analyzed} analisado(s)${r.left ? `; ${r.left} serão analisados automaticamente em seguida` : ''}.`);
 }
 
 /** Busca direta na página: nicho + cidade → reaproveita/cria a campanha, busca no Google Maps e abre o grupo com os resultados. */
@@ -68,7 +70,7 @@ export async function quickSearch(fd: FormData) {
   let res; try { res = await searchInto(supabase, c); } catch (e) { return flash(B, 'err', `Falha na busca: ${e instanceof Error ? e.message : 'erro'}`); }
   revalidatePath(B);
   flash(`${B}?tab=prospectos&grp=${key}`, res.found ? 'ok' : 'err', res.found
-    ? `${res.created} prospecto(s) novo(s)${res.dup ? `, ${res.dup} já existia(m)` : ''}. ${res.analyzed} analisado(s) agora; o restante será analisado automaticamente.`
+    ? `${res.created} prospecto(s) novo(s)${res.dup ? `, ${res.dup} já existia(m)` : ''}. ${res.analyzed} analisado(s)${res.left ? `; ${res.left} serão analisados automaticamente em seguida` : ''}.`
     : 'O Google Maps não retornou resultados para essa busca. Tente outro termo ou cidade.');
 }
 
@@ -189,4 +191,19 @@ export async function saveOutreachSettings(fd: FormData) {
   if (error) flash(`${B}?tab=config`, 'err', error.code === '42501' ? 'Apenas administradores alteram as configurações de envio.' : 'Não foi possível salvar.');
   revalidatePath(B);
   flash(`${B}?tab=config`, 'ok', 'Configurações salvas.');
+}
+
+/** Análise em sequência chamada pela tela (lotes de 4). `grp` = chave do grupo, 'manual' ou 'todos'. */
+export async function analyzeBatch(grp: string): Promise<{ processed: number; remaining: number; error?: string }> {
+  const { supabase } = await requireModule('prospeccao');
+  let scope: { campaignIds?: string[]; manualOnly?: boolean } = {};
+  if (grp === 'manual') scope = { manualOnly: true };
+  else if (grp !== 'todos') {
+    const { data } = await supabase.from('prospect_campaigns').select('id, niche, city, created_at');
+    const g = groupCampaigns(data ?? []).get(grp);
+    if (!g) return { processed: 0, remaining: 0, error: 'Grupo não encontrado.' };
+    scope = { campaignIds: g.ids };
+  }
+  try { const r = await analyzeNextBatch(supabase, scope, 4); return { processed: r.processed, remaining: r.remaining }; }
+  catch (e) { return { processed: 0, remaining: 0, error: e instanceof Error ? e.message : 'Falha na análise.' }; }
 }

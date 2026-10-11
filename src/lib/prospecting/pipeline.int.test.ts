@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { analyzeProspect } from './pipeline';
+import { analyzeNextBatch, analyzeProspect } from './pipeline';
 import { createFollowups, processOutbox } from './outbox';
 
 // Integração com PostgREST local (ver supabase/tests/). Ignorado sem PGRST_URL.
@@ -72,4 +72,17 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     expect(f.status).toBe('rascunho'); expect(f.subject).toContain('Loja Teste');
     expect((await createFollowups(db)).created).toBe(0);                                         // idempotente
   });
+
+  it('análise automática em lotes: esvazia a fila do grupo e não repete nem trava em falhas', async () => {
+    const { data: camp } = await db.from('prospect_campaigns').insert({ name: `lote ${RUN}`, niche: `nicho${RUN}`, city: 'Cidade' }).select('id').single();
+    await db.from('prospects').insert([1, 2, 3, 4, 5].map((i) => ({ campaign_id: camp!.id, name: `Lote ${RUN} ${i}`, email: `lote${RUN}-${i}@teste-int.com`, source: 'manual' })));
+    const scope = { campaignIds: [camp!.id] };
+    const a = await analyzeNextBatch(db, scope, 2); expect(a).toMatchObject({ processed: 2, analyzed: 2, remaining: 3 });
+    const b = await analyzeNextBatch(db, scope, 2); expect(b).toMatchObject({ processed: 2, remaining: 1 });
+    const c = await analyzeNextBatch(db, scope, 2); expect(c).toMatchObject({ processed: 1, remaining: 0 });
+    const d = await analyzeNextBatch(db, scope, 2); expect(d).toMatchObject({ processed: 0, remaining: 0 });
+    const { data: rows } = await db.from('prospects').select('status, score').eq('campaign_id', camp!.id);
+    expect(rows!.every((r) => r.status === 'analisado' && r.score != null)).toBe(true);
+  });
 });
+

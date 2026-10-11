@@ -3,6 +3,7 @@ import { analyzeSite } from '@/integrations/site-analyzer';
 import type { SafeFetchOptions } from '@/integrations/net-safe';
 import { scoreProspect } from './analysis';
 import { draftFirstEmail, WHATSAPP_INTRO } from './message';
+import { runPool } from './pool';
 
 export interface AnalyzeOptions { site?: SafeFetchOptions & { withPageSpeed?: boolean } }
 
@@ -36,10 +37,30 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
   return { ok: true };
 }
 
+/** Analisa vários prospectos em paralelo limitado, parando de iniciar novos após o prazo. */
+export async function analyzeMany(db: SupabaseClient, ids: string[], opts: { concurrency?: number; deadlineMs?: number; site?: AnalyzeOptions['site'] } = {}) {
+  const { results, skipped } = await runPool(ids, opts.concurrency ?? 5, async (id) => {
+    const r = await analyzeProspect(db, id, { site: opts.site });
+    // falha definitiva: marca como tentada para a fila automática não repetir para sempre
+    if (!r.ok) await db.from('prospects').update({ analysis_error: r.error?.slice(0, 300), analyzed_at: new Date().toISOString() }).eq('id', id);
+    return r.ok;
+  }, opts.deadlineMs ?? Infinity);
+  return { analyzed: results.filter(Boolean).length, failed: results.filter((x) => !x).length, skipped: skipped.length };
+}
+
+/** Pega os próximos `n` prospectos novos sem análise (opcionalmente só de certas campanhas; `null` = prospectos manuais) e analisa. */
+export async function analyzeNextBatch(db: SupabaseClient, scope: { campaignIds?: string[]; manualOnly?: boolean } = {}, n = 4) {
+  const pending = () => { let q = db.from('prospects').select('id', { count: 'exact' }).eq('status', 'novo').is('analyzed_at', null); if (scope.manualOnly) q = q.is('campaign_id', null); else if (scope.campaignIds) q = q.in('campaign_id', scope.campaignIds); return q; };
+  const { data } = await pending().order('created_at').limit(n);
+  const ids = (data ?? []).map((r) => r.id);
+  const r = ids.length ? await analyzeMany(db, ids, { concurrency: n }) : { analyzed: 0, failed: 0, skipped: 0 };
+  const { count } = await pending().limit(1);
+  return { processed: ids.length, analyzed: r.analyzed, failed: r.failed, remaining: count ?? 0 };
+}
+
 /** Analisa prospectos novos ainda sem análise (usado pelo worker). */
 export async function analyzePending(db: SupabaseClient, limit = 10) {
   const { data } = await db.from('prospects').select('id').eq('status', 'novo').is('analyzed_at', null).order('created_at').limit(limit);
-  let done = 0, failed = 0;
-  for (const r of data ?? []) { const x = await analyzeProspect(db, r.id, { site: { withPageSpeed: true } }); if (x.ok) done++; else { failed++; await db.from('prospects').update({ analysis_error: x.error?.slice(0, 300) }).eq('id', r.id); } }
-  return { analyzed: done, failed };
+  const r = await analyzeMany(db, (data ?? []).map((x) => x.id), { concurrency: 4, site: { withPageSpeed: true } });
+  return { analyzed: r.analyzed, failed: r.failed };
 }
