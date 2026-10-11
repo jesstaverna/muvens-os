@@ -48,6 +48,7 @@ Pastas: `src/app/(app)/<módulo>` (página + `actions.ts`), `src/components` (UI
 | `/automacoes` | Fila, falhas, última varredura | admin | ✅ |
 | `/configuracoes` | Usuários/perfis, etapas do funil, integrações, auditoria | admin | ✅ |
 | `/contratos`, `/contratos/[id]`, `/contratos/modelos` | Contratos: rascunho automático ao aceitar a proposta, revisão humana obrigatória, assinatura (manual; Clicksign/ZapSign pendentes), modelos e dados da agência | admin, comercial (financeiro lê) | ✅ (Fase 2) |
+| `/prospeccao`, `/prospeccao/[id]`, `/descadastro/[token]` | **Prospecção**: campanhas no Google Maps (Places API), análise de site/presença digital com dados públicos, pontuação de oportunidade, rascunhos de e-mail e WhatsApp, aprovação, envio de e-mail com limites, follow-ups, lista de bloqueio e descadastro | admin, comercial | ✅ estrutura e análise testadas; Google Places e provedor de e-mail **pendentes de credencial** |
 | `/atendimento-ia` | MUVENS AI — Atendimento Comercial (RD Conversas) | admin, comercial | ⏳ Fase 3 (integração pendente) |
 | `/projetos`, `/projetos/novo`, `/projetos/[id]`, `/projetos/tarefas/nova`, `/projetos/tarefas/[id]` | Projetos e tarefas: Kanban, lista, por cliente, entregáveis contratados, fluxo de aprovação, horas, checklist, comentários, arquivos, histórico, rentabilidade (admin/financeiro) | equipe (financeiro lê) | ✅ (Fase 2) |
 | `/calendario` | Calendário de produção (mês, filtros) | equipe | ✅ (Fase 2) |
@@ -146,3 +147,12 @@ Riscos e mitigação
 | **4 — Inteligência** | MUVENS AI executiva (consulta com RLS, resumo diário, rascunhos de proposta), relatórios, previsão | ⏳ |
 
 Limitações conhecidas da Fase 1: exportação em PDF usa “Imprimir → Salvar como PDF” do navegador (sem gerador no servidor); notificações são in-app (sem e-mail/WhatsApp até a Fase 3); “visualizada” não distingue múltiplos visitantes do mesmo link; uma notificação compartilhada (sem destinatário) é marcada como lida para todos.
+
+
+## 9. Prospecção — regras de segurança embutidas
+- **Sem disparo automático de WhatsApp.** O canal WhatsApp é assistido: o sistema monta o texto e abre `wa.me`; uma pessoa clica em enviar. Automação de WhatsApp só após o contato responder, pelo canal oficial (RD Conversas), na Fase 3.
+- **E-mail**: envio desligado por padrão; exige identificação completa (razão social, CNPJ, endereço, remetente), horário comercial/dias úteis, limite diário, lista de bloqueio (e-mail e domínio), aprovação humana por padrão e link de descadastro de 1 clique (com `List-Unsubscribe`). Follow-ups limitados (padrão 1) e cancelados se o prospecto responder ou for descartado.
+- **Textos**: determinísticos, só citam o observado (“não encontramos…”), sem preço, prazo, elogio falso ou promessa.
+- **Análise**: apenas HTML público do site (com proteção contra SSRF, limite de tamanho/tempo) e PageSpeed (opcional). Redes sociais: só os links; **não** lemos perfis. Identidade visual por IA: pendente (Fase 4).
+- **Google Maps**: retenção conservadora — dados do Google de prospectos não trabalhados são limpos após 30 dias (fica o `place_id`). Revise os termos da Plataforma Google Maps e a LGPD (base legal: legítimo interesse; registre o teste de balanceamento) com seu jurídico.
+- Não testado contra as APIs reais: Google Places, PageSpeed e Resend (sem credenciais no ambiente de desenvolvimento).

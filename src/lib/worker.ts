@@ -1,4 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resendProvider, type EmailProvider } from '@/integrations/email';
+import { analyzePending } from '@/lib/prospecting/pipeline';
+import { createFollowups, processOutbox } from '@/lib/prospecting/outbox';
 
 interface Job { id: string; type: string; payload: Record<string, unknown>; attempts: number }
 
@@ -32,10 +35,12 @@ export const handlers: Record<string, Handler> = {
     if (cErr) throw new Error(cErr.message);
     const { error: pErr } = await db.rpc('run_project_scans');
     if (pErr) throw new Error(pErr.message);
+    const { error: qErr } = await db.rpc('run_prospect_scans');
+    if (qErr) throw new Error(qErr.message);
   },
 };
 
-export async function runWorker(db: SupabaseClient, batch = 20) {
+export async function runWorker(db: SupabaseClient, batch = 20, email: EmailProvider | null = resendProvider()) {
   // Garante uma varredura por hora (idempotente via dedupe_key)
   const hour = new Date().toISOString().slice(0, 13);
   const key = `scan.all:${hour}`;
@@ -58,5 +63,10 @@ export async function runWorker(db: SupabaseClient, batch = 20) {
       failed++;
     }
   }
-  return { claimed: jobs?.length ?? 0, done, failed };
+  // Prospecção: análise de novos prospectos, follow-ups e envio de e-mails (salvaguardas aplicadas no banco)
+  const prospecting: Record<string, unknown> = {};
+  for (const [name, fn] of [['analysis', () => analyzePending(db)], ['followups', () => createFollowups(db)], ['outbox', () => processOutbox(db, email, process.env.NEXT_PUBLIC_APP_URL ?? '')]] as const) {
+    try { prospecting[name] = await fn(); } catch (e) { prospecting[name] = { error: e instanceof Error ? e.message : String(e) }; }
+  }
+  return { claimed: jobs?.length ?? 0, done, failed, prospecting };
 }

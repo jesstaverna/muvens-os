@@ -15,6 +15,8 @@ Fase 2 (parcial): **Brand Center / KV** — por cliente: paleta, tipografia, lin
 
 Fase 2 (parcial): **Portal do Cliente** (`/cliente`) — login individual, cada cliente vê só a própria empresa: projetos e tarefas liberados pela equipe, aprovação ou pedido de ajustes de peças (registrado no histórico e avisado à equipe), calendário de entregas, briefings e solicitações com resposta, documentos/arquivos finais/relatórios, propostas e contratos. Gestão em `/portal`. Menu lateral agrupado por área.
 
+**Prospecção** (Fase 3, estrutura): campanhas por nicho/cidade no Google Maps, análise de site e presença digital com dados públicos, pontuação de oportunidade, rascunhos de e-mail/WhatsApp, e-mail com aprovação, limites, follow-up, bloqueio e descadastro. WhatsApp assistido (sem disparo automático). Google Places e envio de e-mail dependem de chaves (pendentes).
+
 **Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); relatórios de desempenho automáticos e assinatura pelo próprio portal (dependem das integrações da Fase 3).
 
 ## Rodando

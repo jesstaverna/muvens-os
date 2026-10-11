@@ -12,7 +12,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 export const STAFF: Role[] = ['admin', 'comercial', 'financeiro', 'designer', 'trafego'];
 
 export type ModuleKey =
-  | 'dashboard' | 'crm' | 'atendimento-ia' | 'propostas' | 'contratos' | 'clientes' | 'brand' | 'projetos'
+  | 'dashboard' | 'crm' | 'prospeccao' | 'atendimento-ia' | 'propostas' | 'contratos' | 'clientes' | 'brand' | 'projetos'
   | 'calendario' | 'trafego' | 'financeiro' | 'metas' | 'relatorios' | 'ia' | 'portal' | 'automacoes' | 'configuracoes';
 
 export interface ModuleDef {
@@ -33,6 +33,7 @@ export interface ModuleDef {
 export const MODULES: ModuleDef[] = [
   { key: 'dashboard', group: 'Visão geral', label: 'Dashboard', href: '/dashboard', roles: STAFF, phase: 1, icon: 'layout-dashboard', summary: 'Visão executiva com dados reais.' },
   { key: 'crm', group: 'Comercial', label: 'CRM e Leads', href: '/crm', roles: ['admin', 'comercial'], phase: 1, icon: 'kanban', summary: 'Funil, leads e follow-ups.' },
+  { key: 'prospeccao', group: 'Comercial', label: 'Prospecção', href: '/prospeccao', roles: ['admin', 'comercial'], phase: 3, done: true, icon: 'radar', summary: 'Descoberta, análise e abordagem de novos clientes.' },
   { key: 'atendimento-ia', group: 'Comercial', label: 'Atendimento com IA', href: '/atendimento-ia', roles: ['admin', 'comercial'], phase: 3, icon: 'message-circle', summary: 'MUVENS AI — Atendimento Comercial via RD Conversas.',
     planned: ['Indicadores: leads atendidos pela IA, qualificados, transferidos, propostas originadas, conversões, faturamento atribuído', 'Regras de transferência para humano', 'Respeito à janela de 24h e templates do WhatsApp', 'Registro automático no CRM'] },
   { key: 'propostas', group: 'Comercial', label: 'Propostas Comerciais', href: '/propostas', roles: ['admin', 'comercial', 'financeiro'], phase: 1, icon: 'file-text', summary: 'Propostas online com link exclusivo e aceite.' },

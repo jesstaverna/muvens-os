@@ -1,0 +1,75 @@
+import { createServer } from 'node:http';
+import { createHmac } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { analyzeProspect } from './pipeline';
+import { createFollowups, processOutbox } from './outbox';
+
+// Integração com PostgREST local (ver supabase/tests/). Ignorado sem PGRST_URL.
+const URL = process.env.PGRST_URL;
+const SECRET = process.env.JWT_SECRET ?? 'test-secret-test-secret-test-secret-123456';
+const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+const token = () => { const h = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ role: 'service_role', exp: Math.floor(Date.now() / 1000) + 600 })}`; return `${h}.${createHmac('sha256', SECRET).update(h).digest('base64url')}`; };
+
+const RUN = Date.now();
+const E1 = `loja${RUN}@teste-int.com`, E2 = `falha${RUN}@teste-int.com`;
+
+describe.skipIf(!URL)('prospecção (integração)', () => {
+  const db = new PostgrestClient(URL!, { headers: { Authorization: `Bearer ${token()}` } }) as never as import('@supabase/supabase-js').SupabaseClient;
+  let srv: ReturnType<typeof createServer>; let base = '';
+  beforeAll(async () => {
+    srv = createServer((_, res) => { res.setHeader('content-type', 'text/html'); res.end('<html><head><title>Loja</title></head><body>oi</body></html>'); });
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r)); base = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+    await db.from('outreach_settings').update({ sending_enabled: true, window_start_hour: 0, window_end_hour: 24, weekdays_only: false, daily_email_limit: 50, sender_name: 'Equipe Muvens', sender_email: 'contato@muvens.test', company_legal_name: 'Muvens LTDA', company_document: '00.000.000/0001-00', company_address: 'Rua B, 20', followup_days: 2, max_followups: 1, require_approval: true }).eq('id', 1);
+    await db.from('suppression_list').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  });
+  afterAll(() => { srv.close(); });
+
+  it('analisa, pontua e cria rascunhos de e-mail e WhatsApp (sem sobrescrever edições)', async () => {
+    const { data: p } = await db.from('prospects').insert({ name: 'Loja Teste', website: base, email: E1, phone: '(19) 99999-0000', source: 'manual' }).select('id').single();
+    const r = await analyzeProspect(db, p!.id, { site: { allowPrivate: true } });
+    expect(r.ok).toBe(true);
+    const { data: row } = await db.from('prospects').select('status, score, recommended_service, analysis').eq('id', p!.id).single();
+    expect(row!.status).toBe('analisado'); expect(row!.score).toBeGreaterThan(30); expect((row!.analysis as any).visual.status).toBe('pendente'); expect((row!.analysis as any).observations.length).toBeGreaterThan(0);
+    const { data: msgs } = await db.from('outreach_messages').select('channel, status, body').eq('prospect_id', p!.id).order('channel');
+    expect(msgs!.map((m) => m.channel)).toEqual(['email', 'whatsapp_manual']); expect(msgs!.every((m) => m.status === 'rascunho')).toBe(true);
+    await db.from('outreach_messages').update({ body: 'EDITADO' }).eq('prospect_id', p!.id).eq('channel', 'email');
+    await analyzeProspect(db, p!.id, { site: { allowPrivate: true } });
+    expect((await db.from('outreach_messages').select('body').eq('prospect_id', p!.id).eq('channel', 'email').single()).data!.body).toBe('EDITADO');
+  });
+
+  it('só envia mensagens APROVADAS, com rodapé, descadastro e sem repetir', async () => {
+    const { data: p } = await db.from('prospects').select('id').eq('email', E1).single();
+    const sent: { to: string; text: string; html: string; unsubscribeUrl: string }[] = [];
+    const provider = { send: async (m: any) => { sent.push(m); return { id: 'fake-1' }; } };
+    expect((await processOutbox(db, provider, 'https://app.test')).sent).toBe(0);               // ainda rascunho
+    await db.from('outreach_messages').update({ status: 'aprovada', approved_at: new Date().toISOString() }).eq('prospect_id', p!.id).eq('channel', 'email');
+    const r = await processOutbox(db, provider, 'https://app.test');
+    expect(r).toMatchObject({ sent: 1, failed: 0 });
+    expect(sent[0].to).toBe(E1); expect(sent[0].text).toContain('Muvens LTDA'); expect(sent[0].text).toContain('/descadastro/'); expect(sent[0].unsubscribeUrl).toMatch(/^https:\/\/app\.test\/descadastro\/[a-f0-9]{64}$/); expect(sent[0].html).toContain('Não quero mais receber');
+    expect((await processOutbox(db, provider, 'https://app.test')).sent).toBe(0);               // não reenvia
+    expect((await db.from('prospects').select('status').eq('id', p!.id).single()).data!.status).toBe('contatado');
+  });
+
+  it('falha do provedor marca a mensagem como "falhou" com o erro', async () => {
+    const { data: p } = await db.from('prospects').insert({ name: 'Falha SA', email: E2 }).select('id').single();
+    await db.from('outreach_messages').insert({ prospect_id: p!.id, channel: 'email', step: 1, subject: 's', body: 'b', status: 'aprovada', approved_at: new Date().toISOString() });
+    const r = await processOutbox(db, { send: async () => { throw new Error('domínio não verificado'); } }, 'https://app.test');
+    expect(r).toMatchObject({ sent: 0, failed: 1 });
+    const m = (await db.from('outreach_messages').select('status, error').eq('prospect_id', p!.id).single()).data!;
+    expect(m.status).toBe('falhou'); expect(m.error).toContain('domínio não verificado');
+  });
+
+  it('sem provedor configurado não envia nada', async () => { expect((await processOutbox(db, null, 'https://app.test')).sent).toBe(0); });
+
+  it('cria follow-up após o prazo, como rascunho (aprovação exigida)', async () => {
+    const { data: p } = await db.from('prospects').select('id').eq('email', E1).single();
+    await db.from('outreach_messages').update({ sent_at: new Date(Date.now() - 3 * 86_400_000).toISOString() }).eq('prospect_id', p!.id).eq('channel', 'email').eq('step', 1);
+    const r = await createFollowups(db);
+    expect(r.created).toBe(1);
+    const f = (await db.from('outreach_messages').select('step, status, subject').eq('prospect_id', p!.id).eq('step', 2).single()).data!;
+    expect(f.status).toBe('rascunho'); expect(f.subject).toContain('Loja Teste');
+    expect((await createFollowups(db)).created).toBe(0);                                         // idempotente
+  });
+});

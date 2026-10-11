@@ -109,5 +109,16 @@ must(await com.from('client_requests').select('id, kind, subject, body, status, 
 must(await com.from('client_documents').select('id, name, category, created_at, clients(name)').order('created_at', { ascending: false }), 'Gestão do portal: documentos');
 must(await admin.from('profiles').select('id, full_name, email, active, client_id, clients!profiles_client_fk(name)').eq('role', 'cliente'), 'Gestão do portal: usuários de clientes');
 
+must(await com.from('prospect_campaigns').select('*').order('created_at', { ascending: false }), 'Prospecção: campanhas');
+must(await com.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300), 'Prospecção: lista com campanha');
+must(await com.from('outreach_messages').select('id, prospect_id, channel, step, subject, status, created_at, sent_at, error, prospects(name, email)').eq('channel', 'email').order('created_at', { ascending: false }), 'Prospecção: fila de e-mails');
+must(await com.from('suppression_list').select('*').order('created_at', { ascending: false }), 'Prospecção: lista de bloqueio');
+must(await com.from('outreach_settings').select('*').eq('id', 1).single(), 'Prospecção: configurações');
+ok((await com.from('outreach_settings').update({ sending_enabled: true }).eq('id', 1).select()).data?.length === 0, 'Comercial não liga o envio automático');
+ok((await des.from('prospects').select('id')).data?.length === 0, 'Designer não vê prospecção');
+ok((await anon.rpc('claim_outreach', { p_limit: 1 })).error != null, 'Anônimo não aciona o envio');
+ok((await com.rpc('claim_outreach', { p_limit: 1 })).error != null, 'Usuário não aciona o envio (só servidor)');
+ok((await anon.rpc('unsubscribe_prospect', { p_token: 'x' })).data === false, 'Descadastro público responde sem vazar');
+
 console.log(fails ? `\n${fails} falha(s)` : '\nTodas as consultas OK');
 process.exit(fails ? 1 : 0);

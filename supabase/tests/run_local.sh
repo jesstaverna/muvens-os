@@ -14,4 +14,5 @@ psql -q -o /dev/null -v ON_ERROR_STOP=1 < tests/contracts.test.sql
 psql -q -o /dev/null -v ON_ERROR_STOP=1 < tests/projects.test.sql
 psql -q -o /dev/null -v ON_ERROR_STOP=1 < tests/brand.test.sql
 psql -q -o /dev/null -v ON_ERROR_STOP=1 < tests/portal.test.sql
+psql -q -o /dev/null -v ON_ERROR_STOP=1 < tests/prospecting.test.sql
 echo "OK — todos os testes SQL passaram"

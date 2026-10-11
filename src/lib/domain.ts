@@ -119,3 +119,9 @@ export const CLIENT_TASK_STATUS: Record<string, { label: string; tone: string }>
 };
 export const REQUEST_KIND: Record<string, string> = { briefing: 'Briefing', alteracao: 'Solicitação de alteração', atendimento: 'Atendimento' };
 export const REQUEST_STATUS: Record<string, string> = { aberta: 'Aberta', em_andamento: 'Em andamento', resolvida: 'Resolvida' };
+
+export const PROSPECT_STATUS: Record<string, { label: string; tone: string }> = {
+  novo: { label: 'Novo', tone: 'bg-subtle text-muted' }, analisado: { label: 'Analisado', tone: 'bg-blue-500/10 text-blue-600' }, aprovado: { label: 'Aprovado', tone: 'bg-violet-500/10 text-violet-600' },
+  contatado: { label: 'Contatado', tone: 'bg-amber-500/15 text-warn' }, respondeu: { label: 'Respondeu', tone: 'bg-lime/40' }, descartado: { label: 'Descartado', tone: 'bg-subtle text-muted' }, convertido: { label: 'Convertido em lead', tone: 'bg-lime/60' },
+};
+export const MESSAGE_STATUS: Record<string, string> = { rascunho: 'Rascunho', aprovada: 'Aprovada (na fila)', enviando: 'Enviando', enviada: 'Enviada', falhou: 'Falhou', cancelada: 'Cancelada' };
