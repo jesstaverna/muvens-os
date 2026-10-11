@@ -18,7 +18,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const tab = ['prospectos', 'campanhas', 'fila', 'novo', 'bloqueios', 'config'].includes(sp.tab ?? '') ? sp.tab! : 'prospectos';
   const isAdmin = profile.role === 'admin';
-  const [{ data: campaigns }, { data: settings }] = await Promise.all([supabase.from('prospect_campaigns').select('*').order('created_at', { ascending: false }), supabase.from('outreach_settings').select('*').eq('id', 1).single()]);
+  const [{ data: campaigns }, { data: settings, error: settingsError }] = await Promise.all([supabase.from('prospect_campaigns').select('*').order('created_at', { ascending: false }), supabase.from('outreach_settings').select('*').eq('id', 1).maybeSingle()]);
 
   let pq = supabase.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300);
   if (sp.status && sp.status in PROSPECT_STATUS) pq = pq.eq('status', sp.status);
@@ -99,6 +99,10 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
           <form action={addSuppression} className="card h-fit space-y-4"><h2 className="text-base font-semibold">Bloquear manualmente</h2><Field label="E-mail ou domínio"><input name="value" required className="input" placeholder="pessoa@empresa.com ou empresa.com" /></Field><Field label="Observação"><input name="note" className="input" /></Field><SubmitButton pendingText="…">Bloquear</SubmitButton></form>
         </div>)}
 
+      {tab === 'config' && !settings && (
+        <div className="card max-w-3xl border-danger/40 text-sm"><h2 className="text-base font-semibold text-danger">Configurações de envio não encontradas</h2>
+          <p className="mt-2 text-muted">{settingsError ? `Erro ao ler: ${settingsError.message}.` : 'A linha de configurações ainda não existe no banco.'} No SQL Editor do Supabase, rode:</p>
+          <pre className="mt-3 overflow-x-auto rounded-xl bg-subtle p-4 text-xs">insert into public.outreach_settings (id) values (1) on conflict (id) do nothing;</pre><p className="mt-3 text-muted">Depois atualize esta página. Se o erro persistir, confirme que a migração <code>20261014000011_prospecting.sql</code> foi executada por completo.</p></div>)}
       {tab === 'config' && settings && (
         <form action={saveOutreachSettings} className="card max-w-3xl space-y-6"><fieldset disabled={!isAdmin} className="space-y-6">
           <div><h2 className="mb-3 text-base font-semibold">Identificação do remetente (obrigatória)</h2><div className="grid gap-4 sm:grid-cols-2">
