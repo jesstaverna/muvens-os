@@ -5,6 +5,7 @@ import { flash, requireModule } from '@/lib/session';
 import { placesConfigured, searchPlaces } from '@/integrations/google-places';
 import { analyzeProspect } from '@/lib/prospecting/pipeline';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
+import { slug } from '@/lib/prospecting/groups';
 
 const B = '/prospeccao';
 const dbErr = (to: string, e: { code?: string; message: string }): never => flash(to, 'err', e.code === '42501' ? 'Seu perfil não tem permissão para esta ação.' : e.code === '23505' ? 'Já existe um registro com este e-mail, site ou local.' : e.code === '23514' ? 'Valor inválido.' : 'Não foi possível concluir a operação.');
@@ -20,7 +21,23 @@ export async function createCampaign(fd: FormData) {
   flash(`${B}?tab=campanhas`, 'ok', 'Campanha criada. Clique em “Buscar no Google Maps” para trazer prospectos.');
 }
 
-/** Busca no Google Maps (Places API), grava os prospectos e analisa os primeiros. Integração pendente sem chave. */
+type Db = Awaited<ReturnType<typeof requireModule>>['supabase'];
+type Campaign = { id: string; niche: string; city: string; max_results: number };
+
+/** Busca no Google Maps, grava os prospectos novos e analisa os primeiros. Devolve um resumo (ou lança com a mensagem de erro). */
+async function searchInto(supabase: Db, c: Campaign) {
+  const places = await searchPlaces(c.niche, c.city, c.max_results);
+  let created = 0, dup = 0; const ids: string[] = [];
+  for (const p of places) {
+    const { data, error } = await supabase.from('prospects').insert({ campaign_id: c.id, source: 'google_maps', place_id: p.place_id, name: p.name, category: p.category, address: p.address, phone: p.phone, website: p.website, rating: p.rating, reviews_count: p.reviews_count, maps_url: p.maps_url, google_fetched_at: new Date().toISOString() }).select('id').single();
+    if (error) { if (error.code === '23505') dup++; continue; }
+    created++; ids.push(data!.id);
+  }
+  await Promise.all(ids.slice(0, 8).map((pid) => analyzeProspect(supabase, pid)));   // os demais são analisados pelo worker
+  return { created, dup, analyzed: Math.min(ids.length, 8), found: places.length };
+}
+
+/** Busca no Google Maps a partir de uma campanha existente. Integração pendente sem chave. */
 export async function runCampaign(id: string) {
   const { supabase } = await requireModule('prospeccao');
   const back = `${B}?tab=campanhas`;
@@ -28,17 +45,31 @@ export async function runCampaign(id: string) {
   const { data: c } = await supabase.from('prospect_campaigns').select('*').eq('id', id).maybeSingle();
   if (!c) flash(back, 'err', 'Campanha não encontrada.');
   if (c!.status !== 'ativa') flash(back, 'err', 'A campanha não está ativa.');
-  let places;
-  try { places = await searchPlaces(c!.niche, c!.city, c!.max_results); } catch (e) { return flash(back, 'err', `Falha na busca: ${e instanceof Error ? e.message : 'erro'}`); }
-  let created = 0, dup = 0; const ids: string[] = [];
-  for (const p of places) {
-    const { data, error } = await supabase.from('prospects').insert({ campaign_id: id, source: 'google_maps', place_id: p.place_id, name: p.name, category: p.category, address: p.address, phone: p.phone, website: p.website, rating: p.rating, reviews_count: p.reviews_count, maps_url: p.maps_url, google_fetched_at: new Date().toISOString() }).select('id').single();
-    if (error) { if (error.code === '23505') dup++; continue; }
-    created++; ids.push(data!.id);
-  }
-  await Promise.all(ids.slice(0, 8).map((pid) => analyzeProspect(supabase, pid)));   // os demais são analisados pelo worker
+  let r; try { r = await searchInto(supabase, c!); } catch (e) { return flash(back, 'err', `Falha na busca: ${e instanceof Error ? e.message : 'erro'}`); }
   revalidatePath(B);
-  flash(B, 'ok', `${created} prospecto(s) novo(s)${dup ? `, ${dup} já existia(m)` : ''}. ${Math.min(ids.length, 8)} analisado(s) agora; o restante será analisado automaticamente.`);
+  flash(`${B}?tab=prospectos&grp=${slug(c!.niche)}--${slug(c!.city)}`, 'ok', `${r.created} prospecto(s) novo(s)${r.dup ? `, ${r.dup} já existia(m)` : ''}. ${r.analyzed} analisado(s) agora; o restante será analisado automaticamente.`);
+}
+
+/** Busca direta na página: nicho + cidade → reaproveita/cria a campanha, busca no Google Maps e abre o grupo com os resultados. */
+export async function quickSearch(fd: FormData) {
+  const { supabase } = await requireModule('prospeccao');
+  const r = z.object({ niche: z.string().trim().min(2, 'Informe o nicho (ex.: clínica odontológica)').max(80), city: z.string().trim().min(2, 'Informe a cidade (ex.: Curitiba)').max(80) }).safeParse(Object.fromEntries(fd));
+  if (!r.success) flash(B, 'err', r.error.issues[0].message);
+  const { niche, city } = r.data!;
+  const key = `${slug(niche)}--${slug(city)}`;
+  if (!placesConfigured()) flash(B, 'err', 'Integração pendente: configure GOOGLE_PLACES_API_KEY na Vercel para buscar no Google Maps. Enquanto isso, use “Cadastrar manualmente”.');
+  const { data: existing } = await supabase.from('prospect_campaigns').select('id, niche, city, max_results, status').eq('status', 'ativa');
+  let c = existing?.find((x) => `${slug(x.niche)}--${slug(x.city)}` === key) as Campaign | undefined;
+  if (!c) {
+    const { data, error } = await supabase.from('prospect_campaigns').insert({ name: `${niche} (${city})`, niche, city, max_results: 20 }).select('id, niche, city, max_results').single();
+    if (error) dbErr(B, error);
+    c = data as Campaign;
+  }
+  let res; try { res = await searchInto(supabase, c); } catch (e) { return flash(B, 'err', `Falha na busca: ${e instanceof Error ? e.message : 'erro'}`); }
+  revalidatePath(B);
+  flash(`${B}?tab=prospectos&grp=${key}`, res.found ? 'ok' : 'err', res.found
+    ? `${res.created} prospecto(s) novo(s)${res.dup ? `, ${res.dup} já existia(m)` : ''}. ${res.analyzed} analisado(s) agora; o restante será analisado automaticamente.`
+    : 'O Google Maps não retornou resultados para essa busca. Tente outro termo ou cidade.');
 }
 
 export async function addProspect(fd: FormData) {
