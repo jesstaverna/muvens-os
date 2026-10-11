@@ -7,6 +7,7 @@ import { LeadForm } from '../LeadForm';
 import { addInteraction, addReminder, completeReminder, updateLead } from '../actions';
 import { dateTimeBR, money } from '@/lib/format';
 import { PROPOSAL_STATUS } from '@/lib/domain';
+import { LinkButton } from '@/components/LinkButton';
 
 const KIND: Record<string, string> = { nota: 'Nota', ligacao: 'Ligação', whatsapp: 'WhatsApp', email: 'E-mail', reuniao: 'Reunião', sistema: 'Sistema' };
 
@@ -29,9 +30,9 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     <>
       <PageHeader title={lead.name} subtitle={`${lead.company ?? 'Sem empresa'} · etapa: ${st?.name}${lead.lost_reason ? ` · motivo da perda: ${lead.lost_reason}` : ''}`}
         actions={<>
-          <Link href="/crm" className="btn">← Funil</Link>
-          {lead.client_id && <Link href={`/clientes/${lead.client_id}`} className="btn">Ver cliente</Link>}
-          <Link href={`/propostas/nova?lead=${lead.id}`} className="btn btn-primary">Criar proposta</Link>
+          <LinkButton href="/crm" className="btn">← Funil</LinkButton>
+          {lead.client_id && <LinkButton href={`/clientes/${lead.client_id}`} className="btn">Ver cliente</LinkButton>}
+          <LinkButton href={`/propostas/nova?lead=${lead.id}`} className="btn btn-primary">Criar proposta</LinkButton>
         </>} />
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="card xl:col-span-2"><h2 className="mb-5 text-base font-semibold">Dados do lead</h2>

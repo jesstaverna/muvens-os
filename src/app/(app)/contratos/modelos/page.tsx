@@ -4,6 +4,7 @@ import { PageHeader, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { saveAgency, saveTemplate } from '../actions';
 import { SERVICE_LABEL as LABEL } from '@/lib/proposal-templates';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Modelos de contrato' };
 const VARS = ['servico', 'contratante_nome', 'contratante_documento', 'contratante_endereco', 'contratada_nome', 'contratada_documento', 'contratada_endereco', 'contratada_representante', 'escopo', 'entregaveis', 'prazo_execucao', 'valor_total', 'forma_pagamento', 'vigencia', 'reajuste', 'cidade', 'data'];
@@ -15,7 +16,7 @@ export default async function Modelos() {
   const v = (x: unknown) => (x == null ? '' : String(x));
   return (
     <>
-      <PageHeader title="Modelos de contrato" subtitle="Dados da Muvens (contratada) e um modelo por serviço." actions={<Link href="/contratos" className="btn">← Contratos</Link>} />
+      <PageHeader title="Modelos de contrato" subtitle="Dados da Muvens (contratada) e um modelo por serviço." actions={<LinkButton href="/contratos" className="btn">← Contratos</LinkButton>} />
       <form action={saveAgency} className="card mb-8 space-y-5"><h2 className="text-base font-semibold">Dados da agência (contratada)</h2>
         <fieldset disabled={!isAdmin} className="grid gap-5 sm:grid-cols-2">
           <Field label="Razão social"><input name="legal_name" defaultValue={v(a?.legal_name)} className="input" /></Field><Field label="CNPJ"><input name="document" defaultValue={v(a?.document)} className="input" /></Field>

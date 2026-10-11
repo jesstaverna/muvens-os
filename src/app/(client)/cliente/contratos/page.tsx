@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requirePortal } from '@/lib/session';
 import { dateBR, money } from '@/lib/format';
 import { PROPOSAL_STATUS } from '@/lib/domain';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Propostas e contratos' };
 type P = { number: number; title: string; status: string; total_value: number; valid_until: string | null; token: string };
@@ -21,7 +22,7 @@ export default async function PropostasContratos() {
       <section><h2 className="mb-3 text-base font-semibold">Contratos</h2>
         {!contracts.length ? <p className="text-sm text-muted">Nenhum contrato disponível.</p> : <div className="card divide-y divide-line !p-0">{contracts.map((x) => (
           <div key={x.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm"><div><div className="font-medium">#{x.number} · {x.title}</div><div className="text-xs text-muted">{x.status === 'assinado' ? `Assinado em ${dateBR(x.signed_at)} · vigência ${dateBR(x.starts_on)} a ${dateBR(x.ends_on)}` : 'Aguardando assinatura'}</div></div>
-            <Link className="btn btn-sm" href={`/cliente/contratos/${x.id}`}>Ver contrato</Link></div>))}</div>}</section>
+            <LinkButton className="btn btn-sm" href={`/cliente/contratos/${x.id}`}>Ver contrato</LinkButton></div>))}</div>}</section>
     </>
   );
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ChevronRight, FolderOpen, List } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
@@ -7,11 +8,13 @@ import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
+import { LinkButton } from '@/components/LinkButton';
+import { groupCampaigns, slug } from '@/lib/prospecting/groups';
 
 export const metadata = { title: 'Prospecção' };
 export const maxDuration = 60;
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
-type SP = { tab?: string; status?: string; campaign?: string; min?: string };
+type SP = { tab?: string; status?: string; grp?: string; min?: string };
 
 export default async function Prospeccao({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('prospeccao');
@@ -20,13 +23,19 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   const isAdmin = profile.role === 'admin';
   const [{ data: campaigns }, { data: settings, error: settingsError }] = await Promise.all([supabase.from('prospect_campaigns').select('*').order('created_at', { ascending: false }), supabase.from('outreach_settings').select('*').eq('id', 1).maybeSingle()]);
 
+  // Grupos = nicho + cidade (várias campanhas do mesmo nicho/cidade ficam no mesmo box)
+  const groups = groupCampaigns(campaigns ?? []);
+  const grp = sp.grp ?? '';
+  const current = grp === 'todos' ? { title: 'Todos os prospectos' } : grp === 'manual' ? { title: 'Cadastrados manualmente' } : groups.get(grp) ? { title: `${groups.get(grp)!.niche} (${groups.get(grp)!.city})` } : null;
+  const listMode = tab === 'prospectos' && !!current;
+
   let pq = supabase.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300);
   if (sp.status && sp.status in PROSPECT_STATUS) pq = pq.eq('status', sp.status);
-  if (sp.campaign && /^[0-9a-f-]{36}$/.test(sp.campaign)) pq = pq.eq('campaign_id', sp.campaign);
+  if (grp === 'manual') pq = pq.is('campaign_id', null); else if (groups.get(grp)) pq = pq.in('campaign_id', groups.get(grp)!.ids);
   if (sp.min && Number(sp.min) > 0) pq = pq.gte('score', Number(sp.min));
   const [{ data: prospects }, { data: counts }, { data: queue }, { data: supp }] = await Promise.all([
-    tab === 'prospectos' ? pq : Promise.resolve({ data: [] as never[] }),
-    supabase.from('prospects').select('status'),
+    listMode ? pq : Promise.resolve({ data: [] as never[] }),
+    supabase.from('prospects').select('status, campaign_id, score').limit(5000),
     tab === 'fila' ? supabase.from('outreach_messages').select('id, prospect_id, channel, step, subject, status, created_at, sent_at, error, prospects(name, email)').eq('channel', 'email').order('created_at', { ascending: false }).limit(200) : Promise.resolve({ data: [] as never[] }),
     tab === 'bloqueios' ? supabase.from('suppression_list').select('*').order('created_at', { ascending: false }).limit(300) : Promise.resolve({ data: [] as never[] }),
   ]);
@@ -38,7 +47,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Prospecção" subtitle="Descobre empresas, analisa a presença digital com dados públicos e prepara a abordagem. E-mail automático; WhatsApp assistido (uma pessoa envia)." actions={<Link href={nav('novo')} className="btn btn-primary">Novo prospecto</Link>} />
+      <PageHeader title="Prospecção" subtitle="Descobre empresas, analisa a presença digital com dados públicos e prepara a abordagem. E-mail automático; WhatsApp assistido (uma pessoa envia)." actions={<LinkButton href={nav('novo')} className="btn btn-primary">Novo prospecto</LinkButton>} />
 
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Prospectos analisados" value={by('analisado') + by('aprovado')} hint={`${by('novo')} aguardando análise`} href={nav('prospectos')} />
@@ -56,16 +65,40 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
 
       <Tabs current={tab} items={[{ key: 'prospectos', label: 'Prospectos', href: nav('prospectos') }, { key: 'campanhas', label: 'Campanhas (Google Maps)', href: nav('campanhas') }, { key: 'fila', label: 'Fila de e-mails', href: nav('fila') }, { key: 'novo', label: 'Cadastrar manualmente', href: nav('novo') }, { key: 'bloqueios', label: 'Lista de bloqueio', href: nav('bloqueios') }, { key: 'config', label: 'Configurações de envio', href: nav('config') }]} />
 
-      {tab === 'prospectos' && (
+      {tab === 'prospectos' && !listMode && (() => {
+        const boxes = [...groups.values()].sort((x, y) => y.latest.localeCompare(x.latest)).map((g) => ({ href: `/prospeccao?tab=prospectos&grp=${g.key}`, title: `${g.niche} (${g.city})`, sub: `${g.ids.length} campanha(s)`, rows: counts?.filter((c) => g.ids.includes(c.campaign_id)) ?? [] }));
+        const manual = counts?.filter((c) => c.campaign_id == null) ?? [];
+        if (manual.length) boxes.push({ href: '/prospeccao?tab=prospectos&grp=manual', title: 'Cadastrados manualmente', sub: 'sem campanha', rows: manual });
+        if (!boxes.length) return <Empty title="Nenhum prospecto ainda" text="Crie uma campanha (nicho + cidade) para buscar no Google Maps ou cadastre um prospecto manualmente. Os resultados ficam agrupados em caixas por nicho e cidade." action={<LinkButton href={nav('campanhas')} className="btn btn-primary">Criar campanha</LinkButton>} />;
+        return (
+          <>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><p className="text-sm text-muted">{boxes.length} grupo(s) de nicho e cidade. Clique em um para ver os prospectos.</p><LinkButton href="/prospeccao?tab=prospectos&grp=todos" icon={List} className="btn btn-sm">Ver todos em uma lista</LinkButton></div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{boxes.map((b) => {
+              const n = (st: string[]) => b.rows.filter((r) => st.includes(r.status)).length;
+              const scores = b.rows.map((r) => r.score).filter((v): v is number => typeof v === 'number');
+              const avg = scores.length ? Math.round(scores.reduce((a, v) => a + v, 0) / scores.length) : null, best = scores.length ? Math.max(...scores) : null;
+              return (
+                <Link key={b.href} href={b.href} className="card group block !p-5 transition hover:border-fg">
+                  <div className="flex items-start justify-between gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-lime text-black"><FolderOpen className="h-5 w-5" strokeWidth={1.7} /></span><ChevronRight className="h-5 w-5 text-muted transition group-hover:translate-x-0.5" strokeWidth={1.7} /></div>
+                  <div className="mt-4 font-semibold leading-snug">{b.title}</div><div className="text-xs text-muted">{b.sub}</div>
+                  <div className="mt-4 text-3xl font-semibold tracking-tight">{b.rows.length}<span className="ml-1.5 text-sm font-normal text-muted">prospecto(s)</span></div>
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]"><span className="badge">{n(['novo'])} novos</span><span className="badge">{n(['analisado', 'aprovado'])} analisados</span><span className="badge">{n(['contatado'])} contatados</span><span className="badge bg-lime/40">{n(['respondeu'])} responderam</span>{n(['convertido']) > 0 && <span className="badge bg-lime/60">{n(['convertido'])} leads</span>}</div>
+                  {avg != null && <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-xs text-muted"><span>Oportunidade média <b className="text-fg">{avg}/100</b></span><span>melhor <b className="text-fg">{best}</b></span></div>}
+                </Link>);
+            })}</div>
+          </>);
+      })()}
+
+      {tab === 'prospectos' && listMode && (
         <>
-          <form method="get" className="mb-5 flex flex-wrap gap-2"><input type="hidden" name="tab" value="prospectos" />
+          <div className="mb-5 flex flex-wrap items-center gap-3"><LinkButton href="/prospeccao?tab=prospectos" className="btn btn-sm">← Todos os grupos</LinkButton><h2 className="text-lg font-semibold">{current!.title}</h2></div>
+          <form method="get" className="mb-5 flex flex-wrap gap-2"><input type="hidden" name="tab" value="prospectos" /><input type="hidden" name="grp" value={grp} />
             <select name="status" defaultValue={sp.status ?? ''} className="input w-48" aria-label="Status"><option value="">Todos os status</option>{Object.entries(PROSPECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
-            <select name="campaign" defaultValue={sp.campaign ?? ''} className="input w-56" aria-label="Campanha"><option value="">Todas as campanhas</option>{campaigns?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
             <input name="min" type="number" min={0} max={100} defaultValue={sp.min} placeholder="Pontuação mín." className="input w-40" aria-label="Pontuação mínima" /><button className="btn btn-dark">Filtrar</button></form>
-          {!prospects?.length ? <Empty title="Nenhum prospecto" text="Crie uma campanha para buscar no Google Maps ou cadastre um prospecto manualmente." action={<Link href={nav('campanhas')} className="btn btn-primary">Criar campanha</Link>} /> : (
+          {!prospects?.length ? <Empty title="Nenhum prospecto neste grupo" text="Ajuste os filtros ou rode a busca da campanha novamente." /> : (
             <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Empresa</th><th className="th">Oportunidade</th><th className="th">Serviço sugerido</th><th className="th">Contato</th><th className="th">Status</th></tr></thead>
               <tbody>{prospects.map((p: any) => (<tr key={p.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
-                <td className="td"><Link href={`/prospeccao/${p.id}`} className="font-medium hover:underline">{p.name}</Link><div className="text-xs text-muted">{p.category ?? '—'}{one(p.prospect_campaigns)?.name ? ` · ${one(p.prospect_campaigns).name}` : ''}</div></td>
+                <td className="td"><Link href={`/prospeccao/${p.id}`} className="font-medium hover:underline">{p.name}</Link><div className="text-xs text-muted">{p.category ?? '—'}</div></td>
                 <td className="td">{p.score == null ? <span className="text-muted">—</span> : <span className={`font-semibold ${p.score >= 60 ? 'text-ok' : ''}`}>{p.score}/100</span>}</td>
                 <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}</td><td className="td text-xs text-muted">{[p.email, p.phone].filter(Boolean).join(' · ') || 'sem contato'}</td>
                 <td className="td"><span className={`badge ${PROSPECT_STATUS[p.status].tone}`}>{PROSPECT_STATUS[p.status].label}</span></td></tr>))}</tbody></table></div>)}
@@ -75,7 +108,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-4 xl:col-span-2">{!campaigns?.length ? <Empty title="Nenhuma campanha" text="Defina um nicho e uma cidade (ex.: clínica de estética · Campinas)." /> : campaigns.map((c) => (
             <div key={c.id} className="card flex flex-wrap items-center justify-between gap-3"><div><div className="font-medium">{c.name}</div><div className="text-xs text-muted">{c.niche} · {c.city} · até {c.max_results} resultados · {dateTimeBR(c.created_at)}</div></div>
-              <div className="flex gap-2"><Link className="btn btn-sm" href={`/prospeccao?tab=prospectos&campaign=${c.id}`}>Ver prospectos</Link><form action={runCampaign.bind(null, c.id)}><SubmitButton className="btn btn-sm btn-primary" pendingText="Buscando e analisando…">Buscar no Google Maps</SubmitButton></form></div></div>))}
+              <div className="flex gap-2"><LinkButton className="btn btn-sm" icon={FolderOpen} href={`/prospeccao?tab=prospectos&grp=${slug(c.niche)}--${slug(c.city)}`}>Ver prospectos</LinkButton><form action={runCampaign.bind(null, c.id)}><SubmitButton className="btn btn-sm btn-primary" pendingText="Buscando e analisando…">Buscar no Google Maps</SubmitButton></form></div></div>))}
             {!placesOk && <p className="text-sm text-muted">A busca só funciona depois de configurar a chave do Google Places na Vercel (<code>GOOGLE_PLACES_API_KEY</code>). Enquanto isso, cadastre prospectos manualmente.</p>}</div>
           <form action={createCampaign} className="card h-fit space-y-4"><h2 className="text-base font-semibold">Nova campanha</h2><Field label="Nome"><input name="name" required className="input" placeholder="Clínicas — Campinas" /></Field><Field label="Nicho"><input name="niche" required className="input" placeholder="clínica de estética" /></Field><Field label="Cidade"><input name="city" required className="input" placeholder="Campinas, SP" /></Field>
             <Field label="Máx. de resultados por busca" hint="Até 20 por busca (limite da API por página)."><input name="max_results" type="number" min={1} max={20} defaultValue={20} className="input" /></Field><SubmitButton>Criar campanha</SubmitButton></form>

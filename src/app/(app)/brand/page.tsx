@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Empty } from '@/components/ui';
 import { ASSET_CATEGORY } from '@/lib/brand';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Brand Center' };
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
@@ -33,7 +34,7 @@ export default async function Brand({ searchParams }: { searchParams: Promise<{ 
         <section className="mb-10"><h2 className="mb-3 text-base font-semibold">{hits.length} arquivo(s) encontrado(s)</h2>
           {!hits.length ? <Empty title="Nada encontrado" /> : <div className="card overflow-x-auto !p-0"><table className="w-full"><tbody>{hits.map((a) => (
             <tr key={a.id} className="border-b border-line last:border-0"><td className="td font-medium">{a.name}</td><td className="td text-muted">{one(a.clients)?.name}</td><td className="td"><span className="badge">{ASSET_CATEGORY[a.category]}</span></td><td className="td text-xs text-muted">{a.tags.join(', ')}</td><td className="td"><Link className="underline" href={`/brand/${a.client_id}?tab=arquivos&cat=${a.category}`}>Abrir</Link></td></tr>))}</tbody></table></div>}</section>)}
-      {!clients?.length ? <Empty title="Nenhum cliente" text="Cadastre clientes primeiro; cada cliente tem sua biblioteca de marca." action={<Link href="/clientes/novo" className="btn btn-primary">Novo cliente</Link>} /> : (
+      {!clients?.length ? <Empty title="Nenhum cliente" text="Cadastre clientes primeiro; cada cliente tem sua biblioteca de marca." action={<LinkButton href="/clientes/novo" className="btn btn-primary">Novo cliente</LinkButton>} /> : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{clients.map((c) => {
           const sw = colors?.filter((x) => x.client_id === c.id).slice(0, 6) ?? []; const pr = profiles?.find((p) => p.client_id === c.id); const n = count(assets, c.id);
           return (<Link key={c.id} href={`/brand/${c.id}`} className="card block !p-5 transition hover:bg-subtle/60"><div className="font-medium">{c.name}</div><div className="text-xs text-muted">{c.segment ?? '—'}</div>

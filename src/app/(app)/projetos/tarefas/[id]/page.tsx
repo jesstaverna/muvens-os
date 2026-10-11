@@ -7,6 +7,7 @@ import { FileUploader } from '../../FileUploader';
 import { addChecklistItem, addComment, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
 import { PRIORITY, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateTimeBR } from '@/lib/format';
+import { LinkButton } from '@/components/LinkButton';
 
 const EVT: Record<string, string> = { criada: 'Criada', status: 'Status', responsavel: 'Responsável', prazo: 'Prazo', prioridade: 'Prioridade', fora_escopo: 'Escopo' };
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
@@ -45,7 +46,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <PageHeader title={t.title} subtitle={`${one(proj?.clients)?.name ?? ''} · ${proj?.name}`} actions={<><span className={`badge ${st.tone}`}>{st.label}</span><Link href={`/projetos/${proj?.id}`} className="btn btn-sm">← Projeto</Link></>} />
+      <PageHeader title={t.title} subtitle={`${one(proj?.clients)?.name ?? ''} · ${proj?.name}`} actions={<><span className={`badge ${st.tone}`}>{st.label}</span><LinkButton href={`/projetos/${proj?.id}`} className="btn btn-sm">← Projeto</LinkButton></>} />
       {t.out_of_scope && <div className="card mb-6 border-amber-500/40 bg-amber-500/10 text-sm"><b className="text-warn">Fora do escopo contratado.</b> {t.out_of_scope_note ?? 'Orçar à parte.'}</div>}
       {canWrite && next[t.status] && <div className="mb-6 flex flex-wrap items-center gap-3 card !p-4">{next[t.status]}</div>}
 

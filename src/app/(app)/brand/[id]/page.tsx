@@ -7,6 +7,7 @@ import { CopyButton } from '@/components/ClientButtons';
 import { BrandUploader } from '../BrandUploader';
 import { addColor, addFont, addLink, deleteAsset, removeColor, removeFont, removeLink, saveBrandProfile, updateAsset } from '../actions';
 import { ASSET_CATEGORY, COLOR_ROLE, FONT_USAGE, IMAGE_EXT, extOf, knowledgeText } from '@/lib/brand';
+import { LinkButton } from '@/components/LinkButton';
 
 export default async function BrandClient({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; cat?: string; q?: string }> }) {
   const { id } = await params;
@@ -44,7 +45,7 @@ export default async function BrandClient({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <PageHeader title={client.name} subtitle={`Brand Center${client.segment ? ' · ' + client.segment : ''}`} actions={<><Link href="/brand" className="btn btn-sm">← Marcas</Link><Link href={`/clientes/${id}`} className="btn btn-sm">Ver cliente</Link></>} />
+      <PageHeader title={client.name} subtitle={`Brand Center${client.segment ? ' · ' + client.segment : ''}`} actions={<><LinkButton href="/brand" className="btn btn-sm">← Marcas</LinkButton><LinkButton href={`/clientes/${id}`} className="btn btn-sm">Ver cliente</LinkButton></>} />
       <Tabs current={tab} items={[{ key: 'marca', label: 'Paleta, fontes e links', href: base }, { key: 'arquivos', label: 'Arquivos', href: `${base}?tab=arquivos` }, { key: 'regras', label: 'Regras e tom de voz', href: `${base}?tab=regras` }, { key: 'conhecimento', label: 'Base de conhecimento (IA)', href: `${base}?tab=conhecimento` }]} />
 
       {tab === 'marca' && (

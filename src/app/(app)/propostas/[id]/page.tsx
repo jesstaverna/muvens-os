@@ -9,6 +9,7 @@ import { PROPOSAL_STATUS, proposalTotals } from '@/lib/domain';
 import { normalizeContent } from '@/lib/proposal-templates';
 import { generateContract } from '../../contratos/actions';
 import { activateProposal, deleteItem, duplicateProposal, saveItem, saveProposal, sendProposal, setProposalStatus } from '../actions';
+import { LinkButton } from '@/components/LinkButton';
 
 const EVENT: Record<string, string> = { enviada: 'Enviada', visualizada: 'Visualizada pelo cliente', alteracao_solicitada: 'Alteração solicitada', aceita: 'Aceite registrado', recusada: 'Recusada', expirada: 'Expirada', status_alterado: 'Status alterado', ativada: 'Ativada', nota: 'Nota' };
 
@@ -37,7 +38,7 @@ export default async function PropostaPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <PageHeader title={`#${p.number} · ${p.title}`} subtitle={`${p.client_display_name} · versão ${p.version}`}
-        actions={<><span className={`badge ${st.tone}`}>{st.label}</span><Link href="/propostas" className="btn btn-sm">← Propostas</Link><Link href={`/propostas/${id}/preview`} className="btn btn-sm">Pré-visualizar / PDF</Link>
+        actions={<><span className={`badge ${st.tone}`}>{st.label}</span><LinkButton href="/propostas" className="btn btn-sm">← Propostas</LinkButton><LinkButton href={`/propostas/${id}/preview`} className="btn btn-sm">Pré-visualizar / PDF</LinkButton>
           {canEdit && <form action={duplicateProposal.bind(null, id)}><SubmitButton className="btn btn-sm" pendingText="…">Duplicar</SubmitButton></form>}</>} />
 
       {published && (

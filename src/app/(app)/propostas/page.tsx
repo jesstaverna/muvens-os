@@ -3,6 +3,7 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Empty, Stat } from '@/components/ui';
 import { dateBR, money } from '@/lib/format';
 import { PROPOSAL_STATUS } from '@/lib/domain';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Propostas' };
 
@@ -20,7 +21,7 @@ export default async function Propostas({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader title="Propostas Comerciais" subtitle="Cada proposta é uma página exclusiva com link próprio e aceite online." actions={canCreate ? <Link href="/propostas/nova" className="btn btn-primary">Nova proposta</Link> : undefined} />
+      <PageHeader title="Propostas Comerciais" subtitle="Cada proposta é uma página exclusiva com link próprio e aceite online." actions={canCreate ? <LinkButton href="/propostas/nova" className="btn btn-primary">Nova proposta</LinkButton> : undefined} />
       <section className="mb-8 grid gap-4 sm:grid-cols-3">
         <Stat label="Em aberto" value={open.length} hint={money(open.reduce((a, p) => a + Number(p.total_value), 0))} />
         <Stat label="Aceitas" value={all.filter((p) => p.status === 'aceita').length} hint={money(all.filter((p) => p.status === 'aceita').reduce((a, p) => a + Number(p.total_value), 0))} tone="lime" />
@@ -31,7 +32,7 @@ export default async function Propostas({ searchParams }: { searchParams: Promis
         <select name="status" defaultValue={status} className="input w-48" aria-label="Status"><option value="">Todos os status</option>{Object.entries(PROPOSAL_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
         <button className="btn btn-dark">Filtrar</button>
       </form>
-      {!all.length ? <Empty title="Nenhuma proposta" text="Crie uma proposta a partir de um modelo ou direto de um lead no CRM." action={canCreate ? <Link href="/propostas/nova" className="btn btn-primary">Nova proposta</Link> : undefined} /> : (
+      {!all.length ? <Empty title="Nenhuma proposta" text="Crie uma proposta a partir de um modelo ou direto de um lead no CRM." action={canCreate ? <LinkButton href="/propostas/nova" className="btn btn-primary">Nova proposta</LinkButton> : undefined} /> : (
         <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Nº</th><th className="th">Proposta</th><th className="th">Valor</th><th className="th">Validade</th><th className="th">Visualizações</th><th className="th">Status</th></tr></thead>
           <tbody>{all.map((p) => (
             <tr key={p.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td text-muted">#{p.number}</td>

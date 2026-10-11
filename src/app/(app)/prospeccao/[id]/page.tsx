@@ -10,6 +10,7 @@ import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { whatsappLink } from '@/lib/prospecting/message';
 import type { SiteFindings } from '@/lib/prospecting/analysis';
 import { dateTimeBR } from '@/lib/format';
+import { LinkButton } from '@/components/LinkButton';
 
 export const maxDuration = 60;
 const Yes = ({ v, label }: { v: boolean; label: string }) => <li className="flex items-center justify-between gap-3"><span>{label}</span><span className={`badge ${v ? 'bg-lime/40' : 'border-amber-500/40 text-warn'}`}>{v ? 'encontrado' : 'não encontrado'}</span></li>;
@@ -29,7 +30,7 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <PageHeader title={p.name} subtitle={[p.category, p.address].filter(Boolean).join(' · ') || undefined} actions={<><span className={`badge ${st.tone}`}>{st.label}</span><Link href="/prospeccao" className="btn btn-sm">← Prospecção</Link></>} />
+      <PageHeader title={p.name} subtitle={[p.category, p.address].filter(Boolean).join(' · ') || undefined} actions={<><span className={`badge ${st.tone}`}>{st.label}</span><LinkButton href="/prospeccao" className="btn btn-sm">← Prospecção</LinkButton></>} />
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <section className="card"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-xs font-medium uppercase tracking-wider text-muted">Oportunidade</div><div className="mt-1 text-4xl font-semibold">{p.score ?? '—'}<span className="text-base font-normal text-muted">/100</span></div><div className="mt-1 text-sm">Serviço sugerido: <b>{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}</b></div></div>

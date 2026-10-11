@@ -4,6 +4,8 @@ import { PageHeader, Stat, Empty } from '@/components/ui';
 import { ProgressBar, RevenueChart } from '@/components/Charts';
 import { money, moneyCompact, pct, dateBR } from '@/lib/format';
 import { elapsedFraction, goalProgress, monthRange, todayBR, type Basis } from '@/lib/domain';
+import { LinkButton } from '@/components/LinkButton';
+import { Radar } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -25,13 +27,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     ({ from, to } = monthRange(y, mo));
     label = `${MONTHS[mo - 1]}/${y}`;
   }
+  // período imediatamente anterior, do mesmo tamanho (para comparação)
+  const day = 86_400_000, d0 = Date.parse(from), d1 = Date.parse(to);
+  const prevTo = new Date(d0 - day).toISOString().slice(0, 10), prevFrom = new Date(d0 - day - (d1 - d0)).toISOString().slice(0, 10);
   const clientId = sp.client && /^[0-9a-f-]{36}$/.test(sp.client) ? sp.client : null;
 
   const seeFinance = profile.role === 'admin' || profile.role === 'financeiro';
   const seeSales = profile.role === 'admin' || profile.role === 'comercial';
 
-  const [{ data: metrics, error }, { data: clients }, { data: series }, { data: goal }, { data: alerts }, { count: projectsActive }, { count: tasksLate }] = await Promise.all([
+  const [{ data: metrics, error }, { data: prevMetrics }, { data: clients }, { data: series }, { data: goal }, { data: alerts }, { count: projectsActive }, { count: tasksLate }] = await Promise.all([
     supabase.rpc('dashboard_metrics', { p_from: from, p_to: to, p_client: clientId }),
+    supabase.rpc('dashboard_metrics', { p_from: prevFrom, p_to: prevTo, p_client: clientId }),
     supabase.from('clients').select('id, name').order('name'),
     seeFinance ? supabase.rpc('finance_monthly_series', { p_months: 12 }) : Promise.resolve({ data: null }),
     supabase.from('goals').select('basis, revenue_target').eq('period_type', 'mensal').eq('period_start', from.slice(0, 8) + '01').maybeSingle(),
@@ -43,6 +49,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   if (error || !metrics) return <Empty title="Não foi possível carregar os indicadores" text={error?.message ?? 'Tente novamente em instantes.'} />;
   const m = metrics as Record<string, number>;
   const n = (k: string) => Number(m[k] ?? 0);
+  const pm = (prevMetrics ?? {}) as Record<string, number>;
+  const dlt = (k: string, goodWhenUp = true) => { const a = n(k), b = Number(pm[k] ?? 0); return { pct: b > 0 ? ((a - b) / b) * 100 : null, goodWhenUp }; };
 
   const fixedAndVar = n('expenses_fixed') + n('expenses_variable') + n('expenses_other');
   const basis = (goal?.basis ?? 'recebido') as Basis;
@@ -56,6 +64,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     <>
       <PageHeader title="Dashboard" subtitle={`Período: ${label}${clientId ? ' · filtrado por cliente' : ''}`} />
 
+      <section aria-label="Ações rápidas" className="mb-6 flex flex-wrap gap-2">
+        {seeSales && <><LinkButton href="/crm/novo" className="btn btn-primary">Novo lead</LinkButton><LinkButton href="/propostas/nova">Nova proposta</LinkButton></>}
+        {seeFinance && <LinkButton href="/financeiro?tab=novo">Novo lançamento</LinkButton>}
+        {['admin', 'comercial', 'designer', 'trafego'].includes(profile.role) && <LinkButton href="/projetos/tarefas/nova">Nova tarefa</LinkButton>}
+        {seeSales && <LinkButton href="/prospeccao" icon={Radar}>Prospecção</LinkButton>}
+      </section>
+
       <form className="card mb-8 flex flex-wrap items-end gap-3 !p-4" method="get">
         <label><span className="label">Mês</span><input type="month" name="m" defaultValue={from.slice(0, 7)} className="input w-44" /></label>
         <label><span className="label">De</span><input type="date" name="from" defaultValue={sp.from} className="input w-40" /></label>
@@ -63,7 +78,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <label className="min-w-48 flex-1"><span className="label">Cliente</span>
           <select name="client" defaultValue={clientId ?? ''} className="input"><option value="">Todos</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <button className="btn btn-dark">Aplicar</button>
-        <Link href="/dashboard" className="btn">Limpar</Link>
+        <LinkButton href="/dashboard" className="btn">Limpar</LinkButton>
       </form>
       <p className="-mt-5 mb-8 text-xs text-muted">Preencha “De/Até” para um período personalizado; caso contrário vale o mês.</p>
 
@@ -80,9 +95,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       {seeFinance && (
         <>
           <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Contratado" value={money(n('contracted'))} hint={`${n('contracts_closed')} proposta(s) aceita(s)`} tone="lime" />
-            <Stat label="Emitido" value={money(n('issued'))} hint="Cobranças emitidas no período" />
-            <Stat label="Recebido" value={money(n('received'))} hint="Liquidado no período" />
+            <Stat label="Contratado" delta={dlt('contracted')} value={money(n('contracted'))} hint={`${n('contracts_closed')} proposta(s) aceita(s)`} tone="lime" />
+            <Stat label="Emitido" delta={dlt('issued')} value={money(n('issued'))} hint="Cobranças emitidas no período" />
+            <Stat label="Recebido" delta={dlt('received')} value={money(n('received'))} hint="Liquidado no período" />
             <Stat label="Receita recorrente (MRR)" value={money(n('mrr'))} hint="Serviços mensais ativos hoje" />
             <Stat label="Contas a receber" value={money(n('receivable_open'))} hint={n('receivable_overdue_count') ? `${money(n('receivable_overdue'))} vencidos (${n('receivable_overdue_count')})` : 'Nada vencido'} tone={n('receivable_overdue_count') ? 'danger' : undefined} href="/financeiro?tab=receber" />
             <Stat label="Despesas fixas" value={money(n('expenses_fixed'))} hint="Vencimentos no período" />
@@ -121,10 +136,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <section aria-label="Operação" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Clientes ativos" value={n('active_clients')} href="/clientes" />
         {seeSales && <>
-          <Stat label="Leads recebidos" value={n('leads_received')} href="/crm" />
-          <Stat label="Propostas enviadas" value={n('proposals_sent')} href="/propostas" />
+          <Stat label="Leads recebidos" delta={dlt('leads_received')} value={n('leads_received')} href="/crm" />
+          <Stat label="Propostas enviadas" delta={dlt('proposals_sent')} value={n('proposals_sent')} href="/propostas" />
           <Stat label="Negociações abertas" value={n('negotiations_open')} hint={money(n('negotiations_value')) + ' em potencial'} href="/crm" />
-          <Stat label="Contratos fechados" value={n('contracts_closed')} hint="Propostas aceitas no período" />
+          <Stat label="Contratos fechados" delta={dlt('contracts_closed')} value={n('contracts_closed')} hint="Propostas aceitas no período" />
           <Stat label="Pipeline ponderado" value={moneyCompact(n('pipeline_weighted'))} hint="Potencial × probabilidade da etapa" />
         </>}
         <Stat label="Projetos em andamento" value={projectsActive ?? 0} href="/projetos?view=projetos" />

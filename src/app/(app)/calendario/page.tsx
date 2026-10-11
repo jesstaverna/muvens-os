@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Empty } from '@/components/ui';
 import { PRIORITY, TASK_STATUS, monthRange, todayBR } from '@/lib/domain';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Calendário de Produção' };
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -30,7 +31,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Calendário de Produção" subtitle={`${MONTHS[mo - 1]} de ${y} — prazos das tarefas`} actions={<><Link href={`/calendario?m=${prev}${keep}`} className="btn btn-sm">← Anterior</Link><Link href={`/calendario${keep ? '?' + keep.slice(1) : ''}`} className="btn btn-sm">Hoje</Link><Link href={`/calendario?m=${nxt}${keep}`} className="btn btn-sm">Próximo →</Link></>} />
+      <PageHeader title="Calendário de Produção" subtitle={`${MONTHS[mo - 1]} de ${y} — prazos das tarefas`} actions={<><LinkButton href={`/calendario?m=${prev}${keep}`} className="btn btn-sm">← Anterior</LinkButton><LinkButton href={`/calendario${keep ? '?' + keep.slice(1) : ''}`} className="btn btn-sm">Hoje</LinkButton><LinkButton href={`/calendario?m=${nxt}${keep}`} className="btn btn-sm">Próximo →</LinkButton></>} />
       <form method="get" className="mb-5 flex flex-wrap items-end gap-2"><input type="hidden" name="m" value={`${y}-${String(mo).padStart(2, '0')}`} />
         <select name="client" defaultValue={sp.client ?? ''} className="input w-56" aria-label="Cliente"><option value="">Todos os clientes</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <label className="flex items-center gap-2 px-2 pb-2.5 text-sm"><input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} /> Só minhas</label><button className="btn btn-dark">Filtrar</button></form>

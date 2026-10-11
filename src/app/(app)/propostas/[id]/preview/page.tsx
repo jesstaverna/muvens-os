@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
 import { ProposalView, type ProposalViewData } from '@/components/ProposalView';
 import { PrintButton } from '@/components/ClientButtons';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Pré-visualização', robots: { index: false } };
 
@@ -20,7 +21,7 @@ export default async function Preview({ params }: { params: Promise<{ id: string
   return (
     <div className="-mx-4 -mt-20 sm:-mx-6 lg:-mx-10 lg:-mt-6">
       <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-line bg-bg px-6 py-3 text-sm">
-        <Link href={`/propostas/${id}`} className="btn btn-sm">← Voltar ao editor</Link>
+        <LinkButton href={`/propostas/${id}`} className="btn btn-sm">← Voltar ao editor</LinkButton>
         <span className="text-muted">Pré-visualização interna — {p.status === 'rascunho' ? 'ainda não enviada' : 'versão atual'}</span>
         <PrintButton />
       </div>

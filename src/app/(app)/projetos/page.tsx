@@ -6,6 +6,7 @@ import { TaskBoard, type KTask } from './TaskBoard';
 import { createPlan, saveRate } from './actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateBR, money } from '@/lib/format';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Projetos e Tarefas' };
 type SP = { view?: string; client?: string; project?: string; me?: string; m?: string };
@@ -44,7 +45,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
   return (
     <>
       <PageHeader title="Projetos e Tarefas" subtitle="Produção por cliente, com fluxo de aprovação, entregáveis e controle de horas."
-        actions={canWrite ? <><Link href="/projetos/novo" className="btn">Novo projeto</Link><Link href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</Link></> : undefined} />
+        actions={canWrite ? <><LinkButton href="/projetos/novo" className="btn">Novo projeto</LinkButton><LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton></> : undefined} />
       <Tabs current={view} items={TABS.map((t) => ({ ...t, href: `/projetos?view=${t.key}` }))} />
 
       {(view === 'kanban' || view === 'lista') && (
@@ -54,7 +55,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
             <select name="project" defaultValue={sp.project ?? ''} className="input w-60" aria-label="Projeto"><option value="">Todos os projetos</option>{projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             <label className="flex items-center gap-2 px-2 pb-2.5 text-sm"><input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} /> Só minhas</label>
             <button className="btn btn-dark">Filtrar</button>{late > 0 && <span className="pb-2.5 text-sm text-danger">{late} atrasada(s)</span>}</form>
-          {!tasks.length ? <Empty title="Nenhuma tarefa" text="Crie um projeto para o cliente e adicione tarefas. Ao assinar um contrato, o projeto de onboarding é criado automaticamente." action={canWrite ? <Link href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</Link> : undefined} />
+          {!tasks.length ? <Empty title="Nenhuma tarefa" text="Crie um projeto para o cliente e adicione tarefas. Ao assinar um contrato, o projeto de onboarding é criado automaticamente." action={canWrite ? <LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton> : undefined} />
             : view === 'kanban' ? <TaskBoard tasks={tasks} /> : (
               <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th><th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th></tr></thead>
                 <tbody>{tasks.map((t) => (<tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td"><Link className="font-medium hover:underline" href={`/projetos/tarefas/${t.id}`}>{t.title}</Link>{t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">fora do escopo</span>}</td>
@@ -62,7 +63,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
                   <td className={`td ${PRIORITY[t.priority].tone}`}>{PRIORITY[t.priority].label}</td><td className="td"><span className={`badge ${TASK_STATUS[t.status].tone}`}>{TASK_STATUS[t.status].label}</span></td></tr>))}</tbody></table></div>)}
         </>)}
 
-      {view === 'projetos' && (!projects?.length ? <Empty title="Nenhum projeto" action={canWrite ? <Link href="/projetos/novo" className="btn btn-primary">Novo projeto</Link> : undefined} /> : (
+      {view === 'projetos' && (!projects?.length ? <Empty title="Nenhum projeto" action={canWrite ? <LinkButton href="/projetos/novo" className="btn btn-primary">Novo projeto</LinkButton> : undefined} /> : (
         <div className="space-y-8">{[...new Set(projects.map((p) => p.client_id))].map((cid) => {
           const list = projects.filter((p) => p.client_id === cid); const cname = one(list[0].clients)?.name;
           return (<section key={cid}><h2 className="mb-3 text-base font-semibold"><Link href={`/clientes/${cid}`} className="hover:underline">{cname}</Link></h2>

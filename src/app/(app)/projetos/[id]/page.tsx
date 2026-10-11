@@ -6,6 +6,7 @@ import { SubmitButton } from '@/components/SubmitButton';
 import { updateProject } from '../actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, todayBR } from '@/lib/domain';
 import { dateBR } from '@/lib/format';
+import { LinkButton } from '@/components/LinkButton';
 
 export default async function ProjetoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,7 +22,7 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
   const cl = Array.isArray(p.clients) ? p.clients[0] : p.clients; const today = todayBR();
   return (
     <>
-      <PageHeader title={p.name} subtitle={`${cl?.name} · ${PROJECT_STATUS[p.status]}`} actions={<><Link href="/projetos?view=projetos" className="btn btn-sm">← Projetos</Link>{canWrite && <Link href={`/projetos/tarefas/nova?project=${id}`} className="btn btn-primary btn-sm">Nova tarefa</Link>}</>} />
+      <PageHeader title={p.name} subtitle={`${cl?.name} · ${PROJECT_STATUS[p.status]}`} actions={<><LinkButton href="/projetos?view=projetos" className="btn btn-sm">← Projetos</LinkButton>{canWrite && <LinkButton href={`/projetos/tarefas/nova?project=${id}`} className="btn btn-primary btn-sm">Nova tarefa</LinkButton>}</>} />
       <div className="grid gap-6 xl:grid-cols-3">
         <section className="xl:col-span-2"><h2 className="mb-3 text-base font-semibold">Tarefas</h2>
           {!tasks?.length ? <Empty title="Sem tarefas" /> : (

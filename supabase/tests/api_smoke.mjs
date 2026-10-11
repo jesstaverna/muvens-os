@@ -120,5 +120,11 @@ ok((await anon.rpc('claim_outreach', { p_limit: 1 })).error != null, 'Anônimo n
 ok((await com.rpc('claim_outreach', { p_limit: 1 })).error != null, 'Usuário não aciona o envio (só servidor)');
 ok((await anon.rpc('unsubscribe_prospect', { p_token: 'x' })).data === false, 'Descadastro público responde sem vazar');
 
+must(await com.from('prospects').select('status, campaign_id, score').limit(5000), 'Prospecção: dados dos grupos por nicho/cidade');
+must(await com.from('prospects').select('id, name').is('campaign_id', null).limit(10), 'Prospecção: grupo dos cadastrados manualmente');
+must(await com.from('prospects').select('id').in('campaign_id', ['aaaaaaaa-0000-0000-0000-000000000001']).limit(10), 'Prospecção: lista de um grupo');
+must(await com.from('clients').select('id, name, segment').or('name.ilike.%a%,legal_name.ilike.%a%,email.ilike.%a%').limit(5), 'Busca global: clientes');
+must(await com.from('tasks').select('id, title, projects(name)').ilike('title', '%a%').limit(5), 'Busca global: tarefas');
+
 console.log(fails ? `\n${fails} falha(s)` : '\nTodas as consultas OK');
 process.exit(fails ? 1 : 0);

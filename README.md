@@ -17,6 +17,8 @@ Fase 2 (parcial): **Portal do Cliente** (`/cliente`) — login individual, cada 
 
 **Prospecção** (Fase 3, estrutura): campanhas por nicho/cidade no Google Maps, análise de site e presença digital com dados públicos, pontuação de oportunidade, rascunhos de e-mail/WhatsApp, e-mail com aprovação, limites, follow-up, bloqueio e descadastro. WhatsApp assistido (sem disparo automático). Google Places e envio de e-mail dependem de chaves (pendentes).
 
+**Interface:** ícones nos botões, títulos, abas, cartões e telas vazias; comparação com o período anterior e ações rápidas no Dashboard; busca global (Ctrl+K); menu lateral agrupado e recolhível; resultados da Prospecção agrupados em caixas por nicho + cidade.
+
 **Pendente / não conectado:** RD Station, RD Conversas (sem assinatura), Clicksign/ZapSign, Meta/Google Ads, Asaas, IA (Fases 3–4); assinatura eletrônica (Clicksign/ZapSign); relatórios de desempenho automáticos e assinatura pelo próprio portal (dependem das integrações da Fase 3).
 
 ## Rodando

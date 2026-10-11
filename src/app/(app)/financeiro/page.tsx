@@ -5,6 +5,7 @@ import { SubmitButton } from '@/components/SubmitButton';
 import { dateBR, money } from '@/lib/format';
 import { TX_STATUS_LABEL, todayBR } from '@/lib/domain';
 import { createTransaction, generateMonth, saveRecurring, setTransactionStatus, toggleRecurring, uploadReceipt } from './actions';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Financeiro' };
 type Tx = { id: string; direction: 'in' | 'out'; description: string; amount: number; status: string; due_date: string; paid_at: string | null; paid_amount: number | null; attachment_path: string | null; client_id: string | null; fin_categories: { name: string; expense_type: string | null } | null; clients: { name: string } | null };
@@ -76,7 +77,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Financeiro" subtitle={`Previsto → emitido → efetivamente recebido/pago. Resumo de ${year}.`} actions={<Link href={nav('novo')} className="btn btn-primary">Novo lançamento</Link>} />
+      <PageHeader title="Financeiro" subtitle={`Previsto → emitido → efetivamente recebido/pago. Resumo de ${year}.`} actions={<LinkButton href={nav('novo')} className="btn btn-primary">Novo lançamento</LinkButton>} />
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Recebido no ano" value={money(recebidoAno)} tone="lime" />
         <Stat label="Pago no ano" value={money(pagoAno)} hint={`Resultado: ${money(recebidoAno - pagoAno)}`} />
@@ -97,7 +98,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
             <input type="date" name="from" defaultValue={sp.from} className="input w-40" aria-label="Vencimento de" /><input type="date" name="to" defaultValue={sp.to} className="input w-40" aria-label="Vencimento até" />
             {tab === 'lancamentos' && <select name="status" defaultValue={sp.status ?? ''} className="input w-40" aria-label="Status"><option value="">Todos</option><option value="previsto">Previsto</option><option value="emitido">Emitido</option><option value="liquidado">Liquidado</option><option value="cancelado">Cancelado</option></select>}
             <button className="btn btn-dark">Filtrar</button></form>
-          {!tx.length ? <Empty title="Nenhum lançamento" text="Gere recebíveis ao ativar uma proposta aceita ou cadastre lançamentos manualmente." action={<Link href={nav('novo')} className="btn btn-primary">Novo lançamento</Link>} /> : (
+          {!tx.length ? <Empty title="Nenhum lançamento" text="Gere recebíveis ao ativar uma proposta aceita ou cadastre lançamentos manualmente." action={<LinkButton href={nav('novo')} className="btn btn-primary">Novo lançamento</LinkButton>} /> : (
             <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Descrição</th><th className="th">Vencimento</th><th className="th">Valor</th><th className="th">Situação</th><th className="th">Ações e comprovante</th></tr></thead><tbody>{tx.map((t) => <Row key={t.id} t={t} />)}</tbody></table></div>)}
           {tab === 'lancamentos' && byClient.size > 0 && (
             <div className="card mt-8"><h2 className="mb-1 text-base font-semibold">Resultado por cliente — {year}</h2><p className="mb-4 text-xs text-muted">Recebido − custos diretos lançados no cliente. Horas de equipe entram na Fase 2 <Pending>Fase 2</Pending>.</p>

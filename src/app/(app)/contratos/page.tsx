@@ -6,6 +6,7 @@ import { CONTRACT_STATUS, todayBR } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { SubmitButton } from '@/components/SubmitButton';
 import { newContract } from './actions';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Contratos' };
 
@@ -23,7 +24,7 @@ export default async function Contratos({ searchParams }: { searchParams: Promis
   const expiring = all.filter((c) => c.status === 'assinado' && c.ends_on && c.ends_on >= today && c.ends_on <= in30);
   return (
     <>
-      <PageHeader title="Contratos" subtitle="Rascunho gerado ao aceitar a proposta → revisão humana obrigatória → assinatura → cliente ativo e financeiro." actions={<>{profile.role === 'admin' || profile.role === 'comercial' ? <Link href="/contratos/modelos" className="btn">Modelos e dados da agência</Link> : null}</>} />
+      <PageHeader title="Contratos" subtitle="Rascunho gerado ao aceitar a proposta → revisão humana obrigatória → assinatura → cliente ativo e financeiro." actions={<>{profile.role === 'admin' || profile.role === 'comercial' ? <LinkButton href="/contratos/modelos" className="btn">Modelos e dados da agência</LinkButton> : null}</>} />
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Em revisão / rascunho" value={all.filter((c) => ['rascunho', 'em_revisao'].includes(c.status)).length} />
         <Stat label="Aprovados (aguardando assinatura)" value={all.filter((c) => ['aprovado', 'enviado_assinatura'].includes(c.status)).length} />

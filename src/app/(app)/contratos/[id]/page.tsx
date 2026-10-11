@@ -7,6 +7,7 @@ import { dateTimeBR, money } from '@/lib/format';
 import { setContractStatus, saveContract, changeTemplate } from '../actions';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { CONTRACT_STATUS } from '@/lib/domain';
+import { LinkButton } from '@/components/LinkButton';
 
 export default async function ContratoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,7 +28,7 @@ export default async function ContratoPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <PageHeader title={`#${c.number} · ${c.title}`} subtitle={`${cl?.name ?? ''} · ${SERVICE_LABEL[c.service_template ?? ''] ?? 'Serviço'} · proposta #${pr?.number}`}
-        actions={<><span className={`badge ${st.tone}`}>{st.label}</span><Link href="/contratos" className="btn btn-sm">← Contratos</Link><Link href={`/propostas/${c.proposal_id}`} className="btn btn-sm">Ver proposta</Link><Link href={`/contratos/${id}/imprimir`} className="btn btn-sm">Imprimir / PDF</Link></>} />
+        actions={<><span className={`badge ${st.tone}`}>{st.label}</span><LinkButton href="/contratos" className="btn btn-sm">← Contratos</LinkButton><LinkButton href={`/propostas/${c.proposal_id}`} className="btn btn-sm">Ver proposta</LinkButton><LinkButton href={`/contratos/${id}/imprimir`} className="btn btn-sm">Imprimir / PDF</LinkButton></>} />
 
       <div className="card mb-6 text-sm"><b>Revisão humana obrigatória.</b> O texto é gerado a partir de um modelo-base e dos dados da proposta; <u>não é assessoria jurídica</u>. Revise com o jurídico e complete os campos <code>[PREENCHER]</code> antes de aprovar.
         {pendentes > 0 && <span className="ml-1 font-medium text-warn">Pendentes: {pendentes}.</span>}</div>

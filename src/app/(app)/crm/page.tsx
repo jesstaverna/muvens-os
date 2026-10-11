@@ -4,6 +4,7 @@ import { PageHeader, Stat, Empty, Tabs } from '@/components/ui';
 import { KanbanBoard, type KLead } from './KanbanBoard';
 import { dateBR, dateTimeBR, money, pct, relativeDays } from '@/lib/format';
 import { monthRange, todayBR } from '@/lib/domain';
+import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'CRM e Leads' };
 type SP = { view?: string; q?: string; owner?: string };
@@ -51,7 +52,7 @@ export default async function CRM({ searchParams }: { searchParams: Promise<SP> 
 
   return (
     <>
-      <PageHeader title="CRM e Leads" subtitle="Funil comercial da Muvens." actions={<><Link href="/configuracoes#funil" className="btn">Personalizar etapas</Link><Link href="/crm/novo" className="btn btn-primary">Novo lead</Link></>} />
+      <PageHeader title="CRM e Leads" subtitle="Funil comercial da Muvens." actions={<><LinkButton href="/configuracoes#funil" className="btn">Personalizar etapas</LinkButton><LinkButton href="/crm/novo" className="btn btn-primary">Novo lead</LinkButton></>} />
 
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Leads no mês" value={c.total ?? 0} />
@@ -69,7 +70,7 @@ export default async function CRM({ searchParams }: { searchParams: Promise<SP> 
       </div>
 
       {!k.length ? (
-        <Empty title={q || sp.owner ? 'Nenhum lead encontrado' : 'Nenhum lead ainda'} text="Cadastre o primeiro lead manualmente. Quando o RD Station/RD Conversas for conectado (Fase 3), os leads chegam automaticamente." action={<Link href="/crm/novo" className="btn btn-primary">Novo lead</Link>} />
+        <Empty title={q || sp.owner ? 'Nenhum lead encontrado' : 'Nenhum lead ainda'} text="Cadastre o primeiro lead manualmente. Quando o RD Station/RD Conversas for conectado (Fase 3), os leads chegam automaticamente." action={<LinkButton href="/crm/novo" className="btn btn-primary">Novo lead</LinkButton>} />
       ) : view === 'kanban' ? (
         <KanbanBoard stages={(stages ?? []) as { id: string; name: string; kind: 'open' | 'won' | 'lost' }[]} leads={k} />
       ) : view === 'lista' ? (

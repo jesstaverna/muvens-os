@@ -4,6 +4,7 @@ import { PageHeader, Empty } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { dateTimeBR } from '@/lib/format';
 import { revalidatePath } from 'next/cache';
+import { LinkButton } from '@/components/LinkButton';
 
 async function markAllRead() {
   'use server';
@@ -35,7 +36,7 @@ export default async function Alertas() {
                 {n.body && <div className="mt-0.5 text-sm text-muted">{n.body}</div>}
                 <div className="mt-1 text-xs text-muted">{dateTimeBR(n.created_at)}</div>
               </div>
-              {n.link && <Link href={n.link} className="btn btn-sm shrink-0">Abrir</Link>}
+              {n.link && <LinkButton href={n.link} className="btn btn-sm shrink-0">Abrir</LinkButton>}
             </li>
           ))}
         </ul>
