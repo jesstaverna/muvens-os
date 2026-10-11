@@ -40,3 +40,8 @@ PGRST_URL=http://127.0.0.1:3111 npx vitest run       # + worker contra PostgREST
 PGRST_URL=http://127.0.0.1:3111 node supabase/tests/api_smoke.mjs   # consultas das páginas contra PostgREST local
 ```
 PostgREST local: ver cabeçalho de `supabase/tests/api_smoke.mjs`.
+
+```bash
+npm run build && npm run test:pages   # abre ~78 páginas logado como cada perfil (admin, comercial, financeiro, designer, cliente); falha se alguma der erro 500
+```
+Requer o PostgREST local de pé (porta 3111) e as portas 3098/3099 livres. Detecta erros de renderização no servidor (ex.: passar um ícone/função a um componente de cliente).

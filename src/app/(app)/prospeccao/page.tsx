@@ -8,7 +8,6 @@ import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
-import { Search as SearchIcon } from 'lucide-react';
 import { LinkButton } from '@/components/LinkButton';
 import { groupCampaigns, slug } from '@/lib/prospecting/groups';
 
@@ -54,7 +53,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
         <div className="grid items-end gap-3 md:grid-cols-[1.4fr_1fr_auto]">
           <label><span className="label">Nicho / área</span><input name="niche" required minLength={2} maxLength={80} className="input" placeholder="ex.: clínica odontológica, indústria, restaurante" /></label>
           <label><span className="label">Cidade</span><input name="city" required minLength={2} maxLength={80} className="input" placeholder="ex.: Curitiba" /></label>
-          <SubmitButton className="btn btn-primary" pendingText="Buscando e analisando…" icon={SearchIcon}>Buscar prospectos</SubmitButton>
+          <SubmitButton className="btn btn-primary" pendingText="Buscando e analisando…">Buscar prospectos</SubmitButton>
         </div>
         <p className="mt-2 text-xs text-muted">Busca empresas no Google Maps, analisa o site de cada uma e mostra os resultados abaixo, agrupados por nicho e cidade. {!placesOk && <><Pending>Google Maps pendente</Pending> — configure a chave na Vercel; até lá, use <Link href={nav('novo')} className="underline">Cadastrar manualmente</Link>.</>}</p>
       </form>
