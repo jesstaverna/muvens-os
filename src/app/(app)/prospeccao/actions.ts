@@ -219,3 +219,19 @@ export async function analyzeBatch(grp: string): Promise<{ processed: number; re
   try { const r = await analyzeNextBatch(supabase, scope, 4); return { processed: r.processed, remaining: r.remaining }; }
   catch (e) { return { processed: 0, remaining: 0, error: e instanceof Error ? e.message : 'Falha na análise.' }; }
 }
+
+/** Preços de referência exibidos como "a partir de" na landing. Campo vazio = "sob consulta". Só administradores. */
+export async function savePrices(fd: FormData) {
+  const { supabase } = await requireModule('prospeccao');
+  for (const service of Object.keys(SERVICE_LABEL)) {
+    const raw = String(fd.get(`price_${service}`) ?? '').trim().replace(/\./g, '').replace(',', '.');
+    if (!raw) { const { error } = await supabase.from('service_prices').delete().eq('service', service); if (error) dbErr(`${B}?tab=config`, error); continue; }
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v <= 0 || v > 10_000_000) flash(`${B}?tab=config`, 'err', `Valor inválido em ${SERVICE_LABEL[service]}.`);
+    const unit = fd.get(`unit_${service}`) === 'mensal' ? 'mensal' : 'unico';
+    const { error } = await supabase.from('service_prices').upsert({ service, price_from: v, unit }, { onConflict: 'service' });
+    if (error) dbErr(`${B}?tab=config`, error);
+  }
+  revalidatePath(B);
+  flash(`${B}?tab=config`, 'ok', 'Preços de referência salvos.');
+}

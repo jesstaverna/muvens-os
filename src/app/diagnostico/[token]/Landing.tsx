@@ -13,11 +13,14 @@ const ICON = { site: Globe, redes: Share2, conversao: MousePointerClick, anuncio
 const LEVEL = { alta: 'Alto potencial de crescimento', media: 'Bom potencial de melhoria', baixa: 'Base digital sólida', indefinida: 'Diagnóstico' } as const;
 
 /** Landing page do diagnóstico de um prospecto: tema próprio da marca (preto, verde-limão, off-white), independente do tema do sistema. */
-export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: string; email?: string }) {
+export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: string; email?: string; prices?: Record<string, { from: number; unit: string }> }) {
   const r = buildReport(props); const seg = segmentFor(props.category); const steps = buildProposal(r);
   const local = [props.reviews != null && `${props.reviews} avaliações no Google`, props.rating && `nota ${String(props.rating).replace('.', ',')}`].filter(Boolean).join(' · ');
   const cta = props.whatsapp ? `https://wa.me/${props.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Vi o diagnóstico da ${props.name} e gostaria de conversar.`)}` : props.email ? `mailto:${props.email}?subject=${encodeURIComponent(`Diagnóstico — ${props.name}`)}` : null;
   const Cta = ({ dark }: { dark?: boolean }) => cta ? <a href={cta} className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition hover:opacity-90 ${dark ? 'bg-black text-[#DCEA1E]' : 'bg-[#DCEA1E] text-black'}`}>Quero conversar com a Muvens <ArrowRight className="h-4 w-4" strokeWidth={2} /></a> : null;
+  const hasPrices = !!props.prices && Object.keys(props.prices).length > 0;
+  const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const priceOf = (svc: string) => { const x = props.prices?.[svc]; return x ? `A partir de ${brl(Number(x.from))}${x.unit === 'mensal' ? ' / mês' : ''}` : 'Sob consulta'; };
   const stats = [
     { n: r.score != null ? `${r.score}/100` : '—', l: 'Pontuação de oportunidade' },
     { n: String(props.observations.length), l: 'Pontos de melhoria identificados' },
@@ -28,7 +31,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
       <header className="bg-black text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
           <span className="flex items-center gap-3"><img src="/logo-muvens.svg" alt="" className="h-9 w-auto" /><span className="text-lg font-semibold tracking-[0.2em]">MUVENS</span><span className="sr-only">Muvens Agência</span></span>
-          <span className="text-xs uppercase tracking-widest text-white/50">Diagnóstico gratuito de presença digital</span>
+          <span className="hidden text-xs uppercase tracking-widest text-white/50 lg:inline">Diagnóstico gratuito de presença digital</span>{cta && <a href={cta} className="hidden items-center gap-1.5 rounded-full bg-[#DCEA1E] px-4 py-2 text-xs font-semibold text-black hover:opacity-90 sm:inline-flex">Falar com a Muvens <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} /></a>}
         </div>
         <div className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
           <span className="inline-block rounded-full bg-[#DCEA1E] px-3 py-1 text-xs font-semibold text-black">{LEVEL[r.level]}</span>
@@ -42,6 +45,15 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
       </header>
 
       <main className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-20">
+        {!r.hasSite || !r.reachable ? (
+          <section className="rounded-3xl border border-neutral-200 bg-white p-7 sm:p-10">
+            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{!r.hasSite ? 'Hoje, quem procura a empresa no Google não encontra um site' : 'O site não abriu durante a nossa análise'}</h2>
+            <p className="mt-3 max-w-3xl text-neutral-700">{!r.hasSite ? 'Sem site, a empresa depende só de indicação e de perfis em terceiros. Quem pesquisa para comparar fornecedores segue para o concorrente que aparece primeiro e passa mais confiança.' : 'Um site fora do ar ou lento faz o cliente desistir em segundos. Vale confirmar o motivo e corrigir antes de investir em divulgação.'}</p>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-3">{['Clientes não conseguem conferir serviços e contato', 'Anúncios e redes não têm para onde levar o interesse', 'A marca perde credibilidade frente a quem tem site'].map((t) => <li key={t} className="flex gap-3 rounded-xl bg-[#F7F7F4] p-4 text-sm"><XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" strokeWidth={2} />{t}</li>)}</ul>
+            <p className="mt-6 text-sm text-neutral-600">Redes sociais, conversão e anúncios só podem ser medidos depois que houver um site no ar.</p>
+            {r.pillars.filter((p) => p.key === 'marca').map((p) => <div key={p.key} className="mt-6 rounded-xl border border-neutral-200 p-4"><h3 className="font-semibold">{p.title}</h3><ul className="mt-2 space-y-1 text-sm">{p.items.filter((x) => x.ok !== null).map((x) => <li key={x.label} className="flex gap-2"><span className={x.ok ? 'text-emerald-600' : 'text-red-600'}>{x.ok ? '✓' : '✗'}</span>{x.label}</li>)}</ul></div>)}
+          </section>
+        ) : (<>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Como está a presença digital hoje</h2>
         <p className="mt-2 max-w-2xl text-neutral-600">Cinco áreas que influenciam diretamente quantos clientes encontram e escolhem {props.name}.</p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -53,6 +65,8 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
               <ul className="mt-4 space-y-1.5 border-t border-neutral-100 pt-4 text-sm">{p.items.map((x) => <li key={x.label} className="flex items-start gap-2"><span className={`mt-0.5 font-bold ${x.ok === null ? 'text-neutral-400' : x.ok ? 'text-emerald-600' : 'text-red-600'}`}>{x.ok === null ? '•' : x.ok ? '✓' : '✗'}</span><span>{x.label}</span></li>)}</ul>
             </article>); })}
         </div>
+
+        </>)}
 
         {(r.opportunities.length > 0 || r.strengths.length > 0) && (
           <div className={`mt-16 grid gap-6 ${r.opportunities.length > 0 && r.strengths.length > 0 ? 'lg:grid-cols-2' : ''}`}>
@@ -82,11 +96,11 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
         <section className="mt-16">
           <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Proposta de melhorias</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Plano sugerido para {props.name}</h2>
-          <p className="mt-2 max-w-2xl text-neutral-600">Ordenado pelo que mais pesa no diagnóstico. Valores e prazos definimos juntos, depois de uma conversa.</p>
+          <p className="mt-2 max-w-2xl text-neutral-600">Ordenado pelo que mais pesa no diagnóstico. {hasPrices ? 'Valores de referência; a proposta final depende de um breve briefing.' : 'Valores e prazos definimos juntos, depois de uma conversa.'}</p>
           <ol className="mt-8 space-y-4">{steps.map((st, i) => (
             <li key={st.title} className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-6 sm:grid-cols-[auto_1fr]">
               <span className="grid h-12 w-12 place-items-center rounded-full bg-[#DCEA1E] text-lg font-semibold text-black">{i + 1}</span>
-              <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-semibold">{st.title}</h3><span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-600">Etapa {st.phase} · {SERVICE_LABEL[st.service] ?? st.service}</span></div>
+              <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-semibold">{st.title}</h3><span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-600">Etapa {st.phase} · {SERVICE_LABEL[st.service] ?? st.service}</span>{hasPrices && <span className="rounded-full bg-black px-2.5 py-0.5 text-xs font-medium text-[#DCEA1E]">{priceOf(st.service)}</span>}</div>
                 <p className="mt-1 text-sm text-neutral-600">{st.why}</p>
                 <ul className="mt-3 grid gap-1.5 text-sm sm:grid-cols-2">{st.deliverables.map((d) => <li key={d} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />{d}</li>)}</ul></div>
             </li>))}</ol>
@@ -105,6 +119,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
           <p>Baseado somente em informações públicas (site e Google); não substitui uma auditoria completa.{props.generatedAt && ` Gerado em ${props.generatedAt}.`}</p>
         </div>
       </footer>
+    {cta && <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/95 p-3 sm:hidden"><a href={cta} className="flex items-center justify-center gap-2 rounded-full bg-[#DCEA1E] px-5 py-3 text-sm font-semibold text-black">Quero conversar com a Muvens <ArrowRight className="h-4 w-4" strokeWidth={2} /></a></div>}
     </div>
   );
 }

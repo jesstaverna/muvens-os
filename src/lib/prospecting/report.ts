@@ -5,7 +5,7 @@ export type Status = 'ok' | 'atencao' | 'ausente' | 'desconhecido';
 export interface Pillar { key: string; title: string; status: Status; summary: string; items: { label: string; ok: boolean | null }[] }
 export interface Report {
   headline: string; level: 'alta' | 'media' | 'baixa' | 'indefinida'; score: number | null;
-  pillars: Pillar[]; opportunities: string[]; service: ServiceKey | null; strengths: string[];
+  pillars: Pillar[]; hasSite: boolean; reachable: boolean; opportunities: string[]; service: ServiceKey | null; strengths: string[];
 }
 export interface ReportInput {
   name: string; category?: string | null; website?: string | null; rating?: number | null; reviews?: number | null; score?: number | null;
@@ -39,8 +39,8 @@ export function buildReport(i: ReportInput): Report {
   });
   const score = i.score ?? null;
   const level = score == null ? 'indefinida' : score >= 60 ? 'alta' : score >= 30 ? 'media' : 'baixa';
-  const headline = !i.analyzed ? `Diagnóstico de presença digital de ${i.name}` :
+  const headline = i.analyzed && !hasSite ? `${i.name} ainda não tem site próprio — e essa é a maior oportunidade` : i.analyzed && hasSite && !reach ? `O site de ${i.name} não abriu na nossa análise — e isso afasta clientes` : !i.analyzed ? `Diagnóstico de presença digital de ${i.name}` :
     level === 'alta' ? `${i.name} tem bastante espaço para crescer no digital` : level === 'media' ? `${i.name} tem boas oportunidades de melhoria no digital` : `${i.name} já tem uma boa base digital, com ajustes pontuais`;
   const strengths = pillars.flatMap((p) => p.items.filter((x) => x.ok === true).map((x) => x.label));
-  return { headline, level, score, pillars, opportunities: i.observations, service: (i.service as ServiceKey) ?? null, strengths };
+  return { headline, level, score, pillars, hasSite, reachable: reach, opportunities: i.observations, service: (i.service as ServiceKey) ?? null, strengths };
 }

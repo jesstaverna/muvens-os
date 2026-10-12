@@ -3,7 +3,7 @@ import { ChevronRight, FolderOpen, List } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
-import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings } from './actions';
+import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices } from './actions';
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
@@ -42,10 +42,11 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   if (sp.status && sp.status in PROSPECT_STATUS) pq = pq.eq('status', sp.status);
   if (grp === 'manual') pq = pq.is('campaign_id', null); else if (groups.get(grp)) pq = pq.in('campaign_id', groups.get(grp)!.ids);
   if (sp.min && Number(sp.min) > 0) pq = pq.gte('score', Number(sp.min));
-  const [{ data: prospects }, { data: counts }, { data: queue }, { data: supp }] = await Promise.all([
+  const [{ data: prospects }, { data: counts }, { data: queue }, { data: priceRows }, { data: supp }] = await Promise.all([
     listMode ? pq : Promise.resolve({ data: [] as never[] }),
     supabase.from('prospects').select('status, campaign_id, score').limit(5000),
     tab === 'fila' ? supabase.from('outreach_messages').select('id, prospect_id, channel, step, subject, status, created_at, sent_at, error, prospects(name, email)').eq('channel', 'email').order('created_at', { ascending: false }).limit(200) : Promise.resolve({ data: [] as never[] }),
+    tab === 'config' ? supabase.from('service_prices').select('service, price_from, unit') : Promise.resolve({ data: [] as never[] }),
     tab === 'bloqueios' ? supabase.from('suppression_list').select('*').order('created_at', { ascending: false }).limit(300) : Promise.resolve({ data: [] as never[] }),
   ]);
   const by = (s: string) => counts?.filter((c) => c.status === s).length ?? 0;
@@ -168,6 +169,14 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="require_approval" defaultChecked={settings.require_approval} className="mt-1" /><span><b>Exigir aprovação humana de cada e-mail</b> (recomendado). Desmarque só depois de revisar vários textos e ver que a qualidade está boa.</span></label>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="sending_enabled" defaultChecked={settings.sending_enabled} className="mt-1" /><span><b>Ligar o envio automático.</b> Só envia se: provedor configurado, identificação completa, dentro do horário e do limite, e fora da lista de bloqueio. Todo e-mail leva identificação, motivo do contato e link de descadastro.</span></label></div>
         </fieldset>{isAdmin ? <SubmitButton>Salvar configurações</SubmitButton> : <p className="text-sm text-muted">Somente administradores alteram estas configurações.</p>}</form>)}
+      {tab === 'config' && settings && (
+        <form action={savePrices} className="card mt-6 max-w-3xl space-y-4"><fieldset disabled={!isAdmin} className="space-y-4">
+          <div><h2 className="text-base font-semibold">Preços de referência ("a partir de")</h2><p className="mt-1 text-sm text-muted">Aparecem na landing do diagnóstico, na proposta de cada serviço. Deixe em branco para exibir "sob consulta". Se nenhum preço for preenchido, a landing não mostra valores.</p></div>
+          <div className="space-y-2">{Object.entries(SERVICE_LABEL).map(([k, label]) => { const row = priceRows?.find((x: { service: string }) => x.service === k) as { price_from: number; unit: string } | undefined; return (
+            <div key={k} className="grid items-center gap-2 sm:grid-cols-[1fr_9rem_8rem]"><span className="text-sm">{label}</span>
+              <input name={`price_${k}`} inputMode="decimal" placeholder="sob consulta" defaultValue={row ? String(row.price_from).replace('.', ',') : ''} className="input" aria-label={`Preço de ${label}`} />
+              <select name={`unit_${k}`} defaultValue={row?.unit ?? 'unico'} className="input" aria-label={`Tipo de cobrança de ${label}`}><option value="unico">valor único</option><option value="mensal">por mês</option></select></div>); })}</div>
+        </fieldset>{isAdmin ? <SubmitButton>Salvar preços</SubmitButton> : <p className="text-sm text-muted">Somente administradores alteram os preços.</p>}</form>)}
     </>
   );
 }

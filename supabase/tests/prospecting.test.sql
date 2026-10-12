@@ -147,3 +147,19 @@ do $$ declare t text; begin
   assert public.public_prospect_report(t) is null, 'descartado/descadastrado deixa de ser público';
 end $$;
 reset role;
+
+-- 0013: visualizações e preços
+reset role;
+update prospects set status = 'analisado' where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+insert into service_prices (service, price_from, unit) values ('redes_sociais', 990, 'mensal') on conflict (service) do update set price_from = 990;
+set role anon;
+do $$ declare t text; r jsonb; begin
+  reset role; select report_token into t from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001'; set role anon;
+  assert public.record_report_view(t) and public.record_report_view(t), 'registra visualização';
+  assert public.record_report_view('nao-existe') = false, 'token inválido não registra';
+  r := public.public_prospect_report(t);
+  assert (r->'prices'->'redes_sociais'->>'unit') = 'mensal', 'preço de referência aparece no diagnóstico público';
+  begin perform 1 from public.service_prices; assert false, 'anon não pode ler a tabela de preços'; exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+do $$ begin assert (select report_views from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001') = 2 and (select count(*) from notifications where dedupe_key like 'report_view:%') = 1, 'duas visualizações, um aviso'; end $$;

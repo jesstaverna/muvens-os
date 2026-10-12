@@ -13,3 +13,7 @@ Se aparecer erro em vermelho, não rode de novo: copie a mensagem inteira (a exe
 ## C — Link público do diagnóstico (migração 12)
 
 Se a integração GitHub↔Supabase não aplicou sozinha: rode `C_link_publico_diagnostico.sql` **uma vez** (pré-requisito: tabela `prospects` existente). Conferência: `select to_regprocedure('public.public_prospect_report(text)') is not null;` → `true`.
+
+## D — Visualizações da landing e preços "a partir de" (migração 13)
+
+Pré-requisito: migração 12 (arquivo C). Rode `D_visualizacoes_e_precos.sql` **uma vez**. Conferência: `select to_regclass('public.service_prices') is not null;` → `true`.

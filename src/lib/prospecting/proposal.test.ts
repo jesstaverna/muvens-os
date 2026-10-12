@@ -9,7 +9,7 @@ describe('proposta e mercado', () => {
     expect(buildProposal(r)[0].service).toBe('site_institucional');
   });
   it('tudo ok → consultoria', () => {
-    expect(buildProposal({ headline: '', level: 'baixa', score: 5, pillars: [], opportunities: [], service: null, strengths: [] })[0].service).toBe('consultoria');
+    expect(buildProposal({ headline: '', level: 'baixa', score: 5, pillars: [], hasSite: true, reachable: true, opportunities: [], service: null, strengths: [] })[0].service).toBe('consultoria');
   });
   it('segmento por categoria', () => {
     expect(segmentFor('Clínica odontológica', null).key).toBe('saude');
