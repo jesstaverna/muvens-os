@@ -106,6 +106,19 @@ export async function analyzeNow(id: string) {
   flash(`${B}/${id}`, r.ok ? 'ok' : 'err', r.ok ? 'Análise atualizada.' : `Falha na análise: ${r.error}`);
 }
 
+/** Define como e-mail principal do prospecto um dos e-mails públicos achados no site (a pessoa escolhe). */
+export async function useContactEmail(id: string, fd: FormData) {
+  const { supabase } = await requireModule('prospeccao');
+  const email = String(fd.get('email') ?? '').trim().toLowerCase();
+  const { data: p } = await supabase.from('prospects').select('analysis').eq('id', id).maybeSingle();
+  const allowed = ((p?.analysis as { site?: { emails?: string[] } } | null)?.site?.emails ?? []).includes(email);
+  if (!allowed) flash(`${B}/${id}`, 'err', 'Esse e-mail não está entre os encontrados no site.');
+  const { error } = await supabase.from('prospects').update({ email, analysis: { ...(p!.analysis as object), email_source: 'site' } }).eq('id', id);
+  if (error) dbErr(`${B}/${id}`, error);
+  revalidatePath(`${B}/${id}`);
+  flash(`${B}/${id}`, 'ok', 'E-mail de contato atualizado. Reanalise para refazer os rascunhos de mensagem.');
+}
+
 export async function setProspectStatus(id: string, status: string) {
   const { supabase } = await requireModule('prospeccao');
   if (!['descartado', 'respondeu', 'analisado'].includes(status)) flash(`${B}/${id}`, 'err', 'Status inválido.');

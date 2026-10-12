@@ -21,3 +21,7 @@ Pré-requisito: migração 12 (arquivo C). Rode `D_visualizacoes_e_precos.sql` *
 ## E — Pontuação da landing sem o bônus de contato (migração 14)
 
 Pré-requisito: migração 13 (arquivo D). Rode `E_pontuacao_na_landing.sql` **uma vez** (é só uma função; pode ser rodada de novo sem problema).
+
+## F — Novos serviços (migração 15)
+
+Libera RD Station Marketing, RD Station Conversas, Estratégia de automação e IA aplicada em propostas e contratos. Rode `F_novos_servicos.sql` **uma vez**. Sem ela, escolher esses serviços numa proposta dá erro de valor inválido.

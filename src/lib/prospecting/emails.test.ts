@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractEmails, pickBestEmail } from './emails';
+import { classifyEmail, extractEmails, pickBestEmail } from './emails';
 
 describe('extractEmails', () => {
   it('lê mailto e texto, em minúsculas, sem duplicar', () => {
@@ -17,5 +17,17 @@ describe('pickBestEmail', () => {
     expect(pickBestEmail(['pessoa@gmail.com', 'financeiro@bela.com.br', 'contato@bela.com.br'], 'bela.com.br')).toBe('contato@bela.com.br');
     expect(pickBestEmail(['x@gmail.com', 'y@outlook.com'], 'bela.com.br')).toBeTruthy();
     expect(pickBestEmail([], 'a.com')).toBeNull();
+  });
+});
+
+describe('classifyEmail e preferência comercial', () => {
+  it('rotula por área', () => {
+    expect(classifyEmail('compras@a.com')).toBe('compras');
+    expect(classifyEmail('vendas@a.com')).toBe('comercial'); expect(classifyEmail('diretoria@a.com')).toBe('diretoria');
+    expect(classifyEmail('contato@a.com')).toBe('geral'); expect(classifyEmail('joao.silva@a.com')).toBe('pessoal');
+  });
+  it('prefere comercial/compras a contato geral', () => {
+    expect(pickBestEmail(['contato@a.com.br', 'compras@a.com.br'], 'a.com.br')).toBe('compras@a.com.br');
+    expect(pickBestEmail(['contato@a.com.br', 'comercial@a.com.br'], 'a.com.br')).toBe('comercial@a.com.br');
   });
 });

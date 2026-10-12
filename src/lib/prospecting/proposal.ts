@@ -9,6 +9,10 @@ const PLAN: Record<string, { title: string; service: string; deliverables: strin
   marca: { title: 'Marca mais profissional e reconhecível', service: 'branding', deliverables: ['Revisão da identidade visual (logo, cores, tipografia)', 'Ícone e imagem de compartilhamento do site', 'Estratégia para ganhar avaliações no Google'] },
   anuncios: { title: 'Anúncios com resultado medido', service: 'trafego_pago', deliverables: ['Instalação de pixel e Tag Manager', 'Campanhas iniciais segmentadas', 'Relatório de resultados'] },
 };
+const EXTRAS: Record<string, { title: string; service: string; deliverables: string[] }> = {
+  rd_conversas: { title: 'Atendimento centralizado (RD Station Conversas)', service: 'rd_conversas', deliverables: ['WhatsApp, chat do site e outros canais em um só lugar', 'Distribuição de conversas e respostas rápidas', 'Treinamento da equipe'] },
+  rd_marketing: { title: 'Captação e nutrição de leads (RD Station Marketing)', service: 'rd_marketing', deliverables: ['Formulários e páginas de captação integrados', 'Fluxos automáticos de e-mail', 'Relatório de leads e resultados'] },
+};
 const RANK = { ausente: 0, atencao: 1, desconhecido: 2, ok: 3 } as const;
 
 export function buildProposal(r: Report): Step[] {
@@ -17,6 +21,8 @@ export function buildProposal(r: Report): Step[] {
   if (r.service && !out.some((s) => s.service === r.service) && out.length < 3 && PLAN[Object.keys(PLAN).find((k) => PLAN[k].service === r.service) ?? '']) {
     const k = Object.keys(PLAN).find((x) => PLAN[x].service === r.service)!; out.unshift({ phase: 1, title: PLAN[k].title, why: 'Serviço com maior potencial segundo a análise', deliverables: PLAN[k].deliverables, service: r.service });
   }
+  const conv = r.pillars.find((p) => p.key === 'conversao');
+  if (conv && (conv.status === 'ausente' || conv.status === 'atencao') && out.length < 5) for (const k of ['rd_conversas', 'rd_marketing']) out.push({ phase: 3, why: 'Organizar e automatizar os contatos que chegam', ...EXTRAS[k] });
   if (!out.length) out.push({ phase: 1, title: 'Consultoria de presença digital', why: 'Base digital em boa forma: foco em evoluir e medir', deliverables: ['Revisão de oportunidades de crescimento', 'Plano de conteúdo e mídia com metas'], service: 'consultoria' });
   return out;
 }
@@ -31,5 +37,9 @@ export const SERVICE_BLURB: Record<string, string> = {
   design_recorrente: 'Peças de design todo mês, com padrão visual da marca.',
   design_posts: 'Artes para posts e stories, no padrão visual da empresa.',
   consultoria: 'Diagnóstico e plano de ação para a presença digital.',
+  rd_marketing: 'Automação de marketing: captação, nutrição e acompanhamento de leads no RD Station.',
+  rd_conversas: 'Atendimento centralizado (WhatsApp e chat) com distribuição de conversas e respostas rápidas.',
+  automacao: 'Mapeamento e automação dos processos comerciais e de marketing.',
+  ia_aplicada: 'Inteligência artificial aplicada a atendimento, conteúdo e prospecção, com supervisão humana.',
   personalizado: 'Projeto sob medida para uma necessidade específica.',
 };

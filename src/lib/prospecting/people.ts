@@ -1,7 +1,8 @@
 // Pessoas de decisão citadas em páginas PÚBLICAS do site. Só registra o que aparece no texto; nunca deduz.
-export interface Person { role: 'comercial' | 'direcao'; title: string; name?: string }
+export interface Person { role: 'comercial' | 'compras' | 'direcao'; title: string; name?: string }
 
 const ROLES: { role: Person['role']; re: RegExp }[] = [
+  { role: 'compras', re: /gerente\s+de\s+compras|diretor(?:a)?\s+de\s+(?:compras|suprimentos)|coordenador(?:a)?\s+de\s+compras|comprador(?:a)?|analista\s+de\s+compras|supply\s+chain|suprimentos/i },
   { role: 'comercial', re: /diretor(?:a)?\s+comercial|diretor(?:a)?\s+de\s+vendas|gerente\s+comercial|head\s+(?:of\s+)?(?:sales|comercial)|cro\b/i },
   { role: 'direcao', re: /diretor(?:a)?[\s-]+(?:geral|executivo|presidente)|\bceo\b|fundador(?:a)?|co-?fundador(?:a)?|s[óo]cio(?:-| )(?:diretor|fundador|propriet[áa]rio)|propriet[áa]rio(?:a)?|presidente|\bdono\b/i },
 ];

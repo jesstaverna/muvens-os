@@ -15,6 +15,8 @@ export interface SiteFindings {
   hasWhatsappLink: boolean;
   emails?: string[];              // e-mails comerciais públicos encontrados no site
   whatsappNumbers?: string[];     // números publicados em links de WhatsApp do site
+  contacts?: { email: string; kind: string; page?: string }[];  // e-mails públicos achados no site, rotulados por área
+  pagesChecked?: string[];
   people?: Person[];              // diretor comercial / direção citados no site
   hasAdsPixel: boolean;           // Meta Pixel / Google Tag / GTM
   hasContactForm: boolean;
@@ -59,7 +61,7 @@ export function analyzeHtml(html: string, finalUrl: string): SiteFindings {
 
 export const unreachable = (error: string): SiteFindings => ({ reachable: false, https: false, hasMetaDescription: false, hasViewport: false, hasWhatsappLink: false, hasAdsPixel: false, hasContactForm: false, hasFavicon: false, hasShareImage: false, socials: {}, error });
 
-export type ServiceKey = 'site_institucional' | 'landing_page' | 'redes_sociais' | 'trafego_pago' | 'branding' | 'design_posts' | 'consultoria';
+export type ServiceKey = 'site_institucional' | 'landing_page' | 'redes_sociais' | 'trafego_pago' | 'branding' | 'design_posts' | 'consultoria' | 'rd_marketing' | 'rd_conversas' | 'automacao' | 'ia_aplicada';
 
 export interface ScoreInput {
   hasWebsite: boolean;

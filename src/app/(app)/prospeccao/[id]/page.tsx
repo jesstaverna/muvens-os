@@ -4,10 +4,11 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { CopyButton } from '@/components/ClientButtons';
-import { analyzeNow, approveMessage, cancelMessage, convertToLead, markWhatsappSent, saveMessage, setProspectStatus } from '../actions';
+import { analyzeNow, useContactEmail, approveMessage, cancelMessage, convertToLead, markWhatsappSent, saveMessage, setProspectStatus } from '../actions';
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { whatsappLink } from '@/lib/prospecting/message';
+import { EMAIL_KIND_LABEL, type EmailKind } from '@/lib/prospecting/emails';
 import { fmt, whatsappSignal } from '@/lib/prospecting/phone';
 import { ChannelBadges } from '../ChannelBadges';
 import type { SiteFindings } from '@/lib/prospecting/analysis';
@@ -50,6 +51,16 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
           {p.analyzed_at && p.report_token && p.status !== 'descartado' && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-muted">Proposta online:</span><span className={`badge ${p.report_views ? 'bg-lime/50 text-fg' : 'text-muted'}`} title="Pode incluir leitores automáticos de e-mail; as aberturas feitas por você pelos botões do sistema não contam.">{p.report_views ? `Aberto ${p.report_views}× · última em ${dateTimeBR(p.report_last_viewed_at)}` : 'Ainda não aberto'}</span><a className="btn btn-sm btn-primary" href={`/diagnostico/${p.report_token}?p=1`} target="_blank" rel="noreferrer noopener">Ver proposta online</a></div>}
           {p.analyzed_at && p.report_token === undefined && <p className="rounded-lg border border-amber-500/40 px-4 py-3 text-sm text-warn">O link público do diagnóstico ainda não está ativo: falta aplicar a migração 12 no Supabase (arquivo <code>supabase/atualizacoes/C_link_publico_diagnostico.sql</code>, rodar uma vez no SQL Editor).</p>}
           <Diagnostico share={p.report_token && p.analyzed_at && p.status !== 'descartado' ? { token: p.report_token, phone: p.phone, email: p.email } : undefined} name={p.name} category={p.category} website={p.website} rating={p.rating} reviews={p.reviews_count} score={p.score} service={p.recommended_service} site={site} observations={an?.observations ?? []} analyzed={!!p.analyzed_at && !!an} generatedAt={p.analyzed_at ? dateTimeBR(p.analyzed_at) : undefined} />
+
+          {site && (
+            <section className="card"><h2 className="mb-1 text-base font-semibold">Contatos e pessoas encontrados no site</h2>
+              <p className="mb-3 text-xs text-muted">Só o que a própria empresa publicou em páginas públicas ({(site.pagesChecked ?? []).length || 1} página(s) verificada(s): início, contato, equipe, comercial/compras quando existem). Não adivinhamos e-mails nem consultamos o LinkedIn.</p>
+              {(site.contacts ?? []).length === 0 && (site.people ?? []).length === 0 ? <p className="text-sm text-muted">Nenhum e-mail ou cargo comercial/compras/direção publicado nas páginas verificadas. Tente o telefone, o WhatsApp ou o formulário do site.</p> : (<>
+                {(site.contacts ?? []).length > 0 && <ul className="space-y-2 text-sm">{(site.contacts ?? []).map((c: { email: string; kind: string }) => (
+                  <li key={c.email} className="flex flex-wrap items-center justify-between gap-2"><span><b>{c.email}</b> <span className={`badge ml-1 ${['comercial', 'compras', 'diretoria'].includes(c.kind) ? 'bg-lime/50 text-fg' : 'text-muted'}`}>{EMAIL_KIND_LABEL[c.kind as EmailKind] ?? c.kind}</span></span>
+                    {p.email === c.email ? <span className="text-xs text-muted">em uso</span> : <form action={useContactEmail.bind(null, id)}><input type="hidden" name="email" value={c.email} /><SubmitButton className="btn btn-sm" pendingText="…">Usar este e-mail</SubmitButton></form>}</li>))}</ul>}
+                {(site.people ?? []).length > 0 && <ul className="mt-4 space-y-1 border-t border-line pt-3 text-sm">{(site.people ?? []).map((x: { role: string; title: string; name?: string }) => <li key={x.role + x.title + (x.name ?? '')}><span className="badge mr-2">{x.role === 'comercial' ? 'Comercial' : x.role === 'compras' ? 'Compras' : 'Direção'}</span>{x.name ? <b>{x.name}</b> : null}{x.name ? ' — ' : ''}{x.title}</li>)}</ul>}</>)}
+            </section>)}
 
           {site && (
             <section className="card"><h2 className="mb-3 text-base font-semibold">Site e presença online</h2>

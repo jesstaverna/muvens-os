@@ -8,7 +8,7 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const SERVICE_PITCH: Record<string, string> = {
   site_institucional: 'um site institucional claro e adaptado para celular', landing_page: 'uma página de conversão focada em gerar contatos',
   redes_sociais: 'a gestão e a criação de conteúdo para as redes sociais', trafego_pago: 'campanhas de anúncios com medição de resultado',
-  branding: 'a organização da identidade visual da marca', design_posts: 'peças de design para as redes sociais', consultoria: 'uma consultoria de presença digital',
+  branding: 'a organização da identidade visual da marca', design_posts: 'peças de design para as redes sociais', consultoria: 'uma consultoria de presença digital', rd_marketing: 'a automação de marketing para captar e nutrir contatos', rd_conversas: 'o atendimento centralizado dos contatos por WhatsApp e chat', automacao: 'a automação de processos comerciais e de marketing', ia_aplicada: 'o uso de inteligência artificial nas rotinas do negócio',
 };
 
 /**
