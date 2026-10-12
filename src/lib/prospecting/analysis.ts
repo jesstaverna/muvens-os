@@ -73,13 +73,14 @@ export interface ScoreInput {
 }
 export interface Scored { score: number; service: ServiceKey; reasons: string[]; observations: string[]; need: number; contactBonus: number; contactReasons: string[] }
 
-/** Bônus (até +15) ou penalidade (-10) pela facilidade de abordar o prospecto. Não altera o serviço sugerido nem as observações mostradas ao cliente. */
+/** Bônus (até +17) ou penalidade (-10) pela facilidade de abordar o prospecto. Não altera o serviço sugerido nem as observações mostradas ao cliente. */
 export function contactAdjustment(site: SiteFindings | null | undefined, c: { email?: string | null; phone?: string | null }): { points: number; reasons: string[] } {
   const reasons: string[] = []; let points = 0;
-  const wa = whatsappSignal(c.phone, site?.whatsappNumbers ?? []); const hasWa = wa.level === 'confirmado' || wa.level === 'provavel';
+  const wa = whatsappSignal(c.phone, site?.whatsappNumbers ?? []); const hasWa = wa.level === 'confirmado' || wa.level === 'provavel' || wa.level === 'outro';
   const hasPhone = !!c.phone && c.phone.replace(/\D/g, '').length >= 8;
   if (c.email) { points += 6; reasons.push('Tem e-mail para contato (+6)'); }
-  if (hasWa) { points += 5; reasons.push('Provável WhatsApp (+5)'); } else if (hasPhone) { points += 2; reasons.push('Tem telefone (+2)'); }
+  if (hasPhone) { points += 2; reasons.push('Tem telefone para ligação (+2)'); }
+  if (hasWa) { points += 5; reasons.push(wa.level === 'provavel' ? 'WhatsApp provável (+5)' : 'WhatsApp publicado no site (+5)'); }
   if (site?.people?.length) { points += 2; reasons.push('Decisor citado no site (+2)'); }
   if (site?.socials.linkedin) { points += 2; reasons.push('LinkedIn encontrado (+2)'); }
   if (!c.email && !hasPhone) { points -= 10; reasons.push('Sem e-mail nem telefone: difícil de abordar (-10)'); }

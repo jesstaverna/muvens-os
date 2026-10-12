@@ -34,12 +34,12 @@ const tail = (d: string) => d.replace(/\D/g, '').slice(-8);
 
 export function whatsappSignal(phone: string | null | undefined, siteNumbers: string[] = []): WhatsappSignal {
   const p = classifyPhone(phone);
-  if (p.digits && siteNumbers.some((n) => tail(n) === tail(p.digits))) return { level: 'confirmado', label: 'WhatsApp confirmado no site', detail: 'Este número está publicado como WhatsApp no site da empresa.' };
-  if (siteNumbers.length) { const s = classifyPhone(siteNumbers[0]); return { level: 'outro', label: 'WhatsApp no site (outro número)', detail: `O site divulga o WhatsApp ${fmt(s.digits)}${p.digits ? ', diferente do telefone do cadastro' : ''}.` }; }
-  if (p.kind === 'celular') return { level: 'provavel', label: 'Celular (provável WhatsApp)', detail: 'Número de celular: costuma ter WhatsApp, mas não é possível confirmar sem o contato.' };
-  if (p.kind === 'fixo') return { level: 'improvavel', label: 'Telefone fixo', detail: 'Número fixo: provavelmente sem WhatsApp (só com WhatsApp Business em linha fixa). Prefira e-mail ou ligação.' };
-  if (p.kind === 'especial') return { level: 'improvavel', label: 'Número especial (0800/4004)', detail: 'Não costuma ter WhatsApp.' };
-  return { level: 'desconhecido', label: phone ? 'Telefone em formato inválido' : 'Sem telefone', detail: 'Não foi possível classificar o número.' };
+  if (p.digits && siteNumbers.some((n) => tail(n) === tail(p.digits))) return { level: 'confirmado', label: 'WhatsApp: confirmado no site', detail: 'Este número está publicado como WhatsApp no site da empresa.' };
+  if (siteNumbers.length) { const s = classifyPhone(siteNumbers[0]); return { level: 'outro', label: 'WhatsApp: outro número no site', detail: `O site divulga o WhatsApp ${fmt(s.digits)}${p.digits ? ', diferente do telefone do cadastro' : ''}.` }; }
+  if (p.kind === 'celular') return { level: 'provavel', label: 'WhatsApp: provável (celular)', detail: 'Número de celular: costuma ter WhatsApp, mas não é possível confirmar sem o contato.' };
+  if (p.kind === 'fixo') return { level: 'improvavel', label: 'WhatsApp: improvável (telefone fixo)', detail: 'Número fixo: provavelmente sem WhatsApp (só com WhatsApp Business em linha fixa). Prefira e-mail ou ligação.' };
+  if (p.kind === 'especial') return { level: 'improvavel', label: 'WhatsApp: improvável (0800/4004)', detail: 'Não costuma ter WhatsApp.' };
+  return { level: 'desconhecido', label: phone ? 'WhatsApp: número inválido' : 'WhatsApp: sem número', detail: 'Não foi possível classificar o número.' };
 }
 
 export function fmt(d: string): string {

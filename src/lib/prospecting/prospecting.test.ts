@@ -118,12 +118,20 @@ describe('contato na pontuação', () => {
     const a = scoreProspect({ hasWebsite: false }); expect(a.contactBonus).toBe(0); expect(a.score).toBe(a.need);
   });
   it('e-mail + celular somam; sem nenhum contato penaliza', () => {
-    expect(contactAdjustment(null, { email: 'a@b.com', phone: '(41) 99999-8888' }).points).toBe(11);
+    expect(contactAdjustment(null, { email: 'a@b.com', phone: '(41) 99999-8888' }).points).toBe(13);
     expect(contactAdjustment(null, { email: null, phone: null }).points).toBe(-10);
     expect(contactAdjustment(null, { phone: '(41) 3027-2736' }).points).toBe(2);
   });
   it('não altera o serviço sugerido nem as observações do cliente', () => {
     const base = scoreProspect({ hasWebsite: false }); const c = scoreProspect({ hasWebsite: false, contact: { email: 'a@b.com', phone: '41999998888' } });
     expect(c.service).toBe(base.service); expect(c.observations).toEqual(base.observations); expect(c.score).toBeGreaterThan(base.score);
+  });
+});
+
+describe('telefone x WhatsApp são sinais diferentes', () => {
+  it('fixo conta só como telefone; número de WhatsApp no site conta como WhatsApp', () => {
+    const fixo = contactAdjustment(null, { phone: '(41) 3027-2736' }); expect(fixo.points).toBe(2); expect(fixo.reasons.join()).not.toMatch(/WhatsApp/);
+    const site = analyzeHtml('<a href="https://wa.me/5541999998888">z</a>', 'https://x.com');
+    expect(contactAdjustment(site, { phone: '(41) 3027-2736' }).points).toBe(7);
   });
 });
