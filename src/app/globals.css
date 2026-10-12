@@ -48,3 +48,12 @@ body { @apply bg-bg text-fg font-sans antialiased; }
   .no-print { display: none !important; }
   body { background: #fff !important; color: #000 !important; }
 }
+
+/* Imprimir só o diagnóstico: body tem a classe print-diagnostico enquanto o botão "Gerar PDF" está imprimindo. */
+@media print {
+  body.print-diagnostico * { visibility: hidden !important; }
+  body.print-diagnostico #diagnostico, body.print-diagnostico #diagnostico * { visibility: visible !important; }
+  body.print-diagnostico #diagnostico { position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; color: #000 !important; border: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.print-diagnostico #diagnostico .no-print { display: none !important; }
+  body.print-diagnostico #diagnostico .text-muted { color: #555 !important; }
+}

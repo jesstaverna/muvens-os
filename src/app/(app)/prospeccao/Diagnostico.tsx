@@ -2,6 +2,7 @@ import { CheckCircle2, AlertTriangle, XCircle, HelpCircle, Sparkles } from 'luci
 import { buildReport, type ReportInput, type Status } from '@/lib/prospecting/report';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { PrintButton } from './PrintButton';
+import { SendProposal } from './SendProposal';
 
 const ST: Record<Status, { Icon: typeof CheckCircle2; cls: string; label: string }> = {
   ok: { Icon: CheckCircle2, cls: 'text-ok', label: 'Em dia' }, atencao: { Icon: AlertTriangle, cls: 'text-warn', label: 'Atenção' },
@@ -10,14 +11,14 @@ const ST: Record<Status, { Icon: typeof CheckCircle2; cls: string; label: string
 const LEVEL = { alta: 'Oportunidade alta', media: 'Oportunidade média', baixa: 'Oportunidade baixa', indefinida: 'Aguardando análise' } as const;
 
 /** Diagnóstico em formato de landing page, gerado automaticamente a partir da análise pública. */
-export function Diagnostico(props: ReportInput & { generatedAt?: string }) {
+export function Diagnostico(props: ReportInput & { generatedAt?: string; share?: { token: string; phone?: string | null; email?: string | null } }) {
   const r = buildReport(props);
   return (
     <section id="diagnostico" className="overflow-hidden rounded-2xl border border-line bg-card print:border-0">
       <div className="bg-black px-6 py-8 text-white sm:px-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-lime px-3 py-1 text-xs font-semibold text-black"><Sparkles className="h-3.5 w-3.5" strokeWidth={2} />Diagnóstico de presença digital</span>
-          <PrintButton />
+          <div className="flex flex-wrap items-center gap-2"><PrintButton />{props.share && <SendProposal token={props.share.token} name={props.name} phone={props.share.phone} email={props.share.email} />}</div>
         </div>
         <h2 className="mt-4 max-w-2xl text-2xl font-semibold leading-tight sm:text-3xl">{r.headline}</h2>
         <p className="mt-2 text-sm text-white/70">{[props.category, props.website].filter(Boolean).join(' · ')}</p>
