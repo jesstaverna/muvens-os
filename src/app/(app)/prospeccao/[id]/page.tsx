@@ -47,6 +47,7 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
             {p.analysis_error && <p className="mt-3 text-sm text-danger">Erro na última análise: {p.analysis_error}</p>}</section>
 
           {p.analyzed_at && p.report_token && p.status !== 'descartado' && <div className="flex flex-wrap items-center gap-2 text-sm"><span className="text-muted">Link público do diagnóstico:</span><CopyButton text={`${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/diagnostico/${p.report_token}`} label="Copiar link" /><a className="underline" href={`/diagnostico/${p.report_token}`} target="_blank" rel="noreferrer noopener">Abrir</a></div>}
+          {p.analyzed_at && p.report_token === undefined && <p className="rounded-lg border border-amber-500/40 px-4 py-3 text-sm text-warn">O link público do diagnóstico ainda não está ativo: falta aplicar a migração 12 no Supabase (arquivo <code>supabase/atualizacoes/C_link_publico_diagnostico.sql</code>, rodar uma vez no SQL Editor).</p>}
           <Diagnostico share={p.report_token && p.analyzed_at && p.status !== 'descartado' ? { token: p.report_token, phone: p.phone, email: p.email } : undefined} name={p.name} category={p.category} website={p.website} rating={p.rating} reviews={p.reviews_count} score={p.score} service={p.recommended_service} site={site} observations={an?.observations ?? []} analyzed={!!p.analyzed_at && !!an} generatedAt={p.analyzed_at ? dateTimeBR(p.analyzed_at) : undefined} />
 
           {site && (
