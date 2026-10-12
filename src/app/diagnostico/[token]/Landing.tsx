@@ -6,6 +6,7 @@ import { buildProposal, SERVICE_BLURB } from '@/lib/prospecting/proposal';
 import { MUVENS } from '@/lib/prospecting/muvens';
 import { CountUp, Reveal, ScoreRing } from './Motion';
 import { Illustration } from './Illustration';
+import { illustrationKey } from '@/lib/prospecting/illustration';
 
 const ST: Record<Status, { Icon: typeof CheckCircle2; cls: string; label: string }> = {
   ok: { Icon: CheckCircle2, cls: 'text-emerald-600', label: 'Em dia' }, atencao: { Icon: AlertTriangle, cls: 'text-amber-600', label: 'Atenção' },
@@ -16,7 +17,7 @@ const LEVEL = { alta: 'Alto potencial de crescimento', media: 'Bom potencial de 
 
 /** Landing page do diagnóstico de um prospecto: tema próprio da marca (preto, verde-limão, off-white), independente do tema do sistema. */
 export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: string; email?: string; prices?: Record<string, { from: number; unit: string }> }) {
-  const r = buildReport(props); const seg = segmentFor(props.category); const steps = buildProposal(r);
+  const r = buildReport(props); const seg = segmentFor(props.category); const art = illustrationKey(props.category, seg.key); const steps = buildProposal(r);
   const local = [props.reviews != null && `${props.reviews} avaliações no Google`, props.rating && `nota ${String(props.rating).replace('.', ',')}`].filter(Boolean).join(' · ');
   const cta = props.whatsapp ? `https://wa.me/${props.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Vi o diagnóstico da ${props.name} e gostaria de conversar.`)}` : props.email ? `mailto:${props.email}?subject=${encodeURIComponent(`Diagnóstico — ${props.name}`)}` : null;
   const Cta = ({ dark }: { dark?: boolean }) => cta ? <a href={cta} className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition hover:opacity-90 ${dark ? 'bg-black text-[#DCEA1E]' : 'bg-[#DCEA1E] text-black'}`}>Quero conversar com a Muvens <ArrowRight className="h-4 w-4" strokeWidth={2} /></a> : null;
@@ -34,7 +35,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
   return (
     <div className="min-h-screen bg-[#F7F7F4] pb-20 text-neutral-900 sm:pb-0" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
       <header className="relative overflow-hidden bg-black text-white">
-        <div aria-hidden className="pointer-events-none absolute inset-0"><div className="mv-drift absolute -right-24 -top-24 h-96 w-96 rounded-full bg-[#DCEA1E]/10 blur-3xl" /><div className="mv-drift absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-[#DCEA1E]/5 blur-3xl" style={{ animationDelay: '-4s' }} /><Illustration segment={seg.key} className="absolute -bottom-2 right-6 hidden w-[380px] opacity-40 lg:block" /></div>
+        <div aria-hidden className="pointer-events-none absolute inset-0"><div className="mv-drift absolute -right-24 -top-24 h-96 w-96 rounded-full bg-[#DCEA1E]/10 blur-3xl" /><div className="mv-drift absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-[#DCEA1E]/5 blur-3xl" style={{ animationDelay: '-4s' }} /><Illustration segment={art} className="absolute -bottom-2 right-6 hidden w-[380px] opacity-40 lg:block" /></div>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
           <span className="flex items-center gap-3"><img src="/logo-muvens.svg" alt="" className="h-9 w-auto" /><span className="text-lg font-semibold tracking-[0.2em]">MUVENS</span><span className="sr-only">Muvens Agência</span></span>
           <span className="hidden text-xs uppercase tracking-widest text-white/50 lg:inline">Diagnóstico gratuito de presença digital</span>{cta && <a href={cta} className="hidden items-center gap-1.5 rounded-full bg-[#DCEA1E] px-4 py-2 text-xs font-semibold text-black hover:opacity-90 sm:inline-flex">Falar com a Muvens <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} /></a>}
@@ -90,7 +91,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
           <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Panorama do segmento · {seg.label}</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">O que costuma pesar na escolha dos clientes</h2>
           <p className="mt-3 max-w-3xl text-neutral-700">{seg.behavior}</p>
-          <div className="mt-6 grid gap-4 lg:grid-cols-4"><div className="grid place-items-center rounded-2xl bg-black p-5 lg:col-span-1"><Illustration segment={seg.key} className="w-full max-w-[260px]" /></div><div className="grid gap-4 lg:col-span-3 lg:grid-cols-3">
+          <div className="mt-6 grid gap-4 lg:grid-cols-4"><div className="grid place-items-center rounded-2xl bg-black p-5 lg:col-span-1"><Illustration segment={art} className="w-full max-w-[260px]" /></div><div className="grid gap-4 lg:col-span-3 lg:grid-cols-3">
             <div className="rounded-2xl border border-neutral-200 bg-white p-6 lg:col-span-2"><h3 className="font-semibold">Tendências do segmento</h3><ul className="mt-3 space-y-2 text-sm">{seg.trends.map((t) => <li key={t} className="flex gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-black" />{t}</li>)}</ul></div>
             <div className="rounded-2xl bg-black p-6 text-white"><h3 className="font-semibold">Onde focar</h3><ul className="mt-3 space-y-2 text-sm text-white/85">{seg.focus.map((t) => <li key={t} className="flex gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#DCEA1E]" />{t}</li>)}</ul>{local && <p className="mt-4 border-t border-white/15 pt-3 text-xs text-white/60">{props.name} hoje: {local}.</p>}</div>
           </div></div>
