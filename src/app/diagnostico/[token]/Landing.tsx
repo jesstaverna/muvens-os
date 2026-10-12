@@ -1,6 +1,9 @@
 import { CheckCircle2, AlertTriangle, XCircle, HelpCircle, ArrowRight, Globe, Share2, MousePointerClick, BarChart3, Gem } from 'lucide-react';
 import { buildReport, type ReportInput, type Status } from '@/lib/prospecting/report';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
+import { segmentFor } from '@/lib/prospecting/market';
+import { buildProposal } from '@/lib/prospecting/proposal';
+import { MUVENS } from '@/lib/prospecting/muvens';
 
 const ST: Record<Status, { Icon: typeof CheckCircle2; cls: string; label: string }> = {
   ok: { Icon: CheckCircle2, cls: 'text-emerald-600', label: 'Em dia' }, atencao: { Icon: AlertTriangle, cls: 'text-amber-600', label: 'Atenção' },
@@ -11,7 +14,8 @@ const LEVEL = { alta: 'Alto potencial de crescimento', media: 'Bom potencial de 
 
 /** Landing page do diagnóstico de um prospecto: tema próprio da marca (preto, verde-limão, off-white), independente do tema do sistema. */
 export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: string; email?: string }) {
-  const r = buildReport(props);
+  const r = buildReport(props); const seg = segmentFor(props.category); const steps = buildProposal(r);
+  const local = [props.reviews != null && `${props.reviews} avaliações no Google`, props.rating && `nota ${String(props.rating).replace('.', ',')}`].filter(Boolean).join(' · ');
   const cta = props.whatsapp ? `https://wa.me/${props.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Vi o diagnóstico da ${props.name} e gostaria de conversar.`)}` : props.email ? `mailto:${props.email}?subject=${encodeURIComponent(`Diagnóstico — ${props.name}`)}` : null;
   const Cta = ({ dark }: { dark?: boolean }) => cta ? <a href={cta} className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition hover:opacity-90 ${dark ? 'bg-black text-[#DCEA1E]' : 'bg-[#DCEA1E] text-black'}`}>Quero conversar com a Muvens <ArrowRight className="h-4 w-4" strokeWidth={2} /></a> : null;
   const stats = [
@@ -56,6 +60,37 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
             {r.strengths.length > 0 && <section className="rounded-2xl border border-neutral-200 bg-white p-7"><h2 className="text-xl font-semibold">O que já está funcionando</h2><ul className="mt-4 space-y-3 text-sm">{r.strengths.map((o) => <li key={o} className="flex gap-3"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />{o}</li>)}</ul></section>}
           </div>
         )}
+
+        <section className="mt-16">
+          <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Panorama do segmento · {seg.label}</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">O que costuma pesar na escolha dos clientes</h2>
+          <p className="mt-3 max-w-3xl text-neutral-700">{seg.behavior}</p>
+          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 lg:col-span-2"><h3 className="font-semibold">Tendências do segmento</h3><ul className="mt-3 space-y-2 text-sm">{seg.trends.map((t) => <li key={t} className="flex gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-black" />{t}</li>)}</ul></div>
+            <div className="rounded-2xl bg-black p-6 text-white"><h3 className="font-semibold">Onde focar</h3><ul className="mt-3 space-y-2 text-sm text-white/85">{seg.focus.map((t) => <li key={t} className="flex gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#DCEA1E]" />{t}</li>)}</ul>{local && <p className="mt-4 border-t border-white/15 pt-3 text-xs text-white/60">{props.name} hoje: {local}.</p>}</div>
+          </div>
+          <p className="mt-3 text-xs text-neutral-500">Visão geral qualitativa do segmento, sem dados numéricos; não substitui um estudo de mercado.</p>
+        </section>
+
+        <section className="mt-16 rounded-3xl bg-black px-7 py-12 text-white sm:px-12">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#DCEA1E]">Quem é a Muvens</p>
+          <h2 className="mt-2 max-w-3xl text-2xl font-semibold leading-tight sm:text-4xl">{MUVENS.tagline}</h2>
+          <p className="mt-4 max-w-3xl text-white/70">{MUVENS.about}</p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">{MUVENS.pillars.map((x) => <div key={x.title} className="rounded-xl border border-white/15 p-4"><h3 className="text-sm font-semibold text-[#DCEA1E]">{x.title}</h3><p className="mt-1 text-xs text-white/65">{x.text}</p></div>)}</div>
+        </section>
+
+        <section className="mt-16">
+          <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Proposta de melhorias</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Plano sugerido para {props.name}</h2>
+          <p className="mt-2 max-w-2xl text-neutral-600">Ordenado pelo que mais pesa no diagnóstico. Valores e prazos definimos juntos, depois de uma conversa.</p>
+          <ol className="mt-8 space-y-4">{steps.map((st, i) => (
+            <li key={st.title} className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-6 sm:grid-cols-[auto_1fr]">
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-[#DCEA1E] text-lg font-semibold text-black">{i + 1}</span>
+              <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-semibold">{st.title}</h3><span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-600">Etapa {st.phase} · {SERVICE_LABEL[st.service] ?? st.service}</span></div>
+                <p className="mt-1 text-sm text-neutral-600">{st.why}</p>
+                <ul className="mt-3 grid gap-1.5 text-sm sm:grid-cols-2">{st.deliverables.map((d) => <li key={d} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />{d}</li>)}</ul></div>
+            </li>))}</ol>
+        </section>
 
         <section className="mt-16 rounded-3xl bg-[#DCEA1E] px-7 py-12 text-center sm:px-14">
           <h2 className="mx-auto max-w-2xl text-3xl font-semibold leading-tight tracking-tight text-black sm:text-4xl">Vamos transformar este diagnóstico em um plano de ação?</h2>
