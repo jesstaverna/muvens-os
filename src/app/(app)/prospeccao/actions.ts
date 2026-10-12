@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { placesConfigured, searchPlaces } from '@/integrations/google-places';
+import { insertPlaces } from '@/lib/prospecting/recurring';
 import { autoApproveReady } from '@/lib/prospecting/outbox';
 import { normalizeAddress } from '@/lib/prospecting/address';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -33,12 +34,7 @@ type Campaign = { id: string; niche: string; city: string; max_results: number }
 /** Busca no Google Maps, grava os prospectos novos e analisa os primeiros. Devolve um resumo (ou lança com a mensagem de erro). */
 async function searchInto(supabase: Db, c: Campaign, opts: { analyze?: boolean } = {}) {
   const places = await searchPlaces(c.niche, c.city, c.max_results);
-  let created = 0, dup = 0; const ids: string[] = [];
-  for (const p of places) {
-    const { data, error } = await supabase.from('prospects').insert({ campaign_id: c.id, source: 'google_maps', place_id: p.place_id, name: p.name, category: p.category, address: p.address, phone: p.phone, website: p.website, rating: p.rating, reviews_count: p.reviews_count, maps_url: p.maps_url, google_fetched_at: new Date().toISOString() }).select('id').single();
-    if (error) { if (error.code === '23505') dup++; continue; }
-    created++; ids.push(data!.id);
-  }
+  const { created, dup, ids } = await insertPlaces(supabase, c.id, places);
   // analisa todos em paralelo limitado (5 por vez) dentro de um orçamento de tempo; o que sobrar é concluído pela tela (análise automática) e pelo worker
   const an = opts.analyze === false ? { analyzed: 0, failed: 0, skipped: ids.length } : await analyzeMany(supabase, ids, { concurrency: 5, deadlineMs: 35_000 });
   return { created, dup, analyzed: an.analyzed, left: ids.length - an.analyzed - an.failed, found: places.length };
@@ -295,4 +291,13 @@ export async function markWhatsappDone(id: string, prospectId: string) {
   await supabase.from('prospects').update({ status: 'contatado' }).eq('id', prospectId).in('status', ['novo', 'analisado', 'aprovado']);
   revalidatePath(B);
   flash(`${B}?tab=fila`, 'ok', 'Contato por WhatsApp registrado.');
+}
+
+/** Liga/desliga a repetição semanal da busca da campanha. */
+export async function toggleWeekly(id: string, on: boolean) {
+  const { supabase } = await requireModule('prospeccao');
+  const { error } = await supabase.from('prospect_campaigns').update({ auto_weekly: on }).eq('id', id);
+  if (error) dbErr(`${B}?tab=campanhas`, error);
+  revalidatePath(B);
+  flash(`${B}?tab=campanhas`, 'ok', on ? 'Busca semanal ligada: o sistema repete esta busca toda semana e analisa as empresas novas.' : 'Busca semanal desligada.');
 }

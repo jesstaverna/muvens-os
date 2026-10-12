@@ -21,7 +21,7 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
   }
   const scored = scoreProspect({ hasWebsite: !!p.website, site, rating: p.rating == null ? null : Number(p.rating), reviews: p.reviews_count, contact: { email, phone: p.phone } });
   const analysis = {
-    site, reasons: [...scored.reasons, ...scored.contactReasons], need_score: scored.need, contact_bonus: scored.contactBonus, observations: scored.observations,
+    site, reasons: [...scored.reasons, ...scored.contactReasons], need_score: scored.need, needs: scored.buckets, contact_bonus: scored.contactBonus, observations: scored.observations,
     visual: { status: 'pendente', note: 'Análise de identidade visual por IA depende da integração com a Claude API (Fase 4); hoje só são verificados favicon e imagem de compartilhamento.' },
     analyzed_with: 'regras-v2',
     ...(emailSource ? { email_source: emailSource } : {}),

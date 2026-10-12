@@ -33,3 +33,7 @@ Se o seu banco está até a migração 12, rode só `G_tudo_pendente.sql` (no lu
 ## H — Cadência: e-mail primeiro, WhatsApp depois, aprovação automática (migração 16)
 
 Pré-requisito: migração 11 (Prospecção). Rode `H_cadencia.sql` **uma vez** (pode ser repetido sem erro). Conferência: `select auto_approve_ready, whatsapp_after_days from public.outreach_settings;` → `false | 3`.
+
+## I — Busca semanal das campanhas (migração 17)
+
+Pré-requisito: migração 11. Rode `I_busca_semanal.sql` **uma vez** (pode ser repetido). Conferência: `select auto_weekly from public.prospect_campaigns limit 1;` (sem erro).

@@ -71,7 +71,7 @@ export interface ScoreInput {
   /** Alcance: quando informado, entra na pontuação (quem dá para contatar vale mais como oportunidade). */
   contact?: { email?: string | null; phone?: string | null };
 }
-export interface Scored { score: number; service: ServiceKey; reasons: string[]; observations: string[]; need: number; contactBonus: number; contactReasons: string[] }
+export interface Scored { score: number; service: ServiceKey; reasons: string[]; observations: string[]; need: number; buckets: { site: number; social: number; ads: number; brand: number; convert: number }; contactBonus: number; contactReasons: string[] }
 
 /** Bônus (até +17) ou penalidade (-10) pela facilidade de abordar o prospecto. Não altera o serviço sugerido nem as observações mostradas ao cliente. */
 export function contactAdjustment(site: SiteFindings | null | undefined, c: { email?: string | null; phone?: string | null }): { points: number; reasons: string[] } {
@@ -116,5 +116,5 @@ export function scoreProspect({ hasWebsite, site, rating, reviews, contact }: Sc
   score = Math.max(0, Math.min(100, score + adj.points));
   const top = (Object.entries(need).sort((a, b) => b[1] - a[1])[0] ?? ['site', 0]) as [keyof typeof need, number];
   const service: ServiceKey = top[1] === 0 ? 'branding' : ({ site: hasWebsite ? 'site_institucional' : 'site_institucional', social: 'redes_sociais', ads: 'trafego_pago', brand: 'branding', convert: 'landing_page' } as const)[top[0]];
-  return { score, service, reasons, observations: obs, need: need0, contactBonus: adj.points, contactReasons: adj.reasons };
+  return { score, service, reasons, observations: obs, need: need0, buckets: { ...need }, contactBonus: adj.points, contactReasons: adj.reasons };
 }

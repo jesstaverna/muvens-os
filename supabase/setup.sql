@@ -2270,3 +2270,9 @@ alter table public.outreach_settings
   add column if not exists auto_approve_ready boolean not null default false,
   add column if not exists auto_approve_min_score int not null default 0 check (auto_approve_min_score between 0 and 100),
   add column if not exists whatsapp_after_days int not null default 3 check (whatsapp_after_days between 1 and 30);
+
+-- ======== 20261020000017_recurring_campaigns.sql ========
+-- MUVENS OS — 0017 Campanhas recorrentes: repetir a busca no Google Maps toda semana
+alter table public.prospect_campaigns
+  add column if not exists auto_weekly boolean not null default false,
+  add column if not exists last_auto_run_at timestamptz;

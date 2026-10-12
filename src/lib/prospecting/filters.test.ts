@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isReady, matchesContact, whatsappNumber, parseFilters, reachRank, type FilterRow } from './filters';
+import { matchesFocus, parseFocus, isReady, matchesContact, whatsappNumber, parseFilters, reachRank, type FilterRow } from './filters';
 
 const full: FilterRow = { email: 'a@x.com', phone: '(41) 99999-8888', linkedin: 'https://linkedin.com/company/x', people: [{ role: 'compras', title: 'Gerente de Compras' }], contacts: [{ email: 'compras@x.com', kind: 'compras' }] };
 const fixo: FilterRow = { phone: '(41) 3027-2736' };
@@ -25,4 +25,16 @@ describe('pronto para abordagem', () => {
     expect(whatsappNumber({ phone: '(41) 3027-2736', site_numbers: ['5541999998888'] })).toBe('5541999998888');
     expect(whatsappNumber({ phone: '(41) 99999-8888' })).toBe('(41) 99999-8888'); expect(whatsappNumber({ phone: '(41) 3027-2736' })).toBeNull();
   });
+});
+
+describe('foco de oportunidade', () => {
+  it('sites e recorrentes pelas necessidades detectadas', () => {
+    expect(matchesFocus({ needs: { site: 45, social: 10, ads: 0 } }, 'sites')).toBe(true);
+    expect(matchesFocus({ needs: { site: 0, social: 10, ads: 8 } }, 'sites')).toBe(false);
+    expect(matchesFocus({ needs: { site: 0, social: 10, ads: 0 } }, 'recorrentes')).toBe(true);
+    expect(matchesFocus({ needs: { site: 30, social: 0, ads: 0 } }, 'recorrentes')).toBe(false);
+    expect(matchesFocus({}, null)).toBe(true);
+  });
+  it('análise antiga usa o serviço sugerido', () => { expect(matchesFocus({ recommended_service: 'landing_page' }, 'sites')).toBe(true); expect(matchesFocus({ recommended_service: 'redes_sociais' }, 'recorrentes')).toBe(true); expect(matchesFocus({ recommended_service: 'branding' }, 'recorrentes')).toBe(false); });
+  it('parseFocus', () => { expect(parseFocus('sites')).toBe('sites'); expect(parseFocus('x')).toBeNull(); });
 });

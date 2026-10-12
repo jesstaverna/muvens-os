@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resendProvider, type EmailProvider } from '@/integrations/email';
 import { analyzePending } from '@/lib/prospecting/pipeline';
+import { runRecurringCampaigns } from '@/lib/prospecting/recurring';
 import { autoApproveReady, createFollowups, processOutbox } from '@/lib/prospecting/outbox';
 
 interface Job { id: string; type: string; payload: Record<string, unknown>; attempts: number }
@@ -65,7 +66,7 @@ export async function runWorker(db: SupabaseClient, batch = 20, email: EmailProv
   }
   // Prospecção: análise de novos prospectos, follow-ups e envio de e-mails (salvaguardas aplicadas no banco)
   const prospecting: Record<string, unknown> = {};
-  for (const [name, fn] of [['analysis', () => analyzePending(db)], ['autoApprove', () => autoApproveReady(db)], ['followups', () => createFollowups(db)], ['outbox', () => processOutbox(db, email, process.env.NEXT_PUBLIC_APP_URL ?? '')]] as const) {
+  for (const [name, fn] of [['recurring', () => runRecurringCampaigns(db)], ['analysis', () => analyzePending(db)], ['autoApprove', () => autoApproveReady(db)], ['followups', () => createFollowups(db)], ['outbox', () => processOutbox(db, email, process.env.NEXT_PUBLIC_APP_URL ?? '')]] as const) {
     try { prospecting[name] = await fn(); } catch (e) { prospecting[name] = { error: e instanceof Error ? e.message : String(e) }; }
   }
   return { claimed: jobs?.length ?? 0, done, failed, prospecting };

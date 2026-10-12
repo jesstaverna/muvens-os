@@ -3,14 +3,14 @@ import { ChevronRight, FolderOpen, List } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
-import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow, retryFailedEmails, approveReadyNow, markWhatsappDone } from './actions';
+import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow, retryFailedEmails, approveReadyNow, markWhatsappDone, toggleWeekly } from './actions';
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
 import { LinkButton } from '@/components/LinkButton';
 import { AutoAnalyze } from './AutoAnalyze';
-import { CONTACT_FILTERS, isReady, matchesContact, parseFilters, reachRank, whatsappNumber } from '@/lib/prospecting/filters';
+import { CONTACT_FILTERS, FOCUS_LABEL, matchesFocus, parseFocus, isReady, matchesContact, parseFilters, reachRank, whatsappNumber } from '@/lib/prospecting/filters';
 import { whatsappLink } from '@/lib/prospecting/message';
 import { diagnoseSending } from '@/lib/prospecting/send-diagnosis';
 import { ChannelBadges } from './ChannelBadges';
@@ -20,7 +20,7 @@ import { groupCampaigns, slug } from '@/lib/prospecting/groups';
 export const metadata = { title: 'Prospecção' };
 export const maxDuration = 60;
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
-type SP = { tab?: string; status?: string; grp?: string; min?: string; q?: string; f?: string | string[]; ord?: string };
+type SP = { tab?: string; status?: string; grp?: string; min?: string; q?: string; f?: string | string[]; ord?: string; foco?: string };
 
 export default async function Prospeccao({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('prospeccao');
@@ -41,7 +41,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
     pendingCount = (await pcq).count ?? 0;
   }
 
-  let pq = supabase.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, site_numbers:analysis->site->whatsappNumbers, email_src:analysis->>email_source, linkedin:analysis->site->socials->>linkedin, people:analysis->site->people, contacts:analysis->site->contacts, analyzed_at, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300);
+  let pq = supabase.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, site_numbers:analysis->site->whatsappNumbers, email_src:analysis->>email_source, linkedin:analysis->site->socials->>linkedin, people:analysis->site->people, contacts:analysis->site->contacts, needs:analysis->needs, analyzed_at, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300);
   if (sp.status && sp.status in PROSPECT_STATUS) pq = pq.eq('status', sp.status);
   if (grp === 'manual') pq = pq.is('campaign_id', null); else if (groups.get(grp)) pq = pq.in('campaign_id', groups.get(grp)!.ids);
   if (sp.min && Number(sp.min) > 0) pq = pq.gte('score', Number(sp.min));
@@ -56,7 +56,8 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   ]);
   const activeF = parseFilters(sp.f);
   const totalFetched = prospects?.length ?? 0;
-  let shown: any[] = (prospects ?? []).filter((r: any) => matchesContact(r, activeF));
+  const foco = parseFocus(sp.foco);
+  let shown: any[] = (prospects ?? []).filter((r: any) => matchesContact(r, activeF) && matchesFocus(r, foco));
   if (sp.ord === 'contato') shown = [...shown].sort((a, b) => reachRank(b) - reachRank(a) || (b.score ?? -1) - (a.score ?? -1));
   else if (sp.ord === 'nome') shown = [...shown].sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt-BR'));
   let diag: ReturnType<typeof diagnoseSending> = [];
@@ -145,26 +146,27 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
               <label className="min-w-[14rem] flex-1"><span className="label">Buscar</span><input name="q" defaultValue={sp.q ?? ''} placeholder="Nome ou segmento da empresa" className="input" /></label>
               <label><span className="label">Status</span><select name="status" defaultValue={sp.status ?? ''} className="input w-44"><option value="">Todos</option>{Object.entries(PROSPECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></label>
               <label><span className="label">Pontuação mín.</span><input name="min" type="number" min={0} max={100} defaultValue={sp.min} placeholder="0" className="input w-28" /></label>
+              <label><span className="label">Foco de oportunidade</span><select name="foco" defaultValue={sp.foco ?? ''} className="input w-56"><option value="">Todas</option>{(Object.keys(FOCUS_LABEL) as (keyof typeof FOCUS_LABEL)[]).map((k) => <option key={k} value={k}>{FOCUS_LABEL[k]}</option>)}</select></label>
               <label><span className="label">Ordenar por</span><select name="ord" defaultValue={sp.ord ?? ''} className="input w-48"><option value="">Maior pontuação</option><option value="contato">Mais fácil de contatar</option><option value="nome">Nome (A–Z)</option></select></label>
             </div>
             <fieldset><legend className="label">Contato disponível (marque os que você exige)</legend>
               <div className="flex flex-wrap gap-2">{CONTACT_FILTERS.map((f) => <label key={f.key} className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-1.5 text-xs has-[:checked]:border-transparent has-[:checked]:bg-lime has-[:checked]:font-medium has-[:checked]:text-black"><input type="checkbox" name="f" value={f.key} defaultChecked={activeF.includes(f.key)} className="sr-only" />{f.label}</label>)}</div></fieldset>
             <div className="flex flex-wrap items-center gap-3"><button className="btn btn-dark">Filtrar</button><LinkButton href={`/prospeccao?tab=prospectos&grp=${grp}&f=email&f=wa&ord=contato`} className="btn btn-sm">Prontos: e-mail + WhatsApp</LinkButton><LinkButton href={`/prospeccao?tab=prospectos&grp=${grp}`} className="btn btn-sm">Limpar filtros</LinkButton>
-              <span className="text-sm text-muted">{activeF.length || sp.q || sp.status || sp.min ? `${shown.length} de ${totalFetched} prospecto(s) no grupo` : `${totalFetched} prospecto(s)`}{totalFetched >= 300 ? ' (mostrando os 300 primeiros)' : ''}</span></div></form>
+              <span className="text-sm text-muted">{activeF.length || sp.q || sp.status || sp.min || sp.foco ? `${shown.length} de ${totalFetched} prospecto(s) no grupo` : `${totalFetched} prospecto(s)`}{totalFetched >= 300 ? ' (mostrando os 300 primeiros)' : ''}</span></div></form>
           {!shown.length ? <Empty title="Nenhum prospecto com esses filtros" text="Ajuste os filtros ou rode a busca da campanha novamente." /> : (
             <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Empresa</th><th className="th">Oportunidade</th><th className="th">Serviço sugerido</th><th className="th">Contato</th><th className="th">Status</th></tr></thead>
               <tbody>{shown.map((p: any) => (<tr key={p.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
                 <td className="td"><Link href={`/prospeccao/${p.id}`} className="font-medium hover:underline">{p.name}</Link><div className="text-xs text-muted">{p.category ?? '—'}</div></td>
                 <td className="td">{p.score == null ? <span className="text-muted">—</span> : <span className={`font-semibold ${p.score >= 60 ? 'text-ok' : ''}`}>{p.score}/100</span>}</td>
-                <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}</td><td className="td"><div className="mb-1.5 text-xs text-muted">{[p.phone, p.email].filter(Boolean).join(' · ') || 'sem contato'}</div><ChannelBadges email={p.email} emailFromSite={p.email_src === 'site'} phone={p.phone} siteNumbers={p.site_numbers} linkedin={p.linkedin} people={p.people} analyzed={!!p.analyzed_at} /></td>
+                <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}<div className="mt-1 flex flex-wrap gap-1">{matchesFocus(p, 'sites') && <span className="badge text-[10px]">Site</span>}{matchesFocus(p, 'recorrentes') && <span className="badge text-[10px]">Recorrente</span>}</div></td><td className="td"><div className="mb-1.5 text-xs text-muted">{[p.phone, p.email].filter(Boolean).join(' · ') || 'sem contato'}</div><ChannelBadges email={p.email} emailFromSite={p.email_src === 'site'} phone={p.phone} siteNumbers={p.site_numbers} linkedin={p.linkedin} people={p.people} analyzed={!!p.analyzed_at} /></td>
                 <td className="td"><span className={`badge ${PROSPECT_STATUS[p.status].tone}`}>{PROSPECT_STATUS[p.status].label}</span></td></tr>))}</tbody></table></div>)}
         </>)}
 
       {tab === 'campanhas' && (
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-4 xl:col-span-2">{!campaigns?.length ? <Empty title="Nenhuma campanha" text="Defina um nicho e uma cidade (ex.: clínica de estética · Campinas)." /> : campaigns.map((c) => (
-            <div key={c.id} className="card flex flex-wrap items-center justify-between gap-3"><div><div className="font-medium">{c.name}</div><div className="text-xs text-muted">{c.niche} · {c.city} · até {c.max_results} resultados · {dateTimeBR(c.created_at)}</div></div>
-              <div className="flex gap-2"><LinkButton className="btn btn-sm" icon={FolderOpen} href={`/prospeccao?tab=prospectos&grp=${slug(c.niche)}--${slug(c.city)}`}>Ver prospectos</LinkButton><form action={runCampaign.bind(null, c.id)}><SubmitButton className="btn btn-sm btn-primary" pendingText="Buscando e analisando…">Buscar no Google Maps</SubmitButton></form></div></div>))}
+            <div key={c.id} className="card flex flex-wrap items-center justify-between gap-3"><div><div className="font-medium">{c.name}</div><div className="text-xs text-muted">{c.niche} · {c.city} · até {c.max_results} resultados{c.auto_weekly ? ` · semanal${c.last_auto_run_at ? ` (última: ${dateTimeBR(c.last_auto_run_at)})` : ' (aguardando 1ª execução)'}` : ''} · {dateTimeBR(c.created_at)}</div></div>
+              <div className="flex gap-2"><LinkButton className="btn btn-sm" icon={FolderOpen} href={`/prospeccao?tab=prospectos&grp=${slug(c.niche)}--${slug(c.city)}`}>Ver prospectos</LinkButton><form action={toggleWeekly.bind(null, c.id, !c.auto_weekly)}><SubmitButton className="btn btn-sm" pendingText="…">{c.auto_weekly ? 'Semanal: ligada ✓' : 'Repetir toda semana'}</SubmitButton></form><form action={runCampaign.bind(null, c.id)}><SubmitButton className="btn btn-sm btn-primary" pendingText="Buscando e analisando…">Buscar no Google Maps</SubmitButton></form></div></div>))}
             {!placesOk && <p className="text-sm text-muted">A busca só funciona depois de configurar a chave do Google Places na Vercel (<code>GOOGLE_PLACES_API_KEY</code>). Enquanto isso, cadastre prospectos manualmente.</p>}</div>
           <form action={createCampaign} className="card h-fit space-y-4"><h2 className="text-base font-semibold">Nova campanha</h2><Field label="Nome"><input name="name" required className="input" placeholder="Clínicas — Campinas" /></Field><Field label="Nicho"><input name="niche" required className="input" placeholder="clínica de estética" /></Field><Field label="Cidade"><input name="city" required className="input" placeholder="Campinas, SP" /></Field>
             <Field label="Máx. de resultados por busca" hint="Até 20 por busca (limite da API por página)."><input name="max_results" type="number" min={1} max={20} defaultValue={20} className="input" /></Field><SubmitButton>Criar campanha</SubmitButton></form>
