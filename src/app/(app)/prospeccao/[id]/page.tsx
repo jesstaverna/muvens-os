@@ -12,6 +12,7 @@ import { fmt, whatsappSignal } from '@/lib/prospecting/phone';
 import { ChannelBadges } from '../ChannelBadges';
 import type { SiteFindings } from '@/lib/prospecting/analysis';
 import { dateTimeBR } from '@/lib/format';
+import { Diagnostico } from '../Diagnostico';
 import { LinkButton } from '@/components/LinkButton';
 
 export const maxDuration = 60;
@@ -44,6 +45,8 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
             {an && <div className="mt-5 border-t border-line pt-4"><h2 className="mb-2 text-sm font-semibold">O que observamos (dados públicos)</h2><ul className="list-disc space-y-1 pl-5 text-sm">{an.observations.map((o) => <li key={o}>{o}</li>)}{!an.observations.length && <li className="list-none text-muted">Nada a destacar.</li>}</ul>
               <p className="mt-3 text-xs text-muted">Pontuação por regras simples (editáveis no código) e não por estatística; use como triagem, não como verdade. Última análise: {dateTimeBR(p.analyzed_at)}.</p></div>}
             {p.analysis_error && <p className="mt-3 text-sm text-danger">Erro na última análise: {p.analysis_error}</p>}</section>
+
+          <Diagnostico name={p.name} category={p.category} website={p.website} rating={p.rating} reviews={p.reviews_count} score={p.score} service={p.recommended_service} site={site} observations={an?.observations ?? []} analyzed={!!p.analyzed_at && !!an} generatedAt={p.analyzed_at ? dateTimeBR(p.analyzed_at) : undefined} />
 
           {site && (
             <section className="card"><h2 className="mb-3 text-base font-semibold">Site e presença online</h2>
