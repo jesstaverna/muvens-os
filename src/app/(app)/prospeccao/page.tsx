@@ -3,13 +3,14 @@ import { ChevronRight, FolderOpen, List } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
-import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices } from './actions';
+import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow } from './actions';
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
 import { LinkButton } from '@/components/LinkButton';
 import { AutoAnalyze } from './AutoAnalyze';
+import { diagnoseSending } from '@/lib/prospecting/send-diagnosis';
 import { ChannelBadges } from './ChannelBadges';
 import { NicheField } from './NicheField';
 import { groupCampaigns, slug } from '@/lib/prospecting/groups';
@@ -49,6 +50,15 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
     tab === 'config' ? supabase.from('service_prices').select('service, price_from, unit') : Promise.resolve({ data: [] as never[] }),
     tab === 'bloqueios' ? supabase.from('suppression_list').select('*').order('created_at', { ascending: false }).limit(300) : Promise.resolve({ data: [] as never[] }),
   ]);
+  let diag: ReturnType<typeof diagnoseSending> = [];
+  if (tab === 'fila') {
+    const brt = new Date(Date.now() - 3 * 3600_000); const dayStart = new Date(Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate(), 3)).toISOString(); // meia-noite de Brasília (UTC-3)
+    const cnt = (st: string) => supabase.from('outreach_messages').select('id', { count: 'exact', head: true }).eq('channel', 'email').eq('status', st);
+    const [ap, dr, fa, sent, last] = await Promise.all([cnt('aprovada'), cnt('rascunho'), cnt('falhou'),
+      supabase.from('outreach_messages').select('id', { count: 'exact', head: true }).eq('channel', 'email').in('status', ['enviada', 'enviando']).gte('sent_at', dayStart),
+      supabase.from('outreach_messages').select('error').eq('channel', 'email').eq('status', 'falhou').order('created_at', { ascending: false }).limit(1)]);
+    diag = diagnoseSending({ settings, providerConfigured: !!process.env.RESEND_API_KEY, cronSecretConfigured: !!process.env.CRON_SECRET, approved: ap.count ?? 0, drafts: dr.count ?? 0, failed: fa.count ?? 0, sentToday: sent.count ?? 0, lastError: last.data?.[0]?.error ?? null });
+  }
   const by = (s: string) => counts?.filter((c) => c.status === s).length ?? 0;
   const placesOk = placesConfigured(), emailOk = !!process.env.RESEND_API_KEY;
   const identOk = !!(settings?.sender_name && settings?.sender_email && settings?.company_legal_name && settings?.company_address);
@@ -132,6 +142,12 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
           <form action={createCampaign} className="card h-fit space-y-4"><h2 className="text-base font-semibold">Nova campanha</h2><Field label="Nome"><input name="name" required className="input" placeholder="Clínicas — Campinas" /></Field><Field label="Nicho"><input name="niche" required className="input" placeholder="clínica de estética" /></Field><Field label="Cidade"><input name="city" required className="input" placeholder="Campinas, SP" /></Field>
             <Field label="Máx. de resultados por busca" hint="Até 20 por busca (limite da API por página)."><input name="max_results" type="number" min={1} max={20} defaultValue={20} className="input" /></Field><SubmitButton>Criar campanha</SubmitButton></form>
         </div>)}
+
+      {tab === 'fila' && (
+        <section className="card mb-5 max-w-4xl"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Por que os e-mails saem (ou não)</h2><p className="text-xs text-muted">Confira cada item: todos precisam estar em dia para o envio acontecer.</p></div>
+          {isAdmin && <form action={sendQueueNow}><SubmitButton className="btn btn-sm btn-primary" pendingText="Processando…">Processar fila agora</SubmitButton></form>}</div>
+          <ul className="mt-4 space-y-2 text-sm">{diag.map((c) => (<li key={c.label} className="flex gap-3"><span className={`mt-0.5 font-bold ${c.ok ? 'text-ok' : 'text-danger'}`}>{c.ok ? '✓' : '✗'}</span><div><span>{c.label}</span>{!c.ok && c.fix && <p className="text-xs text-muted">{c.fix}</p>}</div></li>))}</ul>
+          <p className="mt-4 text-xs text-muted">O envio roda quando o agendador chama o processador (na Vercel Hobby, 1 vez por dia). O botão acima processa na hora, respeitando as mesmas travas.</p></section>)}
 
       {tab === 'fila' && (!queue?.length ? <Empty title="Nenhum e-mail na fila" text="As mensagens aparecem aqui quando um prospecto é analisado. Aprove no detalhe do prospecto." /> : (
         <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Prospecto</th><th className="th">Passo</th><th className="th">Assunto</th><th className="th">Status</th><th className="th">Enviado em</th></tr></thead>

@@ -3,6 +3,9 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { placesConfigured, searchPlaces } from '@/integrations/google-places';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { resendProvider } from '@/integrations/email';
+import { processOutbox } from '@/lib/prospecting/outbox';
 import { analyzeMany, analyzeNextBatch, analyzeProspect } from '@/lib/prospecting/pipeline';
 import { groupCampaigns } from '@/lib/prospecting/groups';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
@@ -247,4 +250,17 @@ export async function savePrices(fd: FormData) {
   }
   revalidatePath(B);
   flash(`${B}?tab=config`, 'ok', 'Preços de referência salvos.');
+}
+
+/** Processa a fila de e-mails agora (só administradores). Todas as travas continuam valendo: envio ligado, identificação, horário, limite diário, aprovação e bloqueios. */
+export async function sendQueueNow() {
+  const { profile } = await requireModule('prospeccao');
+  if (profile.role !== 'admin') flash(`${B}?tab=fila`, 'err', 'Somente administradores podem processar a fila.');
+  let msg: string;
+  try {
+    const r = await processOutbox(createAdminClient(), resendProvider(), process.env.NEXT_PUBLIC_APP_URL ?? '');
+    msg = 'skipped' in r && r.skipped ? `Nada enviado: ${r.skipped}.` : r.sent + r.failed === 0 ? 'Nada saiu: nenhuma mensagem liberada pelas travas de envio (veja o diagnóstico abaixo).' : `Enviados: ${r.sent}. Falhas: ${r.failed}.`;
+  } catch (e) { msg = `Erro ao processar a fila: ${e instanceof Error ? e.message : 'falha'}`; }
+  revalidatePath(B);
+  flash(`${B}?tab=fila`, 'ok', msg);
 }
