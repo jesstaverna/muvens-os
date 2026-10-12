@@ -21,7 +21,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
   const stats = [
     { n: r.score != null ? `${r.score}/100` : '—', l: 'Pontuação de oportunidade' },
     { n: String(props.observations.length), l: 'Pontos de melhoria identificados' },
-    { n: String(r.strengths.length), l: 'Itens que já estão bons' },
+    ...(r.strengths.length ? [{ n: String(r.strengths.length), l: 'Itens que já estão bons' }] : []),
   ];
   return (
     <div className="min-h-screen bg-[#F7F7F4] text-neutral-900" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
@@ -35,7 +35,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
           <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">{r.headline}</h1>
           <p className="mt-5 max-w-2xl text-base text-white/70 sm:text-lg">Analisamos a presença online de <strong className="text-white">{props.name}</strong>{props.category ? ` (${props.category})` : ''} usando apenas informações públicas e separamos o que está bom e o que pode render mais resultado.</p>
           <div className="mt-8 flex flex-wrap items-center gap-4"><Cta />{r.service && <span className="text-sm text-white/60">Caminho sugerido: <strong className="text-[#DCEA1E]">{SERVICE_LABEL[r.service] ?? r.service}</strong></span>}</div>
-          <dl className="mt-12 grid max-w-3xl grid-cols-3 gap-4 border-t border-white/15 pt-6">
+          <dl className="mt-12 grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-3 border-t border-white/15 pt-6">
             {stats.map((s) => <div key={s.l}><dt className="text-3xl font-semibold text-[#DCEA1E] sm:text-4xl">{s.n}</dt><dd className="mt-1 text-xs text-white/60 sm:text-sm">{s.l}</dd></div>)}
           </dl>
         </div>
@@ -55,7 +55,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
         </div>
 
         {(r.opportunities.length > 0 || r.strengths.length > 0) && (
-          <div className="mt-16 grid gap-6 lg:grid-cols-2">
+          <div className={`mt-16 grid gap-6 ${r.opportunities.length > 0 && r.strengths.length > 0 ? 'lg:grid-cols-2' : ''}`}>
             {r.opportunities.length > 0 && <section className="rounded-2xl bg-black p-7 text-white"><h2 className="text-xl font-semibold">Oportunidades que encontramos</h2><ul className="mt-4 space-y-3 text-sm text-white/85">{r.opportunities.map((o) => <li key={o} className="flex gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#DCEA1E]" />{o}</li>)}</ul></section>}
             {r.strengths.length > 0 && <section className="rounded-2xl border border-neutral-200 bg-white p-7"><h2 className="text-xl font-semibold">O que já está funcionando</h2><ul className="mt-4 space-y-3 text-sm">{r.strengths.map((o) => <li key={o} className="flex gap-3"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />{o}</li>)}</ul></section>}
           </div>

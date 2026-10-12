@@ -34,8 +34,8 @@ export function buildReport(i: ReportInput): Report {
         { label: i.reviews != null ? `Avaliações no Google (${i.reviews}${i.rating ? ` · nota ${String(i.rating).replace('.', ',')}` : ''})` : 'Avaliações no Google', ok: i.reviews == null ? null : i.reviews >= 15 && (i.rating ?? 5) >= 4 }] },
   ].map((p) => {
     const st = worst(p.items);
-    const bad = p.items.filter((x) => x.ok === false).map((x) => x.label.toLowerCase());
-    return { ...p, status: st, summary: st === 'desconhecido' ? 'Ainda não analisado' : st === 'ok' ? 'Tudo certo no que verificamos' : `Pontos a melhorar: ${bad.join(', ')}` };
+    const bad = p.items.filter((x) => x.ok === false).map((x) => x.label.replace(/^./, (c) => c.toLowerCase()).replace(/\bgoogle\b/g, 'Google').replace(/\bwhatsapp\b/gi, 'WhatsApp'));
+    return { ...p, status: st, summary: st === 'desconhecido' ? (i.analyzed && !reach ? 'Não dá para medir sem um site acessível' : 'Ainda não analisado') : st === 'ok' ? 'Tudo certo no que verificamos' : `Pontos a melhorar: ${bad.join(', ')}` };
   });
   const score = i.score ?? null;
   const level = score == null ? 'indefinida' : score >= 60 ? 'alta' : score >= 30 ? 'media' : 'baixa';

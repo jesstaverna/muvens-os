@@ -25,9 +25,12 @@ const GENERIC: Segment = { key: 'geral', label: 'Seu segmento', behavior: 'Hoje,
 /** Escolhe o segmento pelo texto (categoria do Google, nome da campanha). */
 export function segmentFor(...texts: (string | null | undefined)[]): Segment {
   const t = slug(texts.filter(Boolean).join(' '));
+  let best: { key: string; label: string; len: number } | null = null;
   if (t) for (const g of NICHE_GROUPS) {
-    const hit = slug(g.label).split(' ').some((w) => w.length > 4 && t.includes(w)) || g.aliases.some((a) => a.length > 3 && t.includes(a)) || g.options.some((o) => { const l = slug(o.label); const q = slug(o.q); return (l.length > 4 && t.includes(l)) || (q.length > 4 && t.includes(q)); });
-    if (hit && P[g.key]) return { key: g.key, label: g.label, ...P[g.key] };
+    // pontua pelo maior termo que casa: "loja de materiais de construção" vence "indústria"
+    const terms = [slug(g.label), ...g.aliases, ...g.options.flatMap((o) => [slug(o.label), slug(o.q)])].filter((x) => x.length > 4 || g.aliases.includes(x) && x.length > 3);
+    const len = Math.max(0, ...terms.filter((x) => t.includes(x)).map((x) => x.length));
+    if (len > 0 && P[g.key] && (!best || len > best.len)) best = { key: g.key, label: g.label, len };
   }
-  return GENERIC;
+  return best ? { key: best.key, label: best.label, ...P[best.key] } : GENERIC;
 }

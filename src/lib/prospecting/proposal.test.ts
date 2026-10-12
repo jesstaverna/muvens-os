@@ -14,6 +14,7 @@ describe('proposta e mercado', () => {
   it('segmento por categoria', () => {
     expect(segmentFor('Clínica odontológica', null).key).toBe('saude');
     expect(segmentFor('Metalúrgica', 'Metalúrgica (Curitiba)').key).toBe('industria');
+    expect(segmentFor('Loja de materiais de construção', 'Sinopema S/A Ind e Com de Madeiras').key).toBe('construcao');
     expect(segmentFor('xyz').key).toBe('geral');
   });
 });
