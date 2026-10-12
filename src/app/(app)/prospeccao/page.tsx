@@ -10,6 +10,8 @@ import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
 import { LinkButton } from '@/components/LinkButton';
 import { AutoAnalyze } from './AutoAnalyze';
+import { ChannelBadges } from './ChannelBadges';
+import { NicheField } from './NicheField';
 import { groupCampaigns, slug } from '@/lib/prospecting/groups';
 
 export const metadata = { title: 'Prospecção' };
@@ -36,7 +38,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
     pendingCount = (await pcq).count ?? 0;
   }
 
-  let pq = supabase.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300);
+  let pq = supabase.from('prospects').select('id, name, category, website, email, phone, score, status, recommended_service, rating, reviews_count, campaign_id, site_numbers:analysis->site->whatsappNumbers, email_src:analysis->>email_source, linkedin:analysis->site->socials->>linkedin, people:analysis->site->people, analyzed_at, prospect_campaigns(name)').order('score', { ascending: false, nullsFirst: false }).limit(300);
   if (sp.status && sp.status in PROSPECT_STATUS) pq = pq.eq('status', sp.status);
   if (grp === 'manual') pq = pq.is('campaign_id', null); else if (groups.get(grp)) pq = pq.in('campaign_id', groups.get(grp)!.ids);
   if (sp.min && Number(sp.min) > 0) pq = pq.gte('score', Number(sp.min));
@@ -57,10 +59,9 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
       <PageHeader title="Prospecção" subtitle="Descobre empresas, analisa a presença digital com dados públicos e prepara a abordagem. E-mail automático; WhatsApp assistido (uma pessoa envia)." />
 
       <form action={quickSearch} className="card mb-6 !p-4" role="search" aria-label="Buscar prospectos">
-        <div className="grid items-end gap-3 md:grid-cols-[1.4fr_1fr_auto]">
-          <label><span className="label">Nicho / área</span><input name="niche" required minLength={2} maxLength={80} className="input" placeholder="ex.: clínica odontológica, indústria, restaurante" /></label>
-          <label><span className="label">Cidade</span><input name="city" required minLength={2} maxLength={80} className="input" placeholder="ex.: Curitiba" /></label>
-          <SubmitButton className="btn btn-primary" pendingText="Buscando e analisando…">Buscar prospectos</SubmitButton>
+        <div className="grid items-start gap-3 md:grid-cols-[1.4fr_1fr_auto]">
+          <div className="md:col-span-2 md:grid md:grid-cols-[1.4fr_1fr] md:gap-3"><NicheField /><label className="mt-3 block md:col-start-2 md:row-start-1 md:mt-0"><span className="label">Cidade</span><input name="city" required minLength={2} maxLength={80} className="input" placeholder="ex.: Curitiba" /></label></div>
+          <SubmitButton className="btn btn-primary md:mt-[26px]" pendingText="Buscando…">Buscar prospectos</SubmitButton>
         </div>
         <p className="mt-2 text-xs text-muted">Busca empresas no Google Maps, analisa o site de cada uma e mostra os resultados abaixo, agrupados por nicho e cidade. {!placesOk && <><Pending>Google Maps pendente</Pending> — configure a chave na Vercel; até lá, use <Link href={nav('novo')} className="underline">Cadastrar manualmente</Link>.</>}</p>
       </form>
@@ -117,7 +118,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
               <tbody>{prospects.map((p: any) => (<tr key={p.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
                 <td className="td"><Link href={`/prospeccao/${p.id}`} className="font-medium hover:underline">{p.name}</Link><div className="text-xs text-muted">{p.category ?? '—'}</div></td>
                 <td className="td">{p.score == null ? <span className="text-muted">—</span> : <span className={`font-semibold ${p.score >= 60 ? 'text-ok' : ''}`}>{p.score}/100</span>}</td>
-                <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}</td><td className="td text-xs text-muted">{[p.email, p.phone].filter(Boolean).join(' · ') || 'sem contato'}</td>
+                <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}</td><td className="td"><div className="mb-1.5 text-xs text-muted">{[p.phone, p.email].filter(Boolean).join(' · ') || 'sem contato'}</div><ChannelBadges email={p.email} emailFromSite={p.email_src === 'site'} phone={p.phone} siteNumbers={p.site_numbers} linkedin={p.linkedin} people={p.people} analyzed={!!p.analyzed_at} /></td>
                 <td className="td"><span className={`badge ${PROSPECT_STATUS[p.status].tone}`}>{PROSPECT_STATUS[p.status].label}</span></td></tr>))}</tbody></table></div>)}
         </>)}
 

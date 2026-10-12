@@ -19,7 +19,7 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
   const db = new PostgrestClient(URL!, { headers: { Authorization: `Bearer ${token()}` } }) as never as import('@supabase/supabase-js').SupabaseClient;
   let srv: ReturnType<typeof createServer>; let base = '';
   beforeAll(async () => {
-    srv = createServer((_, res) => { res.setHeader('content-type', 'text/html'); res.end('<html><head><title>Loja</title></head><body>oi</body></html>'); });
+    srv = createServer((req, res) => { res.setHeader('content-type', 'text/html'); res.end(req.url === '/contato' ? `<html><body><a href="mailto:contato@loja-${RUN}.com">e</a><a href="https://wa.me/5541997800552">w</a></body></html>` : '<html><head><title>Loja</title></head><body>oi</body></html>'); });
     await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r)); base = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
     await db.from('outreach_settings').update({ sending_enabled: true, window_start_hour: 0, window_end_hour: 24, weekdays_only: false, daily_email_limit: 50, sender_name: 'Equipe Muvens', sender_email: 'contato@muvens.test', company_legal_name: 'Muvens LTDA', company_document: '00.000.000/0001-00', company_address: 'Rua B, 20', followup_days: 2, max_followups: 1, require_approval: true }).eq('id', 1);
     await db.from('suppression_list').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -83,6 +83,16 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     const d = await analyzeNextBatch(db, scope, 2); expect(d).toMatchObject({ processed: 0, remaining: 0 });
     const { data: rows } = await db.from('prospects').select('status, score').eq('campaign_id', camp!.id);
     expect(rows!.every((r) => r.status === 'analisado' && r.score != null)).toBe(true);
+  });
+
+  it('sem e-mail cadastrado: usa o e-mail público do site, extrai o WhatsApp publicado e cria o rascunho de e-mail', async () => {
+    const { data: p } = await db.from('prospects').insert({ name: `Site Contato ${RUN}`, website: `${base.replace("127.0.0.1", "localhost")}/contato`, phone: '(41) 99780-0552', source: 'manual' }).select('id').single();
+    expect((await analyzeProspect(db, p!.id, { site: { allowPrivate: true } })).ok).toBe(true);
+    const row = (await db.from('prospects').select('email, analysis').eq('id', p!.id).single()).data!;
+    expect(row.email).toBe(`contato@loja-${RUN}.com`);
+    expect((row.analysis as any).email_source).toBe('site'); expect((row.analysis as any).site.whatsappNumbers).toEqual(['5541997800552']);
+    const ch = (await db.from('outreach_messages').select('channel').eq('prospect_id', p!.id)).data!.map((m) => m.channel).sort();
+    expect(ch).toEqual(['email', 'whatsapp_manual']);
   });
 });
 

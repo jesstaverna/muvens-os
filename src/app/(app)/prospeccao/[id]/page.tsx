@@ -8,6 +8,8 @@ import { analyzeNow, approveMessage, cancelMessage, convertToLead, markWhatsappS
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { whatsappLink } from '@/lib/prospecting/message';
+import { fmt, whatsappSignal } from '@/lib/prospecting/phone';
+import { ChannelBadges } from '../ChannelBadges';
 import type { SiteFindings } from '@/lib/prospecting/analysis';
 import { dateTimeBR } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
@@ -27,6 +29,9 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
   const an = (p.analysis ?? null) as { site: SiteFindings | null; reasons: string[]; observations: string[]; visual?: { note: string } } | null;
   const site = an?.site ?? null; const st = PROSPECT_STATUS[p.status];
   const locked = ['descartado', 'respondeu', 'convertido'].includes(p.status);
+  const siteNumbers = site?.whatsappNumbers ?? [];
+  const sig = whatsappSignal(p.phone, siteNumbers);
+  const emailFromSite = (p.analysis as { email_source?: string } | null)?.email_source === 'site';
 
   return (
     <>
@@ -43,7 +48,7 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
           {site && (
             <section className="card"><h2 className="mb-3 text-base font-semibold">Site e presença online</h2>
               {!site.reachable ? <p className="text-sm text-warn">Site inacessível na análise ({site.error}).</p> : (
-                <><ul className="space-y-2 text-sm"><Yes v={site.https} label="Conexão segura (HTTPS)" /><Yes v={site.hasViewport} label="Adaptação para celular" /><Yes v={site.hasMetaDescription} label="Descrição para o Google" /><Yes v={site.hasWhatsappLink} label="Botão/link de WhatsApp" /><Yes v={site.hasContactForm} label="Formulário de contato" /><Yes v={site.hasAdsPixel} label="Pixel/tag de anúncios" /><Yes v={site.hasFavicon} label="Ícone da aba (favicon)" /><Yes v={site.hasShareImage} label="Imagem de compartilhamento" />
+                <><ul className="space-y-2 text-sm"><Yes v={site.https} label="Conexão segura (HTTPS)" /><Yes v={site.hasViewport} label="Adaptação para celular" /><Yes v={site.hasMetaDescription} label="Descrição para o Google" /><Yes v={site.hasWhatsappLink} label="Botão/link de WhatsApp" />{!!site.whatsappNumbers?.length && <li className="flex justify-between gap-3 text-muted"><span>Número de WhatsApp publicado</span><b className="text-fg">{site.whatsappNumbers.map((n) => fmt(n)).join(' · ')}</b></li>}{!!site.emails?.length && <li className="flex justify-between gap-3 text-muted"><span>E-mails públicos no site</span><b className="truncate text-fg">{site.emails.join(' · ')}</b></li>}<Yes v={site.hasContactForm} label="Formulário de contato" /><Yes v={site.hasAdsPixel} label="Pixel/tag de anúncios" /><Yes v={site.hasFavicon} label="Ícone da aba (favicon)" /><Yes v={site.hasShareImage} label="Imagem de compartilhamento" />
                   {typeof site.pageSpeedScore === 'number' && <li className="flex justify-between"><span>Velocidade no celular (PageSpeed)</span><b>{site.pageSpeedScore}/100</b></li>}</ul>
                   <div className="mt-4 text-sm"><span className="label">Redes sociais encontradas no site</span>{Object.keys(site.socials).length ? <ul className="space-y-1">{Object.entries(site.socials).map(([k, v]) => <li key={k}><a className="underline" href={v} target="_blank" rel="noreferrer noopener">{k}</a></li>)}</ul> : <span className="text-muted">nenhuma</span>}</div></>)}
               <p className="mt-4 rounded-xl bg-subtle p-3 text-xs text-muted"><Pending>Identidade visual</Pending> {an?.visual?.note}</p></section>)}
@@ -60,6 +65,7 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
                 ) : (<><p className="whitespace-pre-line rounded-xl bg-subtle p-4 text-sm">{m.body}</p></>)}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {m.channel === 'email' && ['rascunho', 'falhou'].includes(m.status) && !locked && <form action={approveMessage.bind(null, m.id, id)}><SubmitButton className="btn btn-sm btn-primary" pendingText="…" confirm="Aprovar este e-mail para envio automático (dentro dos limites e horários)?">Aprovar para envio</SubmitButton></form>}
+                  {m.channel === 'whatsapp_manual' && sig.level === 'improvavel' && <p className="w-full rounded-lg bg-amber-500/15 p-2.5 text-xs text-warn">{sig.detail}</p>}
                   {m.channel === 'whatsapp_manual' && m.status === 'rascunho' && !locked && (whatsappLink(p.phone, m.body) ? <><a className="btn btn-sm btn-primary" href={whatsappLink(p.phone, m.body)!} target="_blank" rel="noreferrer noopener">Abrir no WhatsApp</a><form action={markWhatsappSent.bind(null, m.id, id)}><SubmitButton className="btn btn-sm" pendingText="…">Já enviei</SubmitButton></form></> : <span className="text-xs text-muted">Sem telefone válido.</span>)}
                   {m.channel === 'whatsapp_manual' && <CopyButton text={m.body} label="Copiar texto" />}
                   {['rascunho', 'aprovada', 'falhou'].includes(m.status) && <form action={cancelMessage.bind(null, m.id, id)}><SubmitButton className="btn btn-sm" pendingText="…">Cancelar</SubmitButton></form>}</div></article>))}</section>
@@ -68,9 +74,10 @@ export default async function ProspectoPage({ params }: { params: Promise<{ id: 
         <aside className="space-y-6">
           <section className="card text-sm"><h2 className="mb-3 text-base font-semibold">Dados</h2><dl className="space-y-2">
             <div className="flex justify-between gap-3"><dt className="text-muted">Site</dt><dd className="truncate">{p.website ? <a className="underline" href={p.website} target="_blank" rel="noreferrer noopener">{p.website_domain}</a> : '—'}</dd></div>
-            <div className="flex justify-between gap-3"><dt className="text-muted">E-mail</dt><dd>{p.email ?? '—'}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Telefone</dt><dd>{p.phone ?? '—'}</dd></div>
+            <div className="flex justify-between gap-3"><dt className="text-muted">E-mail</dt><dd className="truncate">{p.email ?? '—'}{emailFromSite && <span className="ml-1 text-xs text-muted">(achado no site)</span>}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Telefone</dt><dd>{p.phone ?? '—'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted">Google</dt><dd>{p.rating ? `${String(p.rating).replace('.', ',')} ★ (${p.reviews_count ?? 0})` : '—'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted">Origem</dt><dd>{p.source === 'google_maps' ? 'Google Maps' : 'Manual'}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Base legal</dt><dd>legítimo interesse</dd></div></dl>
+            <div className="mt-4 border-t border-line pt-3"><div className="label">Canais disponíveis</div><ChannelBadges email={p.email} emailFromSite={emailFromSite} phone={p.phone} siteNumbers={siteNumbers} linkedin={site?.socials?.linkedin} people={site?.people} analyzed={!!p.analyzed_at} /><p className="mt-2 text-xs text-muted">{sig.detail} O WhatsApp não permite confirmar se um número tem conta sem enviar mensagem; este é só um sinal.</p></div>
             {p.maps_url && <a className="mt-3 inline-block underline" href={p.maps_url} target="_blank" rel="noreferrer noopener">Ver no Google Maps</a>}
             {p.lead_id && <Link href={`/crm/${p.lead_id}`} className="mt-3 block underline">Ver lead no CRM</Link>}</section>
           {!locked && <section className="card"><h2 className="mb-3 text-base font-semibold">Resultado do contato</h2><div className="space-y-2">

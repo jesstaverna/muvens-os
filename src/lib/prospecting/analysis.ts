@@ -1,3 +1,7 @@
+import { extractEmails } from './emails';
+import { extractWhatsappNumbers } from './phone';
+import { extractPeople, type Person } from './people';
+
 // Análise de presença digital a partir de informações PÚBLICAS (HTML do site). Funções puras, testadas.
 // Regra de redação: só afirmamos o que foi observado ("não encontramos X"), nunca inferimos além disso.
 
@@ -9,6 +13,9 @@ export interface SiteFindings {
   hasMetaDescription: boolean;
   hasViewport: boolean;           // sinal de adaptação para celular
   hasWhatsappLink: boolean;
+  emails?: string[];              // e-mails comerciais públicos encontrados no site
+  whatsappNumbers?: string[];     // números publicados em links de WhatsApp do site
+  people?: Person[];              // diretor comercial / direção citados no site
   hasAdsPixel: boolean;           // Meta Pixel / Google Tag / GTM
   hasContactForm: boolean;
   hasFavicon: boolean;
@@ -38,6 +45,9 @@ export function analyzeHtml(html: string, finalUrl: string): SiteFindings {
     title: title || undefined,
     hasMetaDescription: /<meta[^>]+name=["']description["'][^>]*content=["'][^"']{10,}/i.test(html) || /<meta[^>]+content=["'][^"']{10,}["'][^>]*name=["']description["']/i.test(html),
     hasViewport: /<meta[^>]+name=["']viewport["']/i.test(html),
+    emails: extractEmails(html),
+    whatsappNumbers: extractWhatsappNumbers(html),
+    people: extractPeople(html),
     hasWhatsappLink: /(wa\.me\/|api\.whatsapp\.com\/send|web\.whatsapp\.com\/send|whatsapp:\/\/send)/i.test(html),
     hasAdsPixel: /(fbq\(|connect\.facebook\.net\/[^"']*fbevents|googletagmanager\.com\/(gtm|gtag)|gtag\(|google-analytics\.com\/(analytics|ga)|googleadservices\.com)/i.test(html),
     hasContactForm: /<form[\s>]/i.test(html) && /(type=["']email["']|name=["'](email|e-mail|mensagem|message|telefone|phone)["'])/i.test(html),

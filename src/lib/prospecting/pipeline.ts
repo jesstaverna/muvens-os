@@ -4,6 +4,7 @@ import type { SafeFetchOptions } from '@/integrations/net-safe';
 import { scoreProspect } from './analysis';
 import { draftFirstEmail, WHATSAPP_INTRO } from './message';
 import { runPool } from './pool';
+import { pickBestEmail } from './emails';
 
 export interface AnalyzeOptions { site?: SafeFetchOptions & { withPageSpeed?: boolean } }
 
@@ -18,6 +19,12 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
     visual: { status: 'pendente', note: 'Análise de identidade visual por IA depende da integração com a Claude API (Fase 4); hoje só são verificados favicon e imagem de compartilhamento.' },
     analyzed_with: 'regras-v1',
   };
+  // sem e-mail cadastrado: usa um e-mail comercial público encontrado no próprio site da empresa
+  let email: string | null = p.email;
+  if (!email && site?.emails?.length) {
+    const best = pickBestEmail(site.emails, p.website ? new URL(/^https?:/i.test(p.website) ? p.website : `https://${p.website}`).hostname : null);
+    if (best) { const { error: eErr } = await db.from('prospects').update({ email: best }).eq('id', p.id); if (!eErr) { email = best; (analysis as Record<string, unknown>).email_source = 'site'; } }
+  }
   const { error: uErr } = await db.from('prospects').update({ analysis, score: scored.score, recommended_service: scored.service, analyzed_at: new Date().toISOString(), analysis_error: null, ...(p.status === 'novo' ? { status: 'analisado' } : {}) }).eq('id', p.id);
   if (uErr) return { ok: false, error: uErr.message };
 
@@ -25,7 +32,7 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
   const sender = { name: s?.sender_name ?? 'Equipe Muvens', companyLegalName: s?.company_legal_name ?? '', companyDocument: s?.company_document, companyAddress: s?.company_address ?? '' };
   const city = (Array.isArray(p.prospect_campaigns) ? p.prospect_campaigns[0] : p.prospect_campaigns)?.city ?? null;
   const rows: Record<string, unknown>[] = [];
-  if (p.email) { const m = draftFirstEmail({ name: p.name, category: p.category, city }, scored, sender); rows.push({ prospect_id: p.id, channel: 'email', step: 1, subject: m.subject, body: m.body, status: 'rascunho' }); }
+  if (email) { const m = draftFirstEmail({ name: p.name, category: p.category, city }, scored, sender); rows.push({ prospect_id: p.id, channel: 'email', step: 1, subject: m.subject, body: m.body, status: 'rascunho' }); }
   if (p.phone) rows.push({ prospect_id: p.id, channel: 'whatsapp_manual', step: 1, body: WHATSAPP_INTRO(p.name, sender.name), status: 'rascunho' });
   if (rows.length) {
     // não sobrescreve texto já editado: só cria o que ainda não existe (índice único parcial impede duplicatas)

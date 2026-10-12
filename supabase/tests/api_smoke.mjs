@@ -126,5 +126,7 @@ must(await com.from('prospects').select('id').in('campaign_id', ['aaaaaaaa-0000-
 must(await com.from('clients').select('id, name, segment').or('name.ilike.%a%,legal_name.ilike.%a%,email.ilike.%a%').limit(5), 'Busca global: clientes');
 must(await com.from('tasks').select('id, title, projects(name)').ilike('title', '%a%').limit(5), 'Busca global: tarefas');
 
+must(await com.from('prospects').select('id, phone, site_numbers:analysis->site->whatsappNumbers, email_src:analysis->>email_source').limit(5), 'Prospecção: sinal de WhatsApp (JSON path)');
+
 console.log(fails ? `\n${fails} falha(s)` : '\nTodas as consultas OK');
 process.exit(fails ? 1 : 0);

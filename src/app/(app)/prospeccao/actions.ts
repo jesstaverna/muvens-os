@@ -26,7 +26,7 @@ type Db = Awaited<ReturnType<typeof requireModule>>['supabase'];
 type Campaign = { id: string; niche: string; city: string; max_results: number };
 
 /** Busca no Google Maps, grava os prospectos novos e analisa os primeiros. Devolve um resumo (ou lança com a mensagem de erro). */
-async function searchInto(supabase: Db, c: Campaign) {
+async function searchInto(supabase: Db, c: Campaign, opts: { analyze?: boolean } = {}) {
   const places = await searchPlaces(c.niche, c.city, c.max_results);
   let created = 0, dup = 0; const ids: string[] = [];
   for (const p of places) {
@@ -35,7 +35,7 @@ async function searchInto(supabase: Db, c: Campaign) {
     created++; ids.push(data!.id);
   }
   // analisa todos em paralelo limitado (5 por vez) dentro de um orçamento de tempo; o que sobrar é concluído pela tela (análise automática) e pelo worker
-  const an = await analyzeMany(supabase, ids, { concurrency: 5, deadlineMs: 35_000 });
+  const an = opts.analyze === false ? { analyzed: 0, failed: 0, skipped: ids.length } : await analyzeMany(supabase, ids, { concurrency: 5, deadlineMs: 35_000 });
   return { created, dup, analyzed: an.analyzed, left: ids.length - an.analyzed - an.failed, found: places.length };
 }
 
@@ -52,25 +52,37 @@ export async function runCampaign(id: string) {
   flash(`${B}?tab=prospectos&grp=${slug(c!.niche)}--${slug(c!.city)}`, 'ok', `${r.created} prospecto(s) novo(s)${r.dup ? `, ${r.dup} já existia(m)` : ''}. ${r.analyzed} analisado(s)${r.left ? `; ${r.left} serão analisados automaticamente em seguida` : ''}.`);
 }
 
-/** Busca direta na página: nicho + cidade → reaproveita/cria a campanha, busca no Google Maps e abre o grupo com os resultados. */
+/** Busca direta na página: nicho(s) + cidade → reaproveita/cria a campanha de cada nicho, busca no Google Maps e abre o(s) grupo(s). */
 export async function quickSearch(fd: FormData) {
   const { supabase } = await requireModule('prospeccao');
-  const r = z.object({ niche: z.string().trim().min(2, 'Informe o nicho (ex.: clínica odontológica)').max(80), city: z.string().trim().min(2, 'Informe a cidade (ex.: Curitiba)').max(80) }).safeParse(Object.fromEntries(fd));
+  const picked = [...new Set(fd.getAll('niches').map((v) => String(v).trim()).filter(Boolean))].slice(0, 5);   // tipos marcados nas sugestões
+  const r = z.object({ niche: z.string().trim().max(80), city: z.string().trim().min(2, 'Informe a cidade (ex.: Curitiba)').max(80) }).safeParse(Object.fromEntries(fd));
   if (!r.success) flash(B, 'err', r.error.issues[0].message);
-  const { niche, city } = r.data!;
-  const key = `${slug(niche)}--${slug(city)}`;
+  const { city } = r.data!;
+  const niches = picked.length ? picked : [r.data!.niche];
+  if (!niches[0] || niches[0].length < 2) flash(B, 'err', 'Informe o nicho (ex.: clínica odontológica) ou escolha um tipo nas sugestões.');
   if (!placesConfigured()) flash(B, 'err', 'Integração pendente: configure GOOGLE_PLACES_API_KEY na Vercel para buscar no Google Maps. Enquanto isso, use “Cadastrar manualmente”.');
+  const multi = niches.length > 1;
   const { data: existing } = await supabase.from('prospect_campaigns').select('id, niche, city, max_results, status').eq('status', 'ativa');
-  let c = existing?.find((x) => `${slug(x.niche)}--${slug(x.city)}` === key) as Campaign | undefined;
-  if (!c) {
-    const { data, error } = await supabase.from('prospect_campaigns').insert({ name: `${niche} (${city})`, niche, city, max_results: 20 }).select('id, niche, city, max_results').single();
-    if (error) dbErr(B, error);
-    c = data as Campaign;
+  let created = 0, dup = 0, analyzed = 0, left = 0, found = 0, lastKey = '', failed = '';
+  for (const niche of niches) {
+    const key = `${slug(niche)}--${slug(city)}`;
+    let c = existing?.find((x) => `${slug(x.niche)}--${slug(x.city)}` === key) as Campaign | undefined;
+    if (!c) {
+      const { data, error } = await supabase.from('prospect_campaigns').insert({ name: `${niche} (${city})`, niche, city, max_results: 20 }).select('id, niche, city, max_results').single();
+      if (error) dbErr(B, error);
+      c = data as Campaign;
+    }
+    try {
+      const res = await searchInto(supabase, c, { analyze: !multi });   // várias buscas: a análise acontece automaticamente ao abrir cada grupo
+      created += res.created; dup += res.dup; analyzed += res.analyzed; left += res.left; found += res.found; lastKey = key;
+    } catch (e) { failed = e instanceof Error ? e.message : 'erro'; break; }
   }
-  let res; try { res = await searchInto(supabase, c); } catch (e) { return flash(B, 'err', `Falha na busca: ${e instanceof Error ? e.message : 'erro'}`); }
+  if (failed && !found) return flash(B, 'err', `Falha na busca: ${failed}`);
   revalidatePath(B);
-  flash(`${B}?tab=prospectos&grp=${key}`, res.found ? 'ok' : 'err', res.found
-    ? `${res.created} prospecto(s) novo(s)${res.dup ? `, ${res.dup} já existia(m)` : ''}. ${res.analyzed} analisado(s)${res.left ? `; ${res.left} serão analisados automaticamente em seguida` : ''}.`
+  const dest = multi ? `${B}?tab=prospectos` : `${B}?tab=prospectos&grp=${lastKey}`;
+  flash(dest, found ? 'ok' : 'err', found
+    ? `${niches.length} busca(s): ${created} prospecto(s) novo(s)${dup ? `, ${dup} já existia(m)` : ''}.${multi ? ' Abra cada grupo para a análise automática dos sites.' : ` ${analyzed} analisado(s)${left ? `; ${left} serão analisados automaticamente em seguida` : ''}.`}${failed ? ` (parou por erro: ${failed})` : ''}`
     : 'O Google Maps não retornou resultados para essa busca. Tente outro termo ou cidade.');
 }
 

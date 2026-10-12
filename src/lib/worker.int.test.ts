@@ -17,6 +17,7 @@ describe.skipIf(!URL)('worker (integração)', () => {
 
   it('processa jobs pendentes, agenda a varredura horária e é idempotente', async () => {
     const c = db();
+    await c.from('jobs').insert({ type: 'proposal.accepted', payload: {}, dedupe_key: `t-${Date.now()}` });   // garante trabalho pendente, independente de execuções anteriores
     const first = await runWorker(c as never);
     expect(first.failed).toBe(0);
     expect(first.done).toBeGreaterThan(0);
@@ -32,6 +33,7 @@ describe.skipIf(!URL)('worker (integração)', () => {
 
   it('job de tipo desconhecido falha com retentativa agendada (não trava a fila)', async () => {
     const c = db();
+    await c.from('jobs').delete().eq('type', 'tipo.inexistente');   // robusto a execuções repetidas no mesmo banco
     await c.from('jobs').insert({ type: 'tipo.inexistente' });
     const r = await runWorker(c as never);
     expect(r.failed).toBe(1);
