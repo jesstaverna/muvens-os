@@ -1,11 +1,12 @@
 import type { ServiceKey, SiteFindings } from './analysis';
+import { B2B_SEGMENTS, segmentFor } from './market';
 
 // Diagnóstico em formato de landing page, montado só com o que foi observado (dados públicos). Sem IA, sem inferências.
 export type Status = 'ok' | 'atencao' | 'ausente' | 'desconhecido';
 export interface Pillar { key: string; title: string; status: Status; summary: string; items: { label: string; ok: boolean | null }[] }
 export interface Report {
   headline: string; level: 'alta' | 'media' | 'baixa' | 'indefinida'; score: number | null;
-  pillars: Pillar[]; hasSite: boolean; reachable: boolean; opportunities: string[]; service: ServiceKey | null; strengths: string[];
+  b2bStructured: boolean; pillars: Pillar[]; hasSite: boolean; reachable: boolean; opportunities: string[]; service: ServiceKey | null; strengths: string[];
 }
 export interface ReportInput {
   name: string; category?: string | null; website?: string | null; rating?: number | null; reviews?: number | null; score?: number | null;
@@ -42,5 +43,8 @@ export function buildReport(i: ReportInput): Report {
   const headline = i.analyzed && !hasSite ? `${i.name} ainda não tem site próprio — e essa é a maior oportunidade` : i.analyzed && hasSite && !reach ? `O site de ${i.name} não abriu na nossa análise — e isso afasta clientes` : !i.analyzed ? `Diagnóstico de presença digital de ${i.name}` :
     level === 'alta' ? `${i.name} tem bastante espaço para crescer no digital` : level === 'media' ? `${i.name} tem boas oportunidades de melhoria no digital` : `${i.name} já tem uma boa base digital, com ajustes pontuais`;
   const strengths = pillars.flatMap((p) => p.items.filter((x) => x.ok === true).map((x) => x.label));
-  return { headline, level, score, pillars, hasSite, reachable: reach, opportunities: i.observations, service: (i.service as ServiceKey) ?? null, strengths };
+  // B2B com estrutura comercial visível: segmento B2B + (cargo/e-mail de comercial, compras ou direção, ou LinkedIn) publicados no site. Heurística, não mede porte real.
+  const structure = !!s?.socials?.linkedin || (s?.people ?? []).length > 0 || (s?.contacts ?? []).some((c) => ['comercial', 'compras', 'diretoria'].includes(c.kind));
+  const b2bStructured = B2B_SEGMENTS.has(segmentFor(i.category).key) && structure;
+  return { headline, level, score, b2bStructured, pillars, hasSite, reachable: reach, opportunities: i.observations, service: (i.service as ServiceKey) ?? null, strengths };
 }

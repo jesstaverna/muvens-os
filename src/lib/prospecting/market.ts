@@ -34,3 +34,6 @@ export function segmentFor(...texts: (string | null | undefined)[]): Segment {
   }
   return best ? { key: best.key, label: best.label, ...P[best.key] } : GENERIC;
 }
+
+/** Segmentos em que a venda costuma ser entre empresas (B2B), com ciclo mais longo e várias pessoas na decisão. */
+export const B2B_SEGMENTS = new Set(['industria', 'logistica', 'tecnologia', 'agro', 'servicos', 'construcao']);

@@ -13,6 +13,11 @@ const EXTRAS: Record<string, { title: string; service: string; deliverables: str
   rd_conversas: { title: 'Atendimento centralizado (RD Station Conversas)', service: 'rd_conversas', deliverables: ['WhatsApp, chat do site e outros canais em um só lugar', 'Distribuição de conversas e respostas rápidas', 'Treinamento da equipe'] },
   rd_marketing: { title: 'Captação e nutrição de leads (RD Station Marketing)', service: 'rd_marketing', deliverables: ['Formulários e páginas de captação integrados', 'Fluxos automáticos de e-mail', 'Relatório de leads e resultados'] },
 };
+const B2B_STEPS: { title: string; why: string; service: string; deliverables: string[] }[] = [
+  { service: 'rd_marketing', title: 'Geração e nutrição de leads (RD Station Marketing)', why: 'Em vendas B2B o ciclo é longo: nutrir contatos aumenta a chance de falar na hora certa', deliverables: ['Captação de leads com formulários e páginas integradas', 'Fluxos de nutrição por e-mail e pontuação de leads', 'Relatórios de funil para o time comercial'] },
+  { service: 'automacao', title: 'Estratégia de automação do funil comercial', why: 'Padronizar o caminho do primeiro contato até o fechamento reduz tarefas manuais e perdas', deliverables: ['Mapa do processo comercial atual', 'Automações de follow-up e distribuição de leads', 'Documentação e treinamento do time'] },
+  { service: 'ia_aplicada', title: 'IA aplicada ao atendimento e à prospecção', why: 'IA com supervisão humana acelera respostas, qualificação e produção de conteúdo técnico', deliverables: ['Levantamento de rotinas que ganham com IA', 'Soluções configuradas e testadas', 'Regras de uso e treinamento'] },
+];
 const RANK = { ausente: 0, atencao: 1, desconhecido: 2, ok: 3 } as const;
 
 export function buildProposal(r: Report): Step[] {
@@ -23,6 +28,7 @@ export function buildProposal(r: Report): Step[] {
   }
   const conv = r.pillars.find((p) => p.key === 'conversao');
   if (conv && (conv.status === 'ausente' || conv.status === 'atencao') && out.length < 5) for (const k of ['rd_conversas', 'rd_marketing']) out.push({ phase: 3, why: 'Organizar e automatizar os contatos que chegam', ...EXTRAS[k] });
+  if (r.b2bStructured) { for (const b of B2B_STEPS) if (!out.some((x) => x.service === b.service)) out.push({ phase: 2, ...b }); }
   if (!out.length) out.push({ phase: 1, title: 'Consultoria de presença digital', why: 'Base digital em boa forma: foco em evoluir e medir', deliverables: ['Revisão de oportunidades de crescimento', 'Plano de conteúdo e mídia com metas'], service: 'consultoria' });
   return out;
 }

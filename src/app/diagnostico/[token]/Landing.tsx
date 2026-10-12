@@ -100,6 +100,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
           <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Proposta de melhorias</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Plano sugerido para {props.name}</h2>
           <p className="mt-2 max-w-2xl text-neutral-600">Ordenado pelo que mais pesa no diagnóstico. {hasPrices ? 'Valores de referência; a proposta final depende de um breve briefing.' : 'Valores e prazos definimos juntos, depois de uma conversa.'}</p>
+          {r.b2bStructured && <div className="mt-6 rounded-2xl border border-black bg-black p-6 text-white"><p className="text-xs font-semibold uppercase tracking-widest text-[#DCEA1E]">Por que automação e IA para {props.name}</p><p className="mt-2 max-w-3xl text-sm text-white/80">Empresas que vendem para outras empresas têm ciclo de venda mais longo e várias pessoas na decisão. Organizar a captação e o acompanhamento dos contatos (RD Station), automatizar o funil comercial e usar IA no atendimento e na prospecção ajuda a não perder oportunidades e a liberar o tempo do time comercial.</p></div>}
           <ol className="mt-8 space-y-4">{steps.map((st, i) => (
             <li key={st.title} className="grid gap-4 rounded-2xl border border-neutral-200 bg-white p-6 sm:grid-cols-[auto_1fr]">
               <span className="grid h-12 w-12 place-items-center rounded-full bg-[#DCEA1E] text-lg font-semibold text-black">{i + 1}</span>
