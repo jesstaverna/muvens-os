@@ -25,3 +25,7 @@ Pré-requisito: migração 13 (arquivo D). Rode `E_pontuacao_na_landing.sql` **u
 ## F — Novos serviços (migração 15)
 
 Libera RD Station Marketing, RD Station Conversas, Estratégia de automação e IA aplicada em propostas e contratos. Rode `F_novos_servicos.sql` **uma vez**. Sem ela, escolher esses serviços numa proposta dá erro de valor inválido.
+
+## G — Tudo o que falta de uma vez (migrações 13, 14 e 15 + preços sugeridos)
+
+Se o seu banco está até a migração 12, rode só `G_tudo_pendente.sql` (no lugar de D, E e F). Pode ser rodado mais de uma vez sem erro e só cadastra preços que ainda não existem. Conferência: `select count(*) from public.service_prices;` → 12.
