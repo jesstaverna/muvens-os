@@ -2,7 +2,7 @@ import { CheckCircle2, AlertTriangle, XCircle, HelpCircle, ArrowRight, Globe, Sh
 import { buildReport, type ReportInput, type Status } from '@/lib/prospecting/report';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { segmentFor } from '@/lib/prospecting/market';
-import { buildProposal } from '@/lib/prospecting/proposal';
+import { buildProposal, SERVICE_BLURB } from '@/lib/prospecting/proposal';
 import { MUVENS } from '@/lib/prospecting/muvens';
 
 const ST: Record<Status, { Icon: typeof CheckCircle2; cls: string; label: string }> = {
@@ -21,6 +21,9 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
   const hasPrices = !!props.prices && Object.keys(props.prices).length > 0;
   const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
   const priceOf = (svc: string) => { const x = props.prices?.[svc]; return x ? `A partir de ${brl(Number(x.from))}${x.unit === 'mensal' ? ' / mês' : ''}` : 'Sob consulta'; };
+  const ctaFor = (label: string) => props.whatsapp ? `https://wa.me/${props.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Vi o diagnóstico da ${props.name} e tenho interesse em: ${label}.`)}` : props.email ? `mailto:${props.email}?subject=${encodeURIComponent(`Interesse em ${label} — ${props.name}`)}` : null;
+  const planned = new Set(steps.map((x) => x.service));
+  const offers = Object.entries(props.prices ?? {}).map(([svc, v]) => ({ svc, v })).sort((a, b) => Number(planned.has(b.svc)) - Number(planned.has(a.svc)));
   const stats = [
     { n: r.score != null ? `${r.score}/100` : '—', l: 'Pontuação de oportunidade' },
     { n: String(props.observations.length), l: 'Pontos de melhoria identificados' },
@@ -105,6 +108,24 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
                 <ul className="mt-3 grid gap-1.5 text-sm sm:grid-cols-2">{st.deliverables.map((d) => <li key={d} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />{d}</li>)}</ul></div>
             </li>))}</ol>
         </section>
+
+        {hasPrices && offers.length > 0 && (
+          <section className="mt-16">
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">Serviços e valores de referência</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Como a Muvens pode ajudar</h2>
+            <p className="mt-2 max-w-2xl text-neutral-600">Você pode contratar um serviço ou combinar vários. Os valores abaixo são de referência, a partir de; a proposta final depende de um breve briefing.</p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {offers.map(({ svc, v }) => { const label = SERVICE_LABEL[svc] ?? svc; const link = ctaFor(label); const rec = planned.has(svc); return (
+                <article key={svc} className={`flex flex-col rounded-2xl border p-6 ${rec ? 'border-black bg-black text-white' : 'border-neutral-200 bg-white'}`}>
+                  {rec && <span className="mb-3 w-fit rounded-full bg-[#DCEA1E] px-2.5 py-0.5 text-xs font-semibold text-black">Indicado para {props.name.split(' ')[0]}</span>}
+                  <h3 className="text-lg font-semibold">{label}</h3>
+                  <p className={`mt-1 flex-1 text-sm ${rec ? 'text-white/70' : 'text-neutral-600'}`}>{SERVICE_BLURB[svc] ?? ''}</p>
+                  <p className="mt-4 text-sm">A partir de</p><p className={`text-3xl font-semibold ${rec ? 'text-[#DCEA1E]' : ''}`}>{brl(Number(v.from))}<span className="text-sm font-normal opacity-70">{v.unit === 'mensal' ? ' / mês' : ''}</span></p>
+                  {link && <a href={link} className={`mt-4 inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold hover:opacity-90 ${rec ? 'bg-[#DCEA1E] text-black' : 'bg-black text-[#DCEA1E]'}`}>Tenho interesse <ArrowRight className="h-4 w-4" strokeWidth={2} /></a>}
+                </article>); })}
+            </div>
+          </section>
+        )}
 
         <section className="mt-16 rounded-3xl bg-[#DCEA1E] px-7 py-12 text-center sm:px-14">
           <h2 className="mx-auto max-w-2xl text-3xl font-semibold leading-tight tracking-tight text-black sm:text-4xl">Vamos transformar este diagnóstico em um plano de ação?</h2>

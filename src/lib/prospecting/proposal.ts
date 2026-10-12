@@ -20,3 +20,16 @@ export function buildProposal(r: Report): Step[] {
   if (!out.length) out.push({ phase: 1, title: 'Consultoria de presença digital', why: 'Base digital em boa forma: foco em evoluir e medir', deliverables: ['Revisão de oportunidades de crescimento', 'Plano de conteúdo e mídia com metas'], service: 'consultoria' });
   return out;
 }
+
+/** Descrição curta de cada serviço para a seção de valores da landing. */
+export const SERVICE_BLURB: Record<string, string> = {
+  redes_sociais: 'Planejamento, criação e gestão de conteúdo para as redes sociais.',
+  branding: 'Identidade visual completa: logo, cores, tipografia e aplicações.',
+  site_institucional: 'Site profissional, rápido, adaptado para celular e otimizado para o Google.',
+  landing_page: 'Página focada em uma oferta, pensada para gerar contatos.',
+  trafego_pago: 'Campanhas de anúncios com medição de resultado e otimização.',
+  design_recorrente: 'Peças de design todo mês, com padrão visual da marca.',
+  design_posts: 'Artes para posts e stories, no padrão visual da empresa.',
+  consultoria: 'Diagnóstico e plano de ação para a presença digital.',
+  personalizado: 'Projeto sob medida para uma necessidade específica.',
+};
