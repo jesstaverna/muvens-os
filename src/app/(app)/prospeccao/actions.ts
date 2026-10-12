@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { placesConfigured, searchPlaces } from '@/integrations/google-places';
+import { normalizeAddress } from '@/lib/prospecting/address';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resendProvider } from '@/integrations/email';
 import { processOutbox } from '@/lib/prospecting/outbox';
@@ -213,8 +214,10 @@ export async function saveOutreachSettings(fd: FormData) {
     .safeParse({ daily_email_limit: n('daily_email_limit'), window_start_hour: n('window_start_hour'), window_end_hour: n('window_end_hour'), followup_days: n('followup_days'), max_followups: n('max_followups') });
   if (!r.success || r.data.window_end_hour <= r.data.window_start_hour) flash(`${B}?tab=config`, 'err', 'Confira os limites: horário final deve ser maior que o inicial.');
   const email = opt(fd, 'sender_email');
+  const replyTo = opt(fd, 'reply_to');
+  if (replyTo && !normalizeAddress(replyTo)) flash(`${B}?tab=config`, 'err', 'O campo "Responder para" precisa ser um e-mail (ex.: contato@empresa.com.br) ou "Nome <contato@empresa.com.br>". Deixe em branco para não usar.');
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) flash(`${B}?tab=config`, 'err', 'E-mail do remetente inválido.');
-  const { error } = await supabase.from('outreach_settings').update({ ...r.data!, sender_name: opt(fd, 'sender_name'), sender_email: email, reply_to: opt(fd, 'reply_to'), company_legal_name: opt(fd, 'company_legal_name'), company_document: opt(fd, 'company_document'), company_address: opt(fd, 'company_address'),
+  const { error } = await supabase.from('outreach_settings').update({ ...r.data!, sender_name: opt(fd, 'sender_name'), sender_email: email, reply_to: replyTo, company_legal_name: opt(fd, 'company_legal_name'), company_document: opt(fd, 'company_document'), company_address: opt(fd, 'company_address'),
     weekdays_only: fd.get('weekdays_only') === 'on', require_approval: fd.get('require_approval') === 'on', sending_enabled: fd.get('sending_enabled') === 'on' }).eq('id', 1);
   if (error) flash(`${B}?tab=config`, 'err', error.code === '42501' ? 'Apenas administradores alteram as configurações de envio.' : 'Não foi possível salvar.');
   revalidatePath(B);
@@ -263,4 +266,13 @@ export async function sendQueueNow() {
   } catch (e) { msg = `Erro ao processar a fila: ${e instanceof Error ? e.message : 'falha'}`; }
   revalidatePath(B);
   flash(`${B}?tab=fila`, 'ok', msg);
+}
+
+/** Recoloca na fila (aprovadas) os e-mails que falharam, depois de corrigir a causa (ex.: configuração). */
+export async function retryFailedEmails() {
+  const { supabase } = await requireModule('prospeccao');
+  const { data, error } = await supabase.from('outreach_messages').update({ status: 'aprovada', error: null }).eq('channel', 'email').eq('status', 'falhou').select('id');
+  if (error) dbErr(`${B}?tab=fila`, error);
+  revalidatePath(B);
+  flash(`${B}?tab=fila`, 'ok', `${data?.length ?? 0} e-mail(s) voltaram para a fila. Clique em "Processar fila agora" para enviar.`);
 }

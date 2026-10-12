@@ -20,7 +20,7 @@ export async function processOutbox(db: SupabaseClient, provider: EmailProvider 
       if (pr?.report_token) body += `\n\nDiagnóstico completo, com os detalhes da análise: ${appUrl.replace(/\/$/, '')}/diagnostico/${pr.report_token}`;
     }
     try {
-      const r = await provider.send({ from: `${s.sender_name} <${s.sender_email}>`, to: m.to_email, replyTo: s.reply_to ?? undefined, subject: m.subject, text: body + foot.text, html: bodyToHtml(body) + foot.html, unsubscribeUrl: unsub });
+      const r = await provider.send({ from: `"${String(s.sender_name).replace(/["\\<>\r\n]/g, '').trim()}" <${String(s.sender_email).trim()}>`, to: m.to_email, replyTo: s.reply_to ?? undefined, subject: m.subject, text: body + foot.text, html: bodyToHtml(body) + foot.html, unsubscribeUrl: unsub });
       await db.rpc('finish_outreach', { p_id: m.id, p_ok: true, p_provider_id: r.id });
       sent++;
     } catch (e) {

@@ -3,7 +3,7 @@ import { ChevronRight, FolderOpen, List } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
-import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow } from './actions';
+import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow, retryFailedEmails } from './actions';
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
@@ -145,6 +145,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
 
       {tab === 'fila' && (
         <section className="card mb-5 max-w-4xl"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Por que os e-mails saem (ou não)</h2><p className="text-xs text-muted">Confira cada item: todos precisam estar em dia para o envio acontecer.</p></div>
+          {diag.some((c) => !c.ok && /falharam/.test(c.label)) && <form action={retryFailedEmails}><SubmitButton className="btn btn-sm" pendingText="…">Reenviar os que falharam</SubmitButton></form>}
           {isAdmin && <form action={sendQueueNow}><SubmitButton className="btn btn-sm btn-primary" pendingText="Processando…">Processar fila agora</SubmitButton></form>}</div>
           <ul className="mt-4 space-y-2 text-sm">{diag.map((c) => (<li key={c.label} className="flex gap-3"><span className={`mt-0.5 font-bold ${c.ok ? 'text-ok' : 'text-danger'}`}>{c.ok ? '✓' : '✗'}</span><div><span>{c.label}</span>{!c.ok && c.fix && <p className="text-xs text-muted">{c.fix}</p>}</div></li>))}</ul>
           <p className="mt-4 text-xs text-muted">O envio roda quando o agendador chama o processador (na Vercel Hobby, 1 vez por dia). O botão acima processa na hora, respeitando as mesmas travas.</p></section>)}
