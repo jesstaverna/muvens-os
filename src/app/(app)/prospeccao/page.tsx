@@ -3,14 +3,15 @@ import { ChevronRight, FolderOpen, List } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
-import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow, retryFailedEmails } from './actions';
+import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow, retryFailedEmails, approveReadyNow, markWhatsappDone } from './actions';
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
 import { LinkButton } from '@/components/LinkButton';
 import { AutoAnalyze } from './AutoAnalyze';
-import { CONTACT_FILTERS, matchesContact, parseFilters, reachRank } from '@/lib/prospecting/filters';
+import { CONTACT_FILTERS, isReady, matchesContact, parseFilters, reachRank, whatsappNumber } from '@/lib/prospecting/filters';
+import { whatsappLink } from '@/lib/prospecting/message';
 import { diagnoseSending } from '@/lib/prospecting/send-diagnosis';
 import { ChannelBadges } from './ChannelBadges';
 import { NicheField } from './NicheField';
@@ -59,7 +60,17 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   if (sp.ord === 'contato') shown = [...shown].sort((a, b) => reachRank(b) - reachRank(a) || (b.score ?? -1) - (a.score ?? -1));
   else if (sp.ord === 'nome') shown = [...shown].sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt-BR'));
   let diag: ReturnType<typeof diagnoseSending> = [];
+  let readyCount = 0; let waDue: any[] = [];
   if (tab === 'fila') {
+    const { data: rd } = await supabase.from('outreach_messages').select('id, prospects!inner(email, phone, status, site_numbers:analysis->site->whatsappNumbers)').eq('channel', 'email').eq('step', 1).eq('status', 'rascunho').limit(500);
+    readyCount = (rd ?? []).filter((r: any) => { const p = one(r.prospects) as any; return p && !['descartado', 'respondeu', 'convertido'].includes(p.status) && isReady(p); }).length;
+    const days = Number(settings?.whatsapp_after_days ?? 3);
+    const { data: sentFirst } = await supabase.from('outreach_messages').select('prospect_id').eq('channel', 'email').eq('step', 1).eq('status', 'enviada').lte('sent_at', new Date(Date.now() - days * 86400_000).toISOString()).limit(500);
+    const ids = [...new Set((sentFirst ?? []).map((m: any) => m.prospect_id))];
+    if (ids.length) {
+      const { data: wa } = await supabase.from('outreach_messages').select('id, prospect_id, body, prospects!inner(name, phone, status, site_numbers:analysis->site->whatsappNumbers)').eq('channel', 'whatsapp_manual').eq('status', 'rascunho').in('prospect_id', ids).limit(100);
+      waDue = (wa ?? []).filter((m: any) => { const p = one(m.prospects) as any; return p?.status === 'contatado' && whatsappNumber(p); });
+    }
     const brt = new Date(Date.now() - 3 * 3600_000); const dayStart = new Date(Date.UTC(brt.getUTCFullYear(), brt.getUTCMonth(), brt.getUTCDate(), 3)).toISOString(); // meia-noite de Brasília (UTC-3)
     const cnt = (st: string) => supabase.from('outreach_messages').select('id', { count: 'exact', head: true }).eq('channel', 'email').eq('status', st);
     const [ap, dr, fa, sent, last] = await Promise.all([cnt('aprovada'), cnt('rascunho'), cnt('falhou'),
@@ -138,7 +149,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
             </div>
             <fieldset><legend className="label">Contato disponível (marque os que você exige)</legend>
               <div className="flex flex-wrap gap-2">{CONTACT_FILTERS.map((f) => <label key={f.key} className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-1.5 text-xs has-[:checked]:border-transparent has-[:checked]:bg-lime has-[:checked]:font-medium has-[:checked]:text-black"><input type="checkbox" name="f" value={f.key} defaultChecked={activeF.includes(f.key)} className="sr-only" />{f.label}</label>)}</div></fieldset>
-            <div className="flex flex-wrap items-center gap-3"><button className="btn btn-dark">Filtrar</button><LinkButton href={`/prospeccao?tab=prospectos&grp=${grp}`} className="btn btn-sm">Limpar filtros</LinkButton>
+            <div className="flex flex-wrap items-center gap-3"><button className="btn btn-dark">Filtrar</button><LinkButton href={`/prospeccao?tab=prospectos&grp=${grp}&f=email&f=wa&ord=contato`} className="btn btn-sm">Prontos: e-mail + WhatsApp</LinkButton><LinkButton href={`/prospeccao?tab=prospectos&grp=${grp}`} className="btn btn-sm">Limpar filtros</LinkButton>
               <span className="text-sm text-muted">{activeF.length || sp.q || sp.status || sp.min ? `${shown.length} de ${totalFetched} prospecto(s) no grupo` : `${totalFetched} prospecto(s)`}{totalFetched >= 300 ? ' (mostrando os 300 primeiros)' : ''}</span></div></form>
           {!shown.length ? <Empty title="Nenhum prospecto com esses filtros" text="Ajuste os filtros ou rode a busca da campanha novamente." /> : (
             <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Empresa</th><th className="th">Oportunidade</th><th className="th">Serviço sugerido</th><th className="th">Contato</th><th className="th">Status</th></tr></thead>
@@ -158,6 +169,18 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
           <form action={createCampaign} className="card h-fit space-y-4"><h2 className="text-base font-semibold">Nova campanha</h2><Field label="Nome"><input name="name" required className="input" placeholder="Clínicas — Campinas" /></Field><Field label="Nicho"><input name="niche" required className="input" placeholder="clínica de estética" /></Field><Field label="Cidade"><input name="city" required className="input" placeholder="Campinas, SP" /></Field>
             <Field label="Máx. de resultados por busca" hint="Até 20 por busca (limite da API por página)."><input name="max_results" type="number" min={1} max={20} defaultValue={20} className="input" /></Field><SubmitButton>Criar campanha</SubmitButton></form>
         </div>)}
+
+      {tab === 'fila' && (
+        <section className="card mb-5 max-w-4xl"><h2 className="text-base font-semibold">Cadência: e-mail primeiro, WhatsApp depois</h2>
+          <p className="mt-1 text-xs text-muted">O sistema cria os rascunhos ao analisar. O 1º contato é por e-mail; se não houver resposta em {settings?.whatsapp_after_days ?? 3} dia(s), o WhatsApp assistido aparece aqui para você enviar.</p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line p-3 text-sm"><span><b>{readyCount}</b> rascunho(s) de prospectos com e-mail <b>e</b> WhatsApp prontos para aprovar{settings?.auto_approve_ready ? ' (aprovação automática ligada)' : ''}.</span>
+            {readyCount > 0 && <form action={approveReadyNow}><SubmitButton className="btn btn-sm btn-primary" pendingText="Aprovando…">Aprovar os {readyCount} de uma vez</SubmitButton></form>}</div>
+          <h3 className="mb-2 mt-5 text-sm font-semibold">WhatsApp para fazer hoje ({waDue.length})</h3>
+          {!waDue.length ? <p className="text-sm text-muted">Nada pendente. Aparecem aqui os prospectos que receberam o e-mail há {settings?.whatsapp_after_days ?? 3}+ dia(s), ainda sem resposta e com WhatsApp.</p> : (
+            <ul className="space-y-2">{waDue.map((m: any) => { const p = one(m.prospects) as any; const num = whatsappNumber(p); const link = whatsappLink(num, m.body); return (
+              <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line p-3 text-sm"><span><Link href={`/prospeccao/${m.prospect_id}`} className="font-medium hover:underline">{p.name}</Link><span className="ml-2 text-xs text-muted">{num}</span></span>
+                <span className="flex gap-2">{link && <a className="btn btn-sm btn-primary" href={link} target="_blank" rel="noreferrer noopener">Abrir no WhatsApp</a>}<form action={markWhatsappDone.bind(null, m.id, m.prospect_id)}><SubmitButton className="btn btn-sm" pendingText="…">Já enviei</SubmitButton></form></span></li>); })}</ul>)}
+        </section>)}
 
       {tab === 'fila' && (
         <section className="card mb-5 max-w-4xl"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Por que os e-mails saem (ou não)</h2><p className="text-xs text-muted">Confira cada item: todos precisam estar em dia para o envio acontecer.</p></div>
@@ -200,6 +223,8 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
             <label className="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" name="weekdays_only" defaultChecked={settings.weekdays_only} /> Enviar só em dias úteis (fuso de São Paulo)</label></div>
           <div className="space-y-3 rounded-xl border border-line p-4"><h2 className="text-base font-semibold">Controles</h2>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="require_approval" defaultChecked={settings.require_approval} className="mt-1" /><span><b>Exigir aprovação humana de cada e-mail</b> (recomendado). Desmarque só depois de revisar vários textos e ver que a qualidade está boa.</span></label>
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="auto_approve_ready" defaultChecked={settings.auto_approve_ready} className="mt-1" /><span><b>Aprovar automaticamente</b> o 1º e-mail de quem tem <b>e-mail e WhatsApp</b> (pontuação mínima abaixo). Os demais continuam esperando a sua aprovação. As travas de envio (horário, limite, bloqueios, identificação) continuam valendo.</span></label>
+            <div className="grid gap-4 pl-6 sm:grid-cols-2"><Field label="Pontuação mínima para aprovar sozinho"><input name="auto_approve_min_score" type="number" min={0} max={100} defaultValue={settings.auto_approve_min_score ?? 0} className="input" /></Field><Field label="Dias até o WhatsApp (depois do e-mail)"><input name="whatsapp_after_days" type="number" min={1} max={30} defaultValue={settings.whatsapp_after_days ?? 3} className="input" /></Field></div>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="sending_enabled" defaultChecked={settings.sending_enabled} className="mt-1" /><span><b>Ligar o envio automático.</b> Só envia se: provedor configurado, identificação completa, dentro do horário e do limite, e fora da lista de bloqueio. Todo e-mail leva identificação, motivo do contato e link de descadastro.</span></label></div>
         </fieldset>{isAdmin ? <SubmitButton>Salvar configurações</SubmitButton> : <p className="text-sm text-muted">Somente administradores alteram estas configurações.</p>}</form>)}
       {tab === 'config' && settings && (

@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { analyzeNextBatch, analyzeProspect } from './pipeline';
-import { createFollowups, processOutbox } from './outbox';
+import { autoApproveReady, createFollowups, processOutbox } from './outbox';
 
 // Integração com PostgREST local (ver supabase/tests/). Ignorado sem PGRST_URL.
 const URL = process.env.PGRST_URL;
@@ -93,6 +93,25 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     expect((row.analysis as any).email_source).toBe('site'); expect((row.analysis as any).site.whatsappNumbers).toEqual(['5541997800552']);
     const ch = (await db.from('outreach_messages').select('channel').eq('prospect_id', p!.id)).data!.map((m) => m.channel).sort();
     expect(ch).toEqual(['email', 'whatsapp_manual']);
+  });
+
+  it('aprovação automática: só quem tem e-mail E WhatsApp, respeita pontuação mínima e o botão desligado', async () => {
+    const mk = async (name: string, email: string | null, phone: string | null, score: number) => {
+      const { data: p } = await db.from('prospects').insert({ name: `${name} ${RUN}`, email, phone, score, status: 'analisado', source: 'manual', analysis: { site: null, observations: [] } }).select('id').single();
+      await db.from('outreach_messages').insert({ prospect_id: p!.id, channel: 'email', step: 1, subject: 's', body: 'b', status: 'rascunho' });
+      return p!.id as string;
+    };
+    const a = await mk('Pronto', `pronto${RUN}@auto.com`, '(41) 99111-2222', 70);
+    const b = await mk('SemWhats', `semw${RUN}@auto.com`, '(41) 3027-2736', 70);
+    const c = await mk('SemEmail', null, '(41) 99111-3333', 70);
+    const d = await mk('Baixo', `baixo${RUN}@auto.com`, '(41) 99111-4444', 10);
+    const st = async (id: string) => (await db.from('outreach_messages').select('status').eq('prospect_id', id).eq('channel', 'email').single()).data!.status;
+    await db.from('outreach_settings').update({ auto_approve_ready: false, auto_approve_min_score: 50 }).eq('id', 1);
+    expect((await autoApproveReady(db)).approved).toBe(0); expect(await st(a)).toBe('rascunho');
+    await db.from('outreach_settings').update({ auto_approve_ready: true }).eq('id', 1);
+    await autoApproveReady(db);
+    expect(await st(a)).toBe('aprovada'); expect(await st(b)).toBe('rascunho'); expect(await st(c)).toBe('rascunho'); expect(await st(d)).toBe('rascunho');
+    await db.from('outreach_settings').update({ auto_approve_ready: false, auto_approve_min_score: 0 }).eq('id', 1);
   });
 });
 

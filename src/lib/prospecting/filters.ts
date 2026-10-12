@@ -34,3 +34,14 @@ export function parseFilters(v: string | string[] | undefined): ContactFilter[] 
   const list = (Array.isArray(v) ? v : (v ?? '').split(',')).map((x) => x.trim());
   return CONTACT_FILTERS.map((f) => f.key).filter((k) => list.includes(k));
 }
+
+/** Pronto para abordagem: tem e-mail E algum sinal de WhatsApp (celular, ou número publicado no site). */
+export function isReady(r: FilterRow): boolean { const h = has(r); return h.email && h.wa; }
+
+/** Número para o WhatsApp: o publicado no site (se houver) ou o telefone cadastrado quando for celular. */
+export function whatsappNumber(r: Pick<FilterRow, 'phone' | 'site_numbers'>): string | null {
+  const w = whatsappSignal(r.phone, r.site_numbers ?? []);
+  if (w.level === 'outro' || w.level === 'confirmado') return (w.level === 'outro' ? r.site_numbers?.[0] : r.phone) ?? null;
+  if (w.level === 'provavel') return r.phone ?? null;
+  return null;
+}

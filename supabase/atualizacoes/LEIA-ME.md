@@ -29,3 +29,7 @@ Libera RD Station Marketing, RD Station Conversas, Estratégia de automação e 
 ## G — Tudo o que falta de uma vez (migrações 13, 14 e 15 + preços sugeridos)
 
 Se o seu banco está até a migração 12, rode só `G_tudo_pendente.sql` (no lugar de D, E e F). Pode ser rodado mais de uma vez sem erro e só cadastra preços que ainda não existem. Conferência: `select count(*) from public.service_prices;` → 12.
+
+## H — Cadência: e-mail primeiro, WhatsApp depois, aprovação automática (migração 16)
+
+Pré-requisito: migração 11 (Prospecção). Rode `H_cadencia.sql` **uma vez** (pode ser repetido sem erro). Conferência: `select auto_approve_ready, whatsapp_after_days from public.outreach_settings;` → `false | 3`.

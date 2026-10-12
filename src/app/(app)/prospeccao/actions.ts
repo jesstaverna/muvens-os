@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { placesConfigured, searchPlaces } from '@/integrations/google-places';
+import { autoApproveReady } from '@/lib/prospecting/outbox';
 import { normalizeAddress } from '@/lib/prospecting/address';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resendProvider } from '@/integrations/email';
@@ -210,15 +211,15 @@ export async function removeSuppression(id: string) {
 export async function saveOutreachSettings(fd: FormData) {
   const { supabase } = await requireModule('prospeccao');
   const n = (k: string) => Number(fd.get(k));
-  const r = z.object({ daily_email_limit: z.number().int().min(1).max(500), window_start_hour: z.number().int().min(0).max(23), window_end_hour: z.number().int().min(1).max(24), followup_days: z.number().int().min(2).max(30), max_followups: z.number().int().min(0).max(3) })
-    .safeParse({ daily_email_limit: n('daily_email_limit'), window_start_hour: n('window_start_hour'), window_end_hour: n('window_end_hour'), followup_days: n('followup_days'), max_followups: n('max_followups') });
+  const r = z.object({ daily_email_limit: z.number().int().min(1).max(500), window_start_hour: z.number().int().min(0).max(23), window_end_hour: z.number().int().min(1).max(24), followup_days: z.number().int().min(2).max(30), max_followups: z.number().int().min(0).max(3), auto_approve_min_score: z.number().int().min(0).max(100), whatsapp_after_days: z.number().int().min(1).max(30) })
+    .safeParse({ daily_email_limit: n('daily_email_limit'), window_start_hour: n('window_start_hour'), window_end_hour: n('window_end_hour'), followup_days: n('followup_days'), max_followups: n('max_followups'), auto_approve_min_score: n('auto_approve_min_score') || 0, whatsapp_after_days: n('whatsapp_after_days') || 3 });
   if (!r.success || r.data.window_end_hour <= r.data.window_start_hour) flash(`${B}?tab=config`, 'err', 'Confira os limites: horário final deve ser maior que o inicial.');
   const email = opt(fd, 'sender_email');
   const replyTo = opt(fd, 'reply_to');
   if (replyTo && !normalizeAddress(replyTo)) flash(`${B}?tab=config`, 'err', 'O campo "Responder para" precisa ser um e-mail (ex.: contato@empresa.com.br) ou "Nome <contato@empresa.com.br>". Deixe em branco para não usar.');
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) flash(`${B}?tab=config`, 'err', 'E-mail do remetente inválido.');
   const { error } = await supabase.from('outreach_settings').update({ ...r.data!, sender_name: opt(fd, 'sender_name'), sender_email: email, reply_to: replyTo, company_legal_name: opt(fd, 'company_legal_name'), company_document: opt(fd, 'company_document'), company_address: opt(fd, 'company_address'),
-    weekdays_only: fd.get('weekdays_only') === 'on', require_approval: fd.get('require_approval') === 'on', sending_enabled: fd.get('sending_enabled') === 'on' }).eq('id', 1);
+    weekdays_only: fd.get('weekdays_only') === 'on', require_approval: fd.get('require_approval') === 'on', sending_enabled: fd.get('sending_enabled') === 'on', auto_approve_ready: fd.get('auto_approve_ready') === 'on' }).eq('id', 1);
   if (error) flash(`${B}?tab=config`, 'err', error.code === '42501' ? 'Apenas administradores alteram as configurações de envio.' : 'Não foi possível salvar.');
   revalidatePath(B);
   flash(`${B}?tab=config`, 'ok', 'Configurações salvas.');
@@ -275,4 +276,23 @@ export async function retryFailedEmails() {
   if (error) dbErr(`${B}?tab=fila`, error);
   revalidatePath(B);
   flash(`${B}?tab=fila`, 'ok', `${data?.length ?? 0} e-mail(s) voltaram para a fila. Clique em "Processar fila agora" para enviar.`);
+}
+
+/** Aprova de uma vez os 1ºs e-mails (rascunho) de quem tem e-mail E WhatsApp, respeitando a pontuação mínima configurada. */
+export async function approveReadyNow() {
+  const { supabase } = await requireModule('prospeccao');
+  let msg: string;
+  try { const r = await autoApproveReady(supabase, { force: true }); msg = r.approved ? `${r.approved} e-mail(s) aprovado(s). Clique em "Processar fila agora" ou aguarde o agendador.` : 'Nenhum rascunho elegível (precisa de e-mail e WhatsApp, e atingir a pontuação mínima).'; }
+  catch (e) { msg = `Não foi possível aprovar: ${e instanceof Error ? e.message : 'falha'}`; }
+  revalidatePath(B);
+  flash(`${B}?tab=fila`, 'ok', msg);
+}
+
+/** WhatsApp assistido da cadência: registra o contato feito pela pessoa e permanece na tela da fila. */
+export async function markWhatsappDone(id: string, prospectId: string) {
+  const { supabase } = await requireModule('prospeccao');
+  await supabase.from('outreach_messages').update({ status: 'enviada', sent_at: new Date().toISOString() }).eq('id', id).eq('channel', 'whatsapp_manual');
+  await supabase.from('prospects').update({ status: 'contatado' }).eq('id', prospectId).in('status', ['novo', 'analisado', 'aprovado']);
+  revalidatePath(B);
+  flash(`${B}?tab=fila`, 'ok', 'Contato por WhatsApp registrado.');
 }

@@ -34,7 +34,7 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
   const city = (Array.isArray(p.prospect_campaigns) ? p.prospect_campaigns[0] : p.prospect_campaigns)?.city ?? null;
   const rows: Record<string, unknown>[] = [];
   if (email) { const m = draftFirstEmail({ name: p.name, category: p.category, city }, scored, sender); rows.push({ prospect_id: p.id, channel: 'email', step: 1, subject: m.subject, body: m.body, status: 'rascunho' }); }
-  if (p.phone) rows.push({ prospect_id: p.id, channel: 'whatsapp_manual', step: 1, body: WHATSAPP_INTRO(p.name, sender.name), status: 'rascunho' });
+  if (p.phone || site?.whatsappNumbers?.length) rows.push({ prospect_id: p.id, channel: 'whatsapp_manual', step: 1, body: WHATSAPP_INTRO(p.name, sender.name), status: 'rascunho' });
   if (rows.length) {
     // não sobrescreve texto já editado: só cria o que ainda não existe (índice único parcial impede duplicatas)
     const { data: existing } = await db.from('outreach_messages').select('channel, step').eq('prospect_id', p.id).neq('status', 'cancelada');
