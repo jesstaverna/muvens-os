@@ -9,3 +9,7 @@ Use estes arquivos quando o seu banco foi criado com as migrações 01–05 e fa
 3. Conferência: `select to_regclass('public.projects') is not null, to_regclass('public.brand_assets') is not null, to_regclass('public.client_requests') is not null, to_regclass('public.prospects') is not null;` → tudo `true`.
 
 Se aparecer erro em vermelho, não rode de novo: copie a mensagem inteira (a execução é uma transação — se falhar, nada é aplicado).
+
+## C — Link público do diagnóstico (migração 12)
+
+Se a integração GitHub↔Supabase não aplicou sozinha: rode `C_link_publico_diagnostico.sql` **uma vez** (pré-requisito: tabela `prospects` existente). Conferência: `select to_regprocedure('public.public_prospect_report(text)') is not null;` → `true`.

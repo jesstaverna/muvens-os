@@ -127,3 +127,23 @@ update prospects set status = 'respondeu' where id = 'bbbbbbbb-0000-0000-0000-00
 set role service_role;
 do $$ begin assert (select count(*) from public.followup_candidates()) = 0, 'quem respondeu não recebe follow-up'; end $$;
 reset role;
+
+-- link público do diagnóstico: só dados da análise, e só enquanto o prospecto não for descartado
+reset role;
+update prospects set status = 'analisado', analysis = '{"site":null,"observations":["Não encontramos um site da empresa"],"reasons":[]}'::jsonb, analyzed_at = now() where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+set role anon;
+do $$ declare t text; r jsonb; begin
+  reset role; select report_token into t from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001'; set role anon;
+  r := public.public_prospect_report(t);
+  assert r->>'name' is not null and r ? 'observations', 'anon lê o diagnóstico pelo token';
+  assert not (r ? 'email') and not (r ? 'phone') and not (r ? 'notes'), 'diagnóstico não expõe contatos';
+  assert public.public_prospect_report('nao-existe') is null, 'token inválido não devolve nada';
+end $$;
+reset role;
+update prospects set status = 'descartado' where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+set role anon;
+do $$ declare t text; begin
+  reset role; select report_token into t from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001'; set role anon;
+  assert public.public_prospect_report(t) is null, 'descartado/descadastrado deixa de ser público';
+end $$;
+reset role;

@@ -11,11 +11,16 @@ export async function processOutbox(db: SupabaseClient, provider: EmailProvider 
   if (error) throw new Error(error.message);
   const sender: Sender = { name: s.sender_name, companyLegalName: s.company_legal_name, companyDocument: s.company_document, companyAddress: s.company_address };
   let sent = 0, failed = 0;
-  for (const m of (rows ?? []) as { id: string; to_email: string; subject: string; body: string; unsub_token: string }[]) {
+  for (const m of (rows ?? []) as { id: string; to_email: string; subject: string; body: string; unsub_token: string; prospect_id: string; step: number }[]) {
     const unsub = `${appUrl.replace(/\/$/, '')}/descadastro/${m.unsub_token}`;
     const foot = emailFooter(sender, unsub);
+    let body = m.body;
+    if (m.step === 1) {
+      const { data: pr } = await db.from('prospects').select('report_token').eq('id', m.prospect_id).not('analyzed_at', 'is', null).maybeSingle();
+      if (pr?.report_token) body += `\n\nDiagnóstico completo, com os detalhes da análise: ${appUrl.replace(/\/$/, '')}/diagnostico/${pr.report_token}`;
+    }
     try {
-      const r = await provider.send({ from: `${s.sender_name} <${s.sender_email}>`, to: m.to_email, replyTo: s.reply_to ?? undefined, subject: m.subject, text: m.body + foot.text, html: bodyToHtml(m.body) + foot.html, unsubscribeUrl: unsub });
+      const r = await provider.send({ from: `${s.sender_name} <${s.sender_email}>`, to: m.to_email, replyTo: s.reply_to ?? undefined, subject: m.subject, text: body + foot.text, html: bodyToHtml(body) + foot.html, unsubscribeUrl: unsub });
       await db.rpc('finish_outreach', { p_id: m.id, p_ok: true, p_provider_id: r.id });
       sent++;
     } catch (e) {

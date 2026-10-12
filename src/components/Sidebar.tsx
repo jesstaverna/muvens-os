@@ -43,7 +43,7 @@ export function Sidebar({ items, userName, roleLabel, signOut, collapsed, onTogg
 
   const brand = (compact: boolean) => (
     <div className={`flex items-center gap-2.5 pb-4 pt-6 ${compact ? 'justify-center px-2' : 'px-6'}`}>
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-fg text-sm font-bold text-lime">M</span>
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-black p-1.5"><img src="/logo-muvens.svg" alt="Muvens" className="h-full w-full object-contain" /></span>
       {!compact && <div className="leading-tight"><div className="text-sm font-semibold tracking-wide">MUVENS OS</div><div className="text-[11px] text-muted">Muvens Agência</div></div>}
     </div>
   );

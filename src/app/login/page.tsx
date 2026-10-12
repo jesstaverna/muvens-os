@@ -21,7 +21,7 @@ export default function LoginPage() {
     <main className="grid min-h-screen lg:grid-cols-2">
       <Suspense><Flash /></Suspense>
       <section className="hidden flex-col justify-between bg-black p-12 text-white lg:flex">
-        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-lg bg-lime text-lg font-bold text-black">M</span><span className="text-lg font-semibold tracking-wide">MUVENS OS</span></div>
+        <div className="flex items-center gap-3"><img src="/logo-muvens.svg" alt="Muvens" className="h-10 w-auto" /><span className="text-lg font-semibold tracking-wide">MUVENS OS</span></div>
         <div><p className="max-w-md text-4xl font-semibold leading-tight tracking-tight">Comercial, financeiro e criação em um só lugar.</p><p className="mt-4 text-sm text-white/50">Muvens Agência — operação centralizada.</p></div>
         <span className="h-1.5 w-24 rounded-full bg-lime" />
       </section>

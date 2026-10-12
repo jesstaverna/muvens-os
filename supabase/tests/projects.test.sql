@@ -86,7 +86,7 @@ do $$ declare r jsonb; begin
   assert (r->>'late_tasks')::int >= 0;
 end $$;
 reset role;
-update tasks set status = 'em_andamento', due_on = current_date - 1 where title = 'Post 3 (extra)';
+update tasks set status = 'em_andamento', due_on = current_date - 3 where title = 'Post 3 (extra)';
 set role service_role;
 do $$ begin
   assert (public.run_project_scans()->>'late_tasks')::int >= 1, 'tarefa atrasada gera alerta';

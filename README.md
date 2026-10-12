@@ -15,7 +15,7 @@ Fase 2 (parcial): **Brand Center / KV** — por cliente: paleta, tipografia, lin
 
 Fase 2 (parcial): **Portal do Cliente** (`/cliente`) — login individual, cada cliente vê só a própria empresa: projetos e tarefas liberados pela equipe, aprovação ou pedido de ajustes de peças (registrado no histórico e avisado à equipe), calendário de entregas, briefings e solicitações com resposta, documentos/arquivos finais/relatórios, propostas e contratos. Gestão em `/portal`. Menu lateral agrupado por área.
 
-**Prospecção** (Fase 3, estrutura): campanhas por nicho/cidade no Google Maps, análise de site e presença digital com dados públicos, pontuação de oportunidade, rascunhos de e-mail/WhatsApp, e-mail com aprovação, limites, follow-up, bloqueio e descadastro. WhatsApp assistido (sem disparo automático). Google Places e envio de e-mail dependem de chaves (pendentes).
+**Prospecção** (Fase 3, estrutura): campanhas por nicho/cidade no Google Maps, análise de site e presença digital com dados públicos, pontuação de oportunidade, rascunhos de e-mail/WhatsApp, e-mail com aprovação, limites, follow-up, bloqueio e descadastro. WhatsApp assistido (sem disparo automático). Sinais de contato por empresa (e-mail, telefone, WhatsApp, LinkedIn, diretor comercial/direção citados no site), sugestão de tipos de nicho e **diagnóstico automático em formato de landing page**, com link público (`/diagnostico/<token>`) incluído no 1º e-mail. Google Places e envio de e-mail dependem de chaves (pendentes).
 
 **Interface:** ícones nos botões, títulos, abas, cartões e telas vazias; comparação com o período anterior e ações rápidas no Dashboard; busca global (Ctrl+K); menu lateral agrupado e recolhível; resultados da Prospecção agrupados em caixas por nicho + cidade.
 
