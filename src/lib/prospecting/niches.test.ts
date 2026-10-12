@@ -16,3 +16,12 @@ describe('suggestNiches', () => {
     for (const g of NICHE_GROUPS) for (const o of g.options) { expect(o.q.length).toBeGreaterThan(2); expect(o.label.length).toBeGreaterThan(2); }
   });
 });
+
+describe('catálogo ampliado', () => {
+  it('indústria sugere alimentos pet; tecnologia tem vários tipos; existe a área Pet', () => {
+    const ind = suggestNiches('indústria').groups.find((g) => g.key === 'industria')!;
+    expect(ind.options.some((x) => x.label.includes('Alimentos pet'))).toBe(true);
+    expect(suggestNiches('tecnologia').groups.find((g) => g.key === 'tecnologia')!.options.length).toBeGreaterThanOrEqual(10);
+    expect(suggestNiches('pet').groups.some((g) => g.key === 'pet')).toBe(true);
+  });
+});
