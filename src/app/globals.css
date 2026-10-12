@@ -57,3 +57,26 @@ body { @apply bg-bg text-fg font-sans antialiased; }
   body.print-diagnostico #diagnostico .no-print { display: none !important; }
   body.print-diagnostico #diagnostico .text-muted { color: #555 !important; }
 }
+
+/* Diagnóstico público: movimentos sutis (desligados para quem prefere menos movimento) */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); will-change: opacity, transform; }
+.reveal.in { opacity: 1; transform: none; }
+@keyframes mv-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes mv-smoke { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: .55; } 100% { transform: translateY(-46px) scale(1.5); opacity: 0; } }
+@keyframes mv-spin { to { transform: rotate(360deg); } }
+@keyframes mv-draw { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+@keyframes mv-blink { 50% { opacity: 0; } }
+@keyframes mv-drift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(14px,-10px); } }
+.mv-float { animation: mv-float 5s ease-in-out infinite; }
+.mv-smoke { animation: mv-smoke 3.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.mv-spin { animation: mv-spin 14s linear infinite; transform-box: fill-box; transform-origin: center; }
+.mv-draw { stroke-dasharray: 400; animation: mv-draw 2.8s ease-out infinite alternate; }
+.mv-blink { animation: mv-blink 1.1s steps(2) infinite; }
+.mv-drift { animation: mv-drift 9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .mv-float, .mv-smoke, .mv-spin, .mv-draw, .mv-blink, .mv-drift { animation: none; }
+}
+@keyframes mv-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.mv-rise { opacity: 0; animation: mv-rise .8s cubic-bezier(.2,.7,.2,1) forwards; }
+@media (prefers-reduced-motion: reduce) { .mv-rise { opacity: 1; animation: none; } }

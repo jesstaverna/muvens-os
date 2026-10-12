@@ -28,7 +28,7 @@ export function buildProposal(r: Report): Step[] {
   }
   const conv = r.pillars.find((p) => p.key === 'conversao');
   if (conv && (conv.status === 'ausente' || conv.status === 'atencao') && out.length < 5) for (const k of ['rd_conversas', 'rd_marketing']) out.push({ phase: 3, why: 'Organizar e automatizar os contatos que chegam', ...EXTRAS[k] });
-  if (r.b2bStructured) { for (const b of B2B_STEPS) if (!out.some((x) => x.service === b.service)) out.push({ phase: 2, ...b }); }
+  if (r.b2bStructured) { out.splice(3); for (const b of B2B_STEPS) if (!out.some((x) => x.service === b.service)) out.push({ phase: 2, ...b }); }
   if (!out.length) out.push({ phase: 1, title: 'Consultoria de presença digital', why: 'Base digital em boa forma: foco em evoluir e medir', deliverables: ['Revisão de oportunidades de crescimento', 'Plano de conteúdo e mídia com metas'], service: 'consultoria' });
   return out;
 }
