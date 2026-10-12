@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { analyzeHtml, scoreProspect, unreachable } from './analysis';
+import { analyzeHtml, contactAdjustment, scoreProspect, unreachable } from './analysis';
 import { bodyToHtml, draftFirstEmail, emailFooter, whatsappLink } from './message';
 import { mapPlaces } from './places-map';
 import { isPrivateIp, normalizeUrl, safeFetchText } from '@/integrations/net-safe';
@@ -111,4 +111,19 @@ describe('analyzeSite (servidor local de teste)', () => {
   it('limita o tamanho lido', async () => { const { html } = await safeFetchText(`${base}/big`, { allowPrivate: true, maxBytes: 100_000 }); expect(html.length).toBeLessThan(2_000_000); });
   it('HTTP 500 vira "inacessível" sem lançar', async () => { const f = await analyzeSite(`${base}/x`, { allowPrivate: true }); expect(f.reachable).toBe(false); expect(f.error).toContain('500'); });
   it('analisador público não alcança o localhost', async () => { const f = await analyzeSite(`${base}/good`); expect(f.reachable).toBe(false); });
+});
+
+describe('contato na pontuação', () => {
+  it('sem contato informado a pontuação não muda', () => {
+    const a = scoreProspect({ hasWebsite: false }); expect(a.contactBonus).toBe(0); expect(a.score).toBe(a.need);
+  });
+  it('e-mail + celular somam; sem nenhum contato penaliza', () => {
+    expect(contactAdjustment(null, { email: 'a@b.com', phone: '(41) 99999-8888' }).points).toBe(11);
+    expect(contactAdjustment(null, { email: null, phone: null }).points).toBe(-10);
+    expect(contactAdjustment(null, { phone: '(41) 3027-2736' }).points).toBe(2);
+  });
+  it('não altera o serviço sugerido nem as observações do cliente', () => {
+    const base = scoreProspect({ hasWebsite: false }); const c = scoreProspect({ hasWebsite: false, contact: { email: 'a@b.com', phone: '41999998888' } });
+    expect(c.service).toBe(base.service); expect(c.observations).toEqual(base.observations); expect(c.score).toBeGreaterThan(base.score);
+  });
 });

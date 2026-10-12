@@ -13,18 +13,19 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
   const { data: p, error } = await db.from('prospects').select('id, name, category, website, phone, email, rating, reviews_count, status, campaign_id, prospect_campaigns(city)').eq('id', prospectId).maybeSingle();
   if (error || !p) return { ok: false, error: error?.message ?? 'Prospecto não encontrado' };
   const site = p.website ? await analyzeSite(p.website, opts.site) : null;
-  const scored = scoreProspect({ hasWebsite: !!p.website, site, rating: p.rating == null ? null : Number(p.rating), reviews: p.reviews_count });
-  const analysis = {
-    site, reasons: scored.reasons, observations: scored.observations,
-    visual: { status: 'pendente', note: 'Análise de identidade visual por IA depende da integração com a Claude API (Fase 4); hoje só são verificados favicon e imagem de compartilhamento.' },
-    analyzed_with: 'regras-v1',
-  };
   // sem e-mail cadastrado: usa um e-mail comercial público encontrado no próprio site da empresa
-  let email: string | null = p.email;
+  let email: string | null = p.email; let emailSource: string | undefined;
   if (!email && site?.emails?.length) {
     const best = pickBestEmail(site.emails, p.website ? new URL(/^https?:/i.test(p.website) ? p.website : `https://${p.website}`).hostname : null);
-    if (best) { const { error: eErr } = await db.from('prospects').update({ email: best }).eq('id', p.id); if (!eErr) { email = best; (analysis as Record<string, unknown>).email_source = 'site'; } }
+    if (best) { const { error: eErr } = await db.from('prospects').update({ email: best }).eq('id', p.id); if (!eErr) { email = best; emailSource = 'site'; } }
   }
+  const scored = scoreProspect({ hasWebsite: !!p.website, site, rating: p.rating == null ? null : Number(p.rating), reviews: p.reviews_count, contact: { email, phone: p.phone } });
+  const analysis = {
+    site, reasons: [...scored.reasons, ...scored.contactReasons], need_score: scored.need, contact_bonus: scored.contactBonus, observations: scored.observations,
+    visual: { status: 'pendente', note: 'Análise de identidade visual por IA depende da integração com a Claude API (Fase 4); hoje só são verificados favicon e imagem de compartilhamento.' },
+    analyzed_with: 'regras-v2',
+    ...(emailSource ? { email_source: emailSource } : {}),
+  };
   const { error: uErr } = await db.from('prospects').update({ analysis, score: scored.score, recommended_service: scored.service, analyzed_at: new Date().toISOString(), analysis_error: null, ...(p.status === 'novo' ? { status: 'analisado' } : {}) }).eq('id', p.id);
   if (uErr) return { ok: false, error: uErr.message };
 

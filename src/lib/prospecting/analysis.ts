@@ -1,5 +1,5 @@
 import { extractEmails } from './emails';
-import { extractWhatsappNumbers } from './phone';
+import { extractWhatsappNumbers, whatsappSignal } from './phone';
 import { extractPeople, type Person } from './people';
 
 // Análise de presença digital a partir de informações PÚBLICAS (HTML do site). Funções puras, testadas.
@@ -66,14 +66,29 @@ export interface ScoreInput {
   site?: SiteFindings | null;
   rating?: number | null;
   reviews?: number | null;
+  /** Alcance: quando informado, entra na pontuação (quem dá para contatar vale mais como oportunidade). */
+  contact?: { email?: string | null; phone?: string | null };
 }
-export interface Scored { score: number; service: ServiceKey; reasons: string[]; observations: string[] }
+export interface Scored { score: number; service: ServiceKey; reasons: string[]; observations: string[]; need: number; contactBonus: number; contactReasons: string[] }
+
+/** Bônus (até +15) ou penalidade (-10) pela facilidade de abordar o prospecto. Não altera o serviço sugerido nem as observações mostradas ao cliente. */
+export function contactAdjustment(site: SiteFindings | null | undefined, c: { email?: string | null; phone?: string | null }): { points: number; reasons: string[] } {
+  const reasons: string[] = []; let points = 0;
+  const wa = whatsappSignal(c.phone, site?.whatsappNumbers ?? []); const hasWa = wa.level === 'confirmado' || wa.level === 'provavel';
+  const hasPhone = !!c.phone && c.phone.replace(/\D/g, '').length >= 8;
+  if (c.email) { points += 6; reasons.push('Tem e-mail para contato (+6)'); }
+  if (hasWa) { points += 5; reasons.push('Provável WhatsApp (+5)'); } else if (hasPhone) { points += 2; reasons.push('Tem telefone (+2)'); }
+  if (site?.people?.length) { points += 2; reasons.push('Decisor citado no site (+2)'); }
+  if (site?.socials.linkedin) { points += 2; reasons.push('LinkedIn encontrado (+2)'); }
+  if (!c.email && !hasPhone) { points -= 10; reasons.push('Sem e-mail nem telefone: difícil de abordar (-10)'); }
+  return { points, reasons };
+}
 
 /**
  * Pontuação de oportunidade (0-100): quanto maior, mais espaço para nossos serviços.
  * Pesos são heurísticas editáveis, não estatística — calibre com seus resultados reais.
  */
-export function scoreProspect({ hasWebsite, site, rating, reviews }: ScoreInput): Scored {
+export function scoreProspect({ hasWebsite, site, rating, reviews, contact }: ScoreInput): Scored {
   let score = 0; const reasons: string[] = []; const obs: string[] = []; const need = { site: 0, social: 0, ads: 0, brand: 0, convert: 0 };
   const add = (pts: number, bucket: keyof typeof need, reason: string, observation: string) => { score += pts; need[bucket] += pts; reasons.push(reason); obs.push(observation); };
 
@@ -93,8 +108,10 @@ export function scoreProspect({ hasWebsite, site, rating, reviews }: ScoreInput)
   if (typeof reviews === 'number' && reviews < 15) add(4, 'brand', 'Poucas avaliações no Google', `Há poucas avaliações no Google (${reviews})`);
   if (typeof rating === 'number' && rating < 4 && (reviews ?? 0) >= 5) add(4, 'brand', 'Nota baixa no Google', `A nota no Google é ${rating.toFixed(1).replace('.', ',')}`);
 
-  score = Math.min(score, 100);
+  score = Math.min(score, 100); const need0 = score;
+  const adj = contact ? contactAdjustment(site, contact) : { points: 0, reasons: [] as string[] };
+  score = Math.max(0, Math.min(100, score + adj.points));
   const top = (Object.entries(need).sort((a, b) => b[1] - a[1])[0] ?? ['site', 0]) as [keyof typeof need, number];
   const service: ServiceKey = top[1] === 0 ? 'branding' : ({ site: hasWebsite ? 'site_institucional' : 'site_institucional', social: 'redes_sociais', ads: 'trafego_pago', brand: 'branding', convert: 'landing_page' } as const)[top[0]];
-  return { score, service, reasons, observations: obs };
+  return { score, service, reasons, observations: obs, need: need0, contactBonus: adj.points, contactReasons: adj.reasons };
 }

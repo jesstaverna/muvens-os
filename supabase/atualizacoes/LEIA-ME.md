@@ -17,3 +17,7 @@ Se a integração GitHub↔Supabase não aplicou sozinha: rode `C_link_publico_d
 ## D — Visualizações da landing e preços "a partir de" (migração 13)
 
 Pré-requisito: migração 12 (arquivo C). Rode `D_visualizacoes_e_precos.sql` **uma vez**. Conferência: `select to_regclass('public.service_prices') is not null;` → `true`.
+
+## E — Pontuação da landing sem o bônus de contato (migração 14)
+
+Pré-requisito: migração 13 (arquivo D). Rode `E_pontuacao_na_landing.sql` **uma vez** (é só uma função; pode ser rodada de novo sem problema).

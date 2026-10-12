@@ -163,3 +163,12 @@ do $$ declare t text; r jsonb; begin
 end $$;
 reset role;
 do $$ begin assert (select report_views from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001') = 2 and (select count(*) from notifications where dedupe_key like 'report_view:%') = 1, 'duas visualizações, um aviso'; end $$;
+
+-- 0014: landing pública usa need_score
+reset role;
+update prospects set score = 90, analysis = jsonb_set(analysis, '{need_score}', '70') where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+update prospects set status = 'analisado' where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+do $$ declare t text; begin
+  select report_token into t from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  assert (public.public_prospect_report(t)->>'score')::int = 70, 'landing usa a pontuação de necessidade';
+end $$;
