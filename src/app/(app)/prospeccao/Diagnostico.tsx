@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertTriangle, XCircle, HelpCircle, Sparkles } from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Sparkles } from 'lucide-react';
 import { buildReport, type ReportInput, type Status } from '@/lib/prospecting/report';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { PrintButton } from './PrintButton';
@@ -42,7 +42,10 @@ export function Diagnostico(props: ReportInput & { generatedAt?: string; share?:
         </div>
       )}
       <div className="border-t border-line bg-subtle px-6 py-5 text-sm sm:px-10">
-        <p className="font-medium">Próximo passo: uma conversa rápida para transformar estes pontos em um plano de ação.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="font-medium">Próximo passo: uma conversa rápida para transformar estes pontos em um plano de ação.</p>
+          {props.share && <a href={`/diagnostico/${props.share.token}`} target="_blank" rel="noreferrer noopener" className="no-print inline-flex items-center gap-2 rounded-full bg-lime px-5 py-2.5 text-sm font-semibold text-black hover:opacity-90">Acessar Diagnóstico Gratuito (Landing Page)<ArrowUpRight className="h-4 w-4" strokeWidth={2} /></a>}
+        </div>
         <p className="mt-1 text-xs text-muted">Baseado somente em informações públicas (site, Google). Não substitui uma auditoria completa.{props.generatedAt && ` Gerado em ${props.generatedAt}.`}</p>
       </div>
     </section>

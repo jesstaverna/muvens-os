@@ -28,7 +28,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
       <header className="bg-black text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
           <span className="flex items-center gap-3"><img src="/logo-muvens.svg" alt="" className="h-9 w-auto" /><span className="text-lg font-semibold tracking-[0.2em]">MUVENS</span><span className="sr-only">Muvens Agência</span></span>
-          <span className="text-xs uppercase tracking-widest text-white/50">Diagnóstico de presença digital</span>
+          <span className="text-xs uppercase tracking-widest text-white/50">Diagnóstico gratuito de presença digital</span>
         </div>
         <div className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
           <span className="inline-block rounded-full bg-[#DCEA1E] px-3 py-1 text-xs font-semibold text-black">{LEVEL[r.level]}</span>
