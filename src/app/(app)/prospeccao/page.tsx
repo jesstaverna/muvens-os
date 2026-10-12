@@ -60,10 +60,10 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
       <PageHeader title="Prospecção" subtitle="Descobre empresas, analisa a presença digital com dados públicos e prepara a abordagem. E-mail automático; WhatsApp assistido (uma pessoa envia)." />
 
       <form action={quickSearch} className="card mb-6 !p-4" role="search" aria-label="Buscar prospectos">
-        <div className="grid items-start gap-3 md:grid-cols-[1.4fr_1fr_auto]">
-          <div className="md:col-span-2 md:grid md:grid-cols-[1.4fr_1fr] md:gap-3"><NicheField /><label className="mt-3 block md:col-start-2 md:row-start-1 md:mt-0"><span className="label">Cidade</span><input name="city" required minLength={2} maxLength={80} className="input" placeholder="ex.: Curitiba" /></label></div>
-          <SubmitButton className="btn btn-primary md:mt-[26px]" pendingText="Buscando…">Buscar prospectos</SubmitButton>
-        </div>
+        <NicheField>
+          <label className="block"><span className="label">Cidade</span><input name="city" required minLength={2} maxLength={80} className="input" placeholder="ex.: Curitiba" /></label>
+          <SubmitButton className="btn btn-primary w-full md:w-auto" pendingText="Buscando…">Buscar prospectos</SubmitButton>
+        </NicheField>
         <p className="mt-2 text-xs text-muted">Busca empresas no Google Maps, analisa o site de cada uma e mostra os resultados abaixo, agrupados por nicho e cidade. {!placesOk && <><Pending>Google Maps pendente</Pending> — configure a chave na Vercel; até lá, use <Link href={nav('novo')} className="underline">Cadastrar manualmente</Link>.</>}</p>
       </form>
 

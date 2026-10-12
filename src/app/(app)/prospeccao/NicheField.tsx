@@ -1,12 +1,12 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Check, X } from 'lucide-react';
 import { suggestNiches } from '@/lib/prospecting/niches';
 
 const MAX = 5;
 
 /** Campo de nicho com sugestões: ao digitar uma área ampla (ex.: "indústria"), mostra os tipos para marcar um ou mais. */
-export function NicheField() {
+export function NicheField({ children }: { children?: ReactNode }) {
   const [text, setText] = useState('');
   const [focus, setFocus] = useState(false);
   const [picked, setPicked] = useState<{ q: string; label: string }[]>([]);
@@ -17,10 +17,13 @@ export function NicheField() {
   const chip = (active: boolean) => `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${active ? 'border-transparent bg-lime font-medium text-black' : 'border-line hover:bg-subtle'}`;
 
   return (
-    <div onFocus={() => setFocus(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFocus(false); }} className="md:col-span-3">
+    <div onFocus={() => setFocus(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setFocus(false); }} >
+      <div className="grid gap-3 md:grid-cols-[1fr_16rem_auto] md:items-end">
       <label className="block"><span className="label">Nicho / área</span>
         <input name="niche" value={text} onChange={(e) => setText(e.target.value)} required={picked.length === 0} minLength={2} maxLength={80} autoComplete="off" className="input"
           placeholder="ex.: indústria, clínica odontológica, restaurante" aria-describedby="niche-help" /></label>
+      {children}
+      </div>
       {picked.map((p) => <input key={p.q} type="hidden" name="niches" value={p.q} />)}
 
       {show && (
