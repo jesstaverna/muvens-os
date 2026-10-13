@@ -3,7 +3,7 @@ import { ChevronRight, FolderOpen, List } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
-import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow, retryFailedEmails, approveReadyNow, markWhatsappDone, toggleWeekly } from './actions';
+import { addProspect, addSuppression, createCampaign, quickSearch, removeSuppression, runCampaign, saveOutreachSettings, savePrices, sendQueueNow, retryFailedEmails, approveReadyNow, markWhatsappDone, toggleWeekly, runAutomationNow } from './actions';
 import { MESSAGE_STATUS, PROSPECT_STATUS } from '@/lib/domain';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateTimeBR } from '@/lib/format';
@@ -61,6 +61,8 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   if (sp.ord === 'contato') shown = [...shown].sort((a, b) => reachRank(b) - reachRank(a) || (b.score ?? -1) - (a.score ?? -1));
   else if (sp.ord === 'nome') shown = [...shown].sort((a, b) => String(a.name).localeCompare(String(b.name), 'pt-BR'));
   let diag: ReturnType<typeof diagnoseSending> = [];
+  let pendingAnalysis = 0;
+  if (tab === 'campanhas') pendingAnalysis = (await supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('status', 'novo').is('analyzed_at', null)).count ?? 0;
   let readyCount = 0; let waDue: any[] = [];
   if (tab === 'fila') {
     const { data: rd } = await supabase.from('outreach_messages').select('id, prospects!inner(email, phone, status, site_numbers:analysis->site->whatsappNumbers)').eq('channel', 'email').eq('step', 1).eq('status', 'rascunho').limit(500);
@@ -161,6 +163,22 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
                 <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}<div className="mt-1 flex flex-wrap gap-1">{matchesFocus(p, 'sites') && <span className="badge text-[10px]">Site</span>}{matchesFocus(p, 'recorrentes') && <span className="badge text-[10px]">Recorrente</span>}</div></td><td className="td"><div className="mb-1.5 text-xs text-muted">{[p.phone, p.email].filter(Boolean).join(' · ') || 'sem contato'}</div><ChannelBadges email={p.email} emailFromSite={p.email_src === 'site'} phone={p.phone} siteNumbers={p.site_numbers} linkedin={p.linkedin} people={p.people} analyzed={!!p.analyzed_at} /></td>
                 <td className="td"><span className={`badge ${PROSPECT_STATUS[p.status].tone}`}>{PROSPECT_STATUS[p.status].label}</span></td></tr>))}</tbody></table></div>)}
         </>)}
+
+      {tab === 'campanhas' && (() => {
+        const weekly = (campaigns ?? []).filter((c: any) => c.auto_weekly && c.status === 'ativa');
+        const next = weekly.map((c: any) => (c.last_auto_run_at ? new Date(new Date(c.last_auto_run_at).getTime() + 7 * 86400_000) : new Date())).sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
+        const row = (ok: boolean, text: string, fix?: string) => <li className="flex gap-3"><span className={`mt-0.5 font-bold ${ok ? 'text-ok' : 'text-danger'}`}>{ok ? '✓' : '✗'}</span><div>{text}{!ok && fix && <p className="text-xs text-muted">{fix}</p>}</div></li>;
+        return (
+          <section className="card mb-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Prospecção automática</h2><p className="text-xs text-muted">Busca semanal das campanhas, análise das empresas novas e criação dos rascunhos.</p></div>
+            {isAdmin && <form action={runAutomationNow}><SubmitButton className="btn btn-sm btn-primary" pendingText="Rodando… (pode levar 1 min)">Rodar agora</SubmitButton></form>}</div>
+            <ul className="mt-4 space-y-2 text-sm">
+              {row(placesOk, 'Google Maps (chave configurada)', 'Cadastre GOOGLE_PLACES_API_KEY na Vercel e faça novo deploy.')}
+              {row(!!process.env.CRON_SECRET, 'Agendador (CRON_SECRET) configurado', 'Cadastre CRON_SECRET na Vercel. Sem ele o agendador não consegue chamar o processador.')}
+              {row(weekly.length > 0, `Campanhas com busca semanal ligada: ${weekly.length}`, 'Em cada campanha abaixo, clique em "Repetir toda semana".')}
+              {row(pendingAnalysis === 0, `Empresas aguardando análise: ${pendingAnalysis}`, 'A análise é feita pelo agendador e também ao abrir um grupo (análise automática). Clique em "Rodar agora" para adiantar.')}
+            </ul>
+            <p className="mt-3 text-xs text-muted">{weekly.length ? `Próxima busca automática: ${next && next.getTime() > Date.now() ? dateTimeBR(next.toISOString()) : 'na próxima execução do agendador'}. ` : ''}Na Vercel Hobby o agendador roda uma vez por dia (11h, horário de Brasília). O botão "Rodar agora" executa na hora, sem enviar e-mails.</p></section>);
+      })()}
 
       {tab === 'campanhas' && (
         <div className="grid gap-6 xl:grid-cols-3">

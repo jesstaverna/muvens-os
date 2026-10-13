@@ -2,7 +2,8 @@ import { createServer } from 'node:http';
 import { createHmac } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { PostgrestClient } from '@supabase/postgrest-js';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { runRecurringCampaigns } from './recurring';
 import { analyzeNextBatch, analyzeProspect } from './pipeline';
 import { autoApproveReady, createFollowups, processOutbox } from './outbox';
 
@@ -112,6 +113,24 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     await autoApproveReady(db);
     expect(await st(a)).toBe('aprovada'); expect(await st(b)).toBe('rascunho'); expect(await st(c)).toBe('rascunho'); expect(await st(d)).toBe('rascunho');
     await db.from('outreach_settings').update({ auto_approve_ready: false, auto_approve_min_score: 0 }).eq('id', 1);
+  });
+
+  it('busca semanal: traz empresas novas 1x por semana, ignora duplicadas e só roda campanhas ligadas', async () => {
+    process.env.GOOGLE_PLACES_API_KEY = 'k';
+    const real = globalThis.fetch;
+    const pages = [{ places: [{ id: `pa${RUN}`, displayName: { text: `Alfa ${RUN}` } }, { id: `pb${RUN}`, displayName: { text: `Beta ${RUN}` } }], nextPageToken: 'n' }, { places: [{ id: `pc${RUN}`, displayName: { text: `Gama ${RUN}` } }] }];
+    let calls = 0;
+    vi.stubGlobal('fetch', (u: unknown, init?: RequestInit) => String(u).includes('places.googleapis.com') ? Promise.resolve(new Response(JSON.stringify(pages[Math.min(calls++, 1)]), { status: 200 })) : real(u as RequestInfo, init));
+    try {
+      const { data: on } = await db.from('prospect_campaigns').insert({ name: `Semanal ${RUN}`, niche: 'escola', city: 'Curitiba', auto_weekly: true }).select('id').single();
+      const { data: off } = await db.from('prospect_campaigns').insert({ name: `Manual ${RUN}`, niche: 'padaria', city: 'Curitiba', auto_weekly: false }).select('id').single();
+      const r1 = await runRecurringCampaigns(db); expect(r1.created).toBe(3); expect(calls).toBe(2);
+      expect((await db.from('prospects').select('id', { count: 'exact', head: true }).eq('campaign_id', on!.id)).count).toBe(3);
+      expect((await db.from('prospects').select('id', { count: 'exact', head: true }).eq('campaign_id', off!.id)).count).toBe(0);
+      expect((await db.from('prospect_campaigns').select('last_auto_run_at').eq('id', on!.id).single()).data!.last_auto_run_at).toBeTruthy();
+      const r2 = await runRecurringCampaigns(db); expect(r2.campaigns).toBe(0);                      // já rodou esta semana
+      calls = 0; const r3 = await runRecurringCampaigns(db, new Date(), { force: true }); expect(r3.created).toBe(0); // mesmos locais = duplicados
+    } finally { vi.unstubAllGlobals(); delete process.env.GOOGLE_PLACES_API_KEY; }
   });
 });
 

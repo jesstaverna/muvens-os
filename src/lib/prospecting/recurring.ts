@@ -14,10 +14,12 @@ export async function insertPlaces(db: SupabaseClient, campaignId: string, place
 }
 
 /** Repete, uma vez por semana, a busca das campanhas marcadas como recorrentes. Até 3 páginas (60 resultados) por campanha e 3 campanhas por execução. A análise dos novos é feita pelo mesmo worker. */
-export async function runRecurringCampaigns(db: SupabaseClient, now = new Date()) {
+export async function runRecurringCampaigns(db: SupabaseClient, now = new Date(), opts: { force?: boolean } = {}) {
   if (!placesConfigured()) return { campaigns: 0, created: 0, skipped: 'Google Places não configurado' };
   const cutoff = new Date(now.getTime() - 7 * 86400_000).toISOString();
-  const { data: cs, error } = await db.from('prospect_campaigns').select('id, niche, city, max_results').eq('status', 'ativa').eq('auto_weekly', true).or(`last_auto_run_at.is.null,last_auto_run_at.lt.${cutoff}`).order('last_auto_run_at', { ascending: true, nullsFirst: true }).limit(3);
+  let q = db.from('prospect_campaigns').select('id, niche, city, max_results').eq('status', 'ativa').eq('auto_weekly', true);
+  if (!opts.force) q = q.or(`last_auto_run_at.is.null,last_auto_run_at.lt.${cutoff}`);
+  const { data: cs, error } = await q.order('last_auto_run_at', { ascending: true, nullsFirst: true }).limit(3);
   if (error) throw new Error(error.message);
   let created = 0, done = 0;
   for (const c of cs ?? []) {

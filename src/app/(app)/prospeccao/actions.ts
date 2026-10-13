@@ -3,12 +3,13 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { placesConfigured, searchPlaces } from '@/integrations/google-places';
-import { insertPlaces } from '@/lib/prospecting/recurring';
+import { insertPlaces, runRecurringCampaigns } from '@/lib/prospecting/recurring';
 import { autoApproveReady } from '@/lib/prospecting/outbox';
 import { normalizeAddress } from '@/lib/prospecting/address';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resendProvider } from '@/integrations/email';
 import { processOutbox } from '@/lib/prospecting/outbox';
+import { analyzePending } from '@/lib/prospecting/pipeline';
 import { analyzeMany, analyzeNextBatch, analyzeProspect } from '@/lib/prospecting/pipeline';
 import { groupCampaigns } from '@/lib/prospecting/groups';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
@@ -300,4 +301,21 @@ export async function toggleWeekly(id: string, on: boolean) {
   if (error) dbErr(`${B}?tab=campanhas`, error);
   revalidatePath(B);
   flash(`${B}?tab=campanhas`, 'ok', on ? 'Busca semanal ligada: o sistema repete esta busca toda semana e analisa as empresas novas.' : 'Busca semanal desligada.');
+}
+
+/** Roda agora a prospecção automática (só administradores): busca das campanhas semanais, análise dos novos e aprovação automática (se ligada). Não envia e-mails. */
+export async function runAutomationNow() {
+  const { profile } = await requireModule('prospeccao');
+  const back = `${B}?tab=campanhas`;
+  if (profile.role !== 'admin') flash(back, 'err', 'Somente administradores podem rodar a automação.');
+  if (!placesConfigured()) flash(back, 'err', 'Integração pendente: configure GOOGLE_PLACES_API_KEY na Vercel para a busca automática.');
+  const db = createAdminClient(); const parts: string[] = [];
+  try {
+    const r = await runRecurringCampaigns(db, new Date(), { force: true });
+    parts.push(`${r.campaigns ?? 0} campanha(s) buscada(s), ${r.created ?? 0} empresa(s) nova(s)`);
+    const a = await analyzePending(db); parts.push(`${(a as { analyzed?: number }).analyzed ?? 0} analisada(s)`);
+    const ap = await autoApproveReady(db); parts.push(`${ap.approved} e-mail(s) aprovado(s) automaticamente`);
+  } catch (e) { flash(back, 'err', `Falha: ${e instanceof Error ? e.message : 'erro'}`); }
+  revalidatePath(B);
+  flash(back, 'ok', `Automação executada: ${parts.join(' · ')}.`);
 }
