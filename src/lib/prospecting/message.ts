@@ -77,3 +77,25 @@ export function draftInboundEmail(p: { name: string; company?: string | null }, 
   };
 }
 export const WHATSAPP_INBOUND = (name: string, sender: string, qualifyUrl: string) => `Olá, ${name.trim().split(/\s+/)[0]}! Aqui é ${sender}, da Muvens Agência. Vi que você demonstrou interesse nos nossos serviços. Para entender como podemos ajudar, pode responder algumas perguntas rápidas? ${qualifyUrl}`;
+
+// ---------- Nutrição de leads frios (rascunhos espaçados; nada sai sem aprovação) ----------
+const TIPS: Record<string, { title: string; tips: string[] }> = {
+  site_institucional: { title: 'o site da sua empresa', tips: ['Deixe claro, na primeira tela, o que você faz e para quem.', 'Coloque o WhatsApp e um botão de contato visíveis em todas as páginas.', 'Confira se o site abre rápido e bem no celular: a maioria dos acessos vem de lá.'] },
+  landing_page: { title: 'uma página de captação', tips: ['Uma página, uma oferta e um único botão de ação.', 'Peça poucos dados no formulário: cada campo extra reduz os contatos.', 'Responda quem preencheu no mesmo dia: a demora esfria o interesse.'] },
+  redes_sociais: { title: 'as redes sociais', tips: ['Poucas publicações com padrão visual valem mais que muitas sem identidade.', 'Mostre o dia a dia e os resultados para os clientes, não só promoções.', 'Fixe no topo do perfil o que você vende e como falar com você.'] },
+  design_posts: { title: 'o design dos posts', tips: ['Use sempre as mesmas cores, fontes e estilo de imagem.', 'Uma ideia por post, com texto curto e legível no celular.', 'Reaproveite modelos para manter a frequência sem perder a qualidade.'] },
+  branding: { title: 'a identidade visual', tips: ['Defina cores, tipografia e estilo e aplique em tudo, do perfil ao orçamento.', 'Garanta uma versão do logo que funcione em fundo claro e escuro.', 'Consistência faz a marca ser reconhecida antes mesmo de ser lida.'] },
+  trafego_pago: { title: 'anúncios', tips: ['Antes de investir, instale o pixel e saiba medir o que é um contato.', 'Comece com uma oferta clara e um público bem definido.', 'Acompanhe o custo por contato, não só cliques e curtidas.'] },
+  rd_marketing: { title: 'automação de marketing', tips: ['Organize onde chegam os contatos e quem responde cada um.', 'Crie uma sequência simples de e-mails para quem ainda não está pronto para comprar.', 'Meça quantos contatos viram conversa, e quantas conversas viram venda.'] },
+  ia_aplicada: { title: 'inteligência artificial no negócio', tips: ['Comece por uma tarefa repetitiva, como respostas frequentes ou rascunhos de conteúdo.', 'Mantenha uma pessoa revisando o que a IA produz.', 'Documente o que funcionou para repetir em outras áreas.'] },
+  consultoria: { title: 'o seu plano de crescimento', tips: ['Liste as 3 maiores dificuldades e escolha uma para resolver primeiro.', 'Defina uma meta simples e um prazo para medir o resultado.', 'Revise o plano todo mês: o que funcionou, o que ajustar.'] },
+};
+const FALLBACK_TIPS = TIPS.consultoria;
+
+export function draftNurture(step: 2 | 3 | 4, p: { name: string; services?: string[] }, s: Sender, links: { qualify: string }) {
+  const first = p.name.trim().split(/\s+/)[0]; const area = TIPS[p.services?.[0] ?? ''] ?? FALLBACK_TIPS;
+  if (step === 2) return { subject: `${first}, 3 dicas rápidas sobre ${area.title}`, body: [`Olá, ${first}! Tudo bem?`, '', `Quando conversamos, você comentou que ainda estava avaliando como melhorar a presença digital. Separei 3 dicas simples sobre ${area.title} que você pode aplicar sem custo:`, '', ...area.tips.map((t) => `• ${t}`), '', 'Se quiser trocar uma ideia sobre o seu caso, é só responder este e-mail.', '', 'Um abraço,', s.name].join('\n') };
+  if (step === 3) return { subject: `${first}, como está o seu momento?`, body: [`Olá, ${first}! Tudo bem?`, '', 'Já faz algumas semanas desde o nosso último contato. Queria saber se o cenário mudou e se faz sentido retomar a conversa sobre a presença digital da sua empresa.', '', `Se preferir, atualize as suas respostas em 2 minutos: ${links.qualify}`, '', 'Se não for o momento, sem problema: é só me avisar.', '', 'Um abraço,', s.name].join('\n') };
+  return { subject: `${first}, encerrando por aqui (a porta continua aberta)`, body: [`Olá, ${first}!`, '', 'Não quero ser inconveniente, então vou encerrar os nossos contatos por aqui. Se no futuro quiser retomar a conversa sobre site, redes sociais, anúncios ou automação, é só responder este e-mail.', '', 'Desejo muito sucesso à sua empresa!', s.name].join('\n') };
+}
+export const NURTURE_AFTER_DAYS: Record<2 | 3 | 4, number> = { 2: 15, 3: 45, 4: 90 };

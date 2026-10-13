@@ -9,7 +9,8 @@ import { createInboundDrafts, ingestLead, submitQualification } from '@/lib/lead
 import { normalizeLead } from '@/lib/leads/normalize';
 import { parseAnswers } from '@/lib/leads/qualify';
 import { analyzeNextBatch, analyzeProspect, ANALYSIS_VERSION, countStale, reanalyzeNextBatch } from './pipeline';
-import { autoApproveReady, createFollowups, processOutbox } from './outbox';
+import { autoApproveReady, createFollowups, createNurtureDrafts, processOutbox } from './outbox';
+import { sendWeeklyDigest } from './digest';
 
 // Integração com PostgREST local (ver supabase/tests/). Ignorado sem PGRST_URL.
 const URL = process.env.PGRST_URL;
@@ -180,6 +181,38 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     expect(r.novas).toBeGreaterThan(0); expect(r.analisadas).toBeGreaterThan(0); expect(r.emailsEnviados).toBeGreaterThan(0);
     expect(r.leadsAnuncios).toBeGreaterThan(0); expect(r.qualificacoes).toBeGreaterThan(0); expect(r.quentes).toBeGreaterThan(0);
     const old = await summarize(db, { since: '2000-01-01T00:00:00Z', until: '2000-02-01T00:00:00Z' }); expect(old.novas).toBe(0);
+  });
+
+  it('nutrição: lead frio ganha rascunhos espaçados (15/45/90 dias), só um passo por vez, e lead quente não', async () => {
+    const mk = async (tag: string, fit: 'frio' | 'quente') => {
+      const lead = normalizeLead({ nome: `Nutri ${tag} ${RUN}`, email: `nutri${tag}${RUN}@n.com`, telefone: fit === 'frio' ? '(41) 99444-5555' : '(41) 99444-6666' })!;
+      const r = await ingestLead(db, lead, 'https://app.test');
+      await db.from('lead_qualifications').update({ status: 'respondido', fit, score: 20, services: ['redes_sociais'], answered_at: new Date(Date.now() - 20 * 86400_000).toISOString() }).eq('lead_id', r.leadId!);
+      return r.prospectId!;
+    };
+    const frio = await mk('f', 'frio'); const quente = await mk('q', 'quente');
+    const steps = async (id: string) => (await db.from('outreach_messages').select('step, status').eq('prospect_id', id).eq('channel', 'email').order('step')).data!;
+    await createNurtureDrafts(db);
+    expect((await steps(frio)).map((m) => m.step)).toEqual([1, 2]); expect((await steps(quente)).map((m) => m.step)).toEqual([1]);
+    await createNurtureDrafts(db); expect((await steps(frio)).length).toBe(2);                                       // idempotente
+    await db.from('lead_qualifications').update({ answered_at: new Date(Date.now() - 50 * 86400_000).toISOString() }).eq('prospect_id', frio);
+    await createNurtureDrafts(db); expect((await steps(frio)).map((m) => m.step)).toEqual([1, 2]);                   // passo 2 ainda não foi enviado: não empilha o 3
+    await db.from('outreach_messages').update({ status: 'enviada', sent_at: new Date().toISOString() }).eq('prospect_id', frio).eq('step', 2);
+    await createNurtureDrafts(db); expect((await steps(frio)).map((m) => m.step)).toEqual([1, 2, 3]);
+  });
+
+  it('resumo semanal por e-mail: só ligado, só segunda, uma vez por semana', async () => {
+    const sent: { to: string; subject: string; text: string }[] = [];
+    const provider = { send: async (m: { to: string; subject: string; text: string }) => { sent.push(m); return { id: 'x' }; } };
+    await db.from('outreach_settings').update({ weekly_digest_enabled: false, weekly_digest_to: 'equipe@muvens.test', last_digest_at: null, sender_name: 'Ana', sender_email: 'ana@updates.muvens.test' }).eq('id', 1);
+    const monday = new Date('2026-10-12T14:00:00Z');
+    expect((await sendWeeklyDigest(db, provider as never, 'https://app.test', monday)).sent).toBe(false);          // desligado
+    await db.from('outreach_settings').update({ weekly_digest_enabled: true }).eq('id', 1);
+    expect((await sendWeeklyDigest(db, provider as never, 'https://app.test', new Date('2026-10-13T14:00:00Z'))).sent).toBe(false);   // terça
+    expect((await sendWeeklyDigest(db, provider as never, 'https://app.test', monday)).sent).toBe(true);
+    expect(sent.length).toBe(1); expect(sent[0].to).toBe('equipe@muvens.test'); expect(sent[0].text).toContain('PROSPECÇÃO');
+    expect((await sendWeeklyDigest(db, provider as never, 'https://app.test', monday)).sent).toBe(false);          // não repete
+    await db.from('outreach_settings').update({ weekly_digest_enabled: false, weekly_digest_to: null, last_digest_at: null }).eq('id', 1);
   });
 });
 

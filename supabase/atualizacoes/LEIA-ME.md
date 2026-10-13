@@ -49,3 +49,7 @@ Pré-requisitos: migrações 2 (CRM) e 11 (Prospecção). Rode `K_prospecto_para
 ## L — Saúde do sistema (migração 20)
 
 Rode `L_saude_do_sistema.sql` **uma vez** (pode ser repetido). Ele cria o registro das execuções do agendador e a verificação do banco usadas na página **Automações**. Conferência: `select to_regclass('public.worker_runs') is not null;` → `true`.
+
+## M — Resumo semanal por e-mail (migração 21)
+
+Rode `M_resumo_por_email.sql` **uma vez** (pode ser repetido). Depois, em Prospecção > Configurações de envio, marque "Receber o resumo semanal por e-mail" e informe o destinatário. A nutrição de leads frios não precisa de SQL.

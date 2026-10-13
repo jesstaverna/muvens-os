@@ -213,10 +213,12 @@ export async function saveOutreachSettings(fd: FormData) {
   if (!r.success || r.data.window_end_hour <= r.data.window_start_hour) flash(`${B}?tab=config`, 'err', 'Confira os limites: horário final deve ser maior que o inicial.');
   const email = opt(fd, 'sender_email');
   const replyTo = opt(fd, 'reply_to');
+  const digestTo = opt(fd, 'weekly_digest_to');
+  if (digestTo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(digestTo)) flash(`${B}?tab=config`, 'err', 'O e-mail do resumo semanal é inválido.');
   if (replyTo && !normalizeAddress(replyTo)) flash(`${B}?tab=config`, 'err', 'O campo "Responder para" precisa ser um e-mail (ex.: contato@empresa.com.br) ou "Nome <contato@empresa.com.br>". Deixe em branco para não usar.');
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) flash(`${B}?tab=config`, 'err', 'E-mail do remetente inválido.');
   const { error } = await supabase.from('outreach_settings').update({ ...r.data!, sender_name: opt(fd, 'sender_name'), sender_email: email, reply_to: replyTo, company_legal_name: opt(fd, 'company_legal_name'), company_document: opt(fd, 'company_document'), company_address: opt(fd, 'company_address'),
-    weekdays_only: fd.get('weekdays_only') === 'on', require_approval: fd.get('require_approval') === 'on', sending_enabled: fd.get('sending_enabled') === 'on', auto_approve_ready: fd.get('auto_approve_ready') === 'on' }).eq('id', 1);
+    weekdays_only: fd.get('weekdays_only') === 'on', require_approval: fd.get('require_approval') === 'on', sending_enabled: fd.get('sending_enabled') === 'on', weekly_digest_enabled: fd.get('weekly_digest_enabled') === 'on', weekly_digest_to: digestTo, auto_approve_ready: fd.get('auto_approve_ready') === 'on' }).eq('id', 1);
   if (error) flash(`${B}?tab=config`, 'err', error.code === '42501' ? 'Apenas administradores alteram as configurações de envio.' : 'Não foi possível salvar.');
   revalidatePath(B);
   flash(`${B}?tab=config`, 'ok', 'Configurações salvas.');

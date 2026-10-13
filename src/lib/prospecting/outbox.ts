@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EmailProvider } from '@/integrations/email';
 import { isReady } from './filters';
-import { bodyToHtml, draftFollowup, emailFooter, type Sender } from './message';
+import { bodyToHtml, draftFollowup, draftNurture, emailFooter, NURTURE_AFTER_DAYS, type Sender } from './message';
 
 /** Envia e-mails aprovados respeitando TODAS as salvaguardas aplicadas no banco (claim_outreach) e registra o resultado. */
 export async function processOutbox(db: SupabaseClient, provider: EmailProvider | null, appUrl: string, batch = 10) {
@@ -66,4 +66,35 @@ export async function autoApproveReady(db: SupabaseClient, opts: { force?: boole
   const { error: uErr } = await db.from('outreach_messages').update({ status: 'aprovada', approved_at: new Date().toISOString() }).in('id', ids).eq('status', 'rascunho');
   if (uErr) throw new Error(uErr.message);
   return { approved: ids.length };
+}
+
+/**
+ * Nutrição de leads FRIOS (que responderam à qualificação): cria rascunhos de e-mail espaçados (15, 45 e 90 dias).
+ * Nada sai sem aprovação. Para quando o prospecto é descartado/convertido ou o lead já foi ganho/perdido no CRM.
+ */
+export async function createNurtureDrafts(db: SupabaseClient, now = new Date()) {
+  const { data: s } = await db.from('outreach_settings').select('sender_name, company_legal_name, company_document, company_address').eq('id', 1).single();
+  if (!s?.sender_name) return { created: 0 };
+  const sender: Sender = { name: s.sender_name, companyLegalName: s.company_legal_name ?? '', companyDocument: s.company_document, companyAddress: s.company_address ?? '' };
+  const first = new Date(now.getTime() - NURTURE_AFTER_DAYS[2] * 86400_000).toISOString();
+  const { data: quals } = await db.from('lead_qualifications').select('token, services, answered_at, prospect_id, lead_id, leads(name, pipeline_stages(kind)), prospects(status, email)').eq('status', 'respondido').eq('fit', 'frio').not('prospect_id', 'is', null).lte('answered_at', first).limit(200);
+  const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
+  let created = 0;
+  for (const q of (quals ?? []) as any[]) {
+    const pr = one(q.prospects) as { status: string; email: string | null } | null; const lead = one(q.leads) as { name: string; pipeline_stages: { kind: string } | { kind: string }[] | null } | null;
+    const kind = (one(lead?.pipeline_stages) as { kind: string } | null)?.kind;
+    if (!pr?.email || !lead || ['descartado', 'convertido'].includes(pr.status) || kind === 'won' || kind === 'lost') continue;
+    const { data: msgs } = await db.from('outreach_messages').select('step, status, sent_at').eq('prospect_id', q.prospect_id).eq('channel', 'email').neq('status', 'cancelada');
+    const have = new Set((msgs ?? []).map((m) => m.step));
+    const age = (now.getTime() - new Date(q.answered_at).getTime()) / 86400_000;
+    const next = ([2, 3, 4] as const).find((st) => !have.has(st) && age >= NURTURE_AFTER_DAYS[st]);
+    if (!next) continue;
+    // só cria o próximo passo quando o anterior já foi enviado ou cancelado (espaçamento real, sem empilhar rascunhos)
+    const prev = (msgs ?? []).find((m) => m.step === next - 1);
+    if (next > 2 && prev && prev.status !== 'enviada') continue;
+    const d = draftNurture(next, { name: lead.name, services: q.services ?? [] }, sender, { qualify: `${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/qualificar/${q.token}` });
+    const { error } = await db.from('outreach_messages').insert({ prospect_id: q.prospect_id, channel: 'email', step: next, subject: d.subject, body: d.body, status: 'rascunho' });
+    if (!error) created++;
+  }
+  return { created };
 }
