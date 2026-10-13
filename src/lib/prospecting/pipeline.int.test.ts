@@ -7,7 +7,7 @@ import { runRecurringCampaigns } from './recurring';
 import { createInboundDrafts, ingestLead, submitQualification } from '@/lib/leads/ingest';
 import { normalizeLead } from '@/lib/leads/normalize';
 import { parseAnswers } from '@/lib/leads/qualify';
-import { analyzeNextBatch, analyzeProspect } from './pipeline';
+import { analyzeNextBatch, analyzeProspect, ANALYSIS_VERSION, countStale, reanalyzeNextBatch } from './pipeline';
 import { autoApproveReady, createFollowups, processOutbox } from './outbox';
 
 // Integração com PostgREST local (ver supabase/tests/). Ignorado sem PGRST_URL.
@@ -161,6 +161,16 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     expect((await db.from('leads').select('service_interest').eq('id', r.leadId!).single()).data!.service_interest).toBe('site_institucional');
     expect((await db.from('notifications').select('id', { count: 'exact', head: true }).like('dedupe_key', 'qualif:%')).count).toBeGreaterThan(0);
     expect((await submitQualification(db, 'x'.repeat(64), a.answers)).ok).toBe(false);
+  });
+
+  it('reanálise em lote: só quem tem análise antiga, mantém o status e atualiza a versão', async () => {
+    const { data: p } = await db.from('prospects').insert({ name: `Antigo ${RUN}`, email: `antigo${RUN}@reanalise.com`, phone: '(41) 99000-1111', source: 'manual', status: 'contatado', analyzed_at: new Date(Date.now() - 86400_000).toISOString(), analysis: { analyzed_with: 'regras-v1', site: null, observations: [] }, score: 10 }).select('id').single();
+    const { data: q } = await db.from('prospects').insert({ name: `Descartado ${RUN}`, email: `desc${RUN}@reanalise.com`, source: 'manual', status: 'descartado', analyzed_at: new Date().toISOString(), analysis: { analyzed_with: 'regras-v1' } }).select('id').single();
+    const before = await countStale(db, { manualOnly: true }); expect(before).toBeGreaterThanOrEqual(1);
+    const r = await reanalyzeNextBatch(db, { manualOnly: true }, 50); expect(r.processed).toBeGreaterThanOrEqual(1); expect(r.remaining).toBe(0);
+    const row = (await db.from('prospects').select('status, analysis').eq('id', p!.id).single()).data!;
+    expect(row.status).toBe('contatado'); expect((row.analysis as any).analyzed_with).toBe(ANALYSIS_VERSION); expect((row.analysis as any).needs).toBeTruthy();
+    expect(((await db.from('prospects').select('analysis').eq('id', q!.id).single()).data!.analysis as any).analyzed_with).toBe('regras-v1');   // descartado não é refeito
   });
 });
 

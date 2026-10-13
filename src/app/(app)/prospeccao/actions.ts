@@ -10,7 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resendProvider } from '@/integrations/email';
 import { processOutbox } from '@/lib/prospecting/outbox';
 import { analyzePending } from '@/lib/prospecting/pipeline';
-import { analyzeMany, analyzeNextBatch, analyzeProspect } from '@/lib/prospecting/pipeline';
+import { analyzeMany, analyzeNextBatch, analyzeProspect, reanalyzeNextBatch } from '@/lib/prospecting/pipeline';
 import { groupCampaigns } from '@/lib/prospecting/groups';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { slug } from '@/lib/prospecting/groups';
@@ -318,4 +318,19 @@ export async function runAutomationNow() {
   } catch (e) { flash(back, 'err', `Falha: ${e instanceof Error ? e.message : 'erro'}`); }
   revalidatePath(B);
   flash(back, 'ok', `Automação executada: ${parts.join(' · ')}.`);
+}
+
+/** Atualiza, em lotes pequenos, as análises feitas com regras antigas do grupo (para ganhar contatos, LinkedIn, decisores e foco de oportunidade). */
+export async function reanalyzeBatch(grp: string): Promise<{ processed: number; remaining: number; error?: string }> {
+  const { supabase } = await requireModule('prospeccao');
+  let scope: { campaignIds?: string[]; manualOnly?: boolean } = {};
+  if (grp === 'manual') scope = { manualOnly: true };
+  else if (grp !== 'todos') {
+    const { data } = await supabase.from('prospect_campaigns').select('id, niche, city, created_at');
+    const g = groupCampaigns(data ?? []).get(grp);
+    if (!g) return { processed: 0, remaining: 0, error: 'Grupo não encontrado.' };
+    scope = { campaignIds: g.ids };
+  }
+  try { const r = await reanalyzeNextBatch(supabase, scope, 3); return { processed: r.processed, remaining: r.remaining }; }
+  catch (e) { return { processed: 0, remaining: 0, error: e instanceof Error ? e.message : 'Falha na reanálise.' }; }
 }

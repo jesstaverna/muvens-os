@@ -7,6 +7,9 @@ import { draftFirstEmail, WHATSAPP_INTRO } from './message';
 import { runPool } from './pool';
 import { pickBestEmail } from './emails';
 
+/** Versão das regras de análise. Ao mudar, as análises antigas aparecem como "desatualizadas" e podem ser refeitas em lote. */
+export const ANALYSIS_VERSION = 'regras-v3';
+
 export interface AnalyzeOptions { site?: SafeFetchOptions & { withPageSpeed?: boolean } }
 
 /** Analisa um prospecto (site público), calcula a pontuação e prepara os rascunhos de mensagem. Idempotente. */
@@ -24,7 +27,7 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
   const analysis = {
     site, reasons: [...scored.reasons, ...scored.contactReasons], need_score: scored.need, needs: scored.buckets, contact_bonus: scored.contactBonus, observations: scored.observations,
     visual: { status: 'pendente', note: 'Análise de identidade visual por IA depende da integração com a Claude API (Fase 4); hoje só são verificados favicon e imagem de compartilhamento.' },
-    analyzed_with: 'regras-v2',
+    analyzed_with: ANALYSIS_VERSION,
     ...(emailSource ? { email_source: emailSource } : {}),
   };
   const { error: uErr } = await db.from('prospects').update({ analysis, score: scored.score, recommended_service: scored.service, analyzed_at: new Date().toISOString(), analysis_error: null, ...(p.status === 'novo' ? { status: 'analisado' } : {}) }).eq('id', p.id);
@@ -73,4 +76,22 @@ export async function analyzePending(db: SupabaseClient, limit = 10) {
   const { data } = await db.from('prospects').select('id').eq('status', 'novo').is('analyzed_at', null).order('created_at').limit(limit);
   const r = await analyzeMany(db, (data ?? []).map((x) => x.id), { concurrency: 4, site: { withPageSpeed: true } });
   return { analyzed: r.analyzed, failed: r.failed };
+}
+
+type Scope = { campaignIds?: string[]; manualOnly?: boolean };
+const staleFilter = (db: SupabaseClient, scope: Scope, select = 'id', count = false) => {
+  let q = db.from('prospects').select(select, count ? { count: 'exact' } : undefined)
+    .not('analyzed_at', 'is', null).is('analysis_error', null).not('status', 'in', '(descartado,respondeu,convertido)')
+    .or(`analysis->>analyzed_with.is.null,analysis->>analyzed_with.neq.${ANALYSIS_VERSION}`);
+  if (scope.manualOnly) q = q.is('campaign_id', null); else if (scope.campaignIds) q = q.in('campaign_id', scope.campaignIds);
+  return q;
+};
+export async function countStale(db: SupabaseClient, scope: Scope = {}) { const { count } = await staleFilter(db, scope, 'id', true).limit(1); return count ?? 0; }
+
+/** Refaz a análise de prospectos analisados com regras antigas (mantém status, rascunhos e histórico). */
+export async function reanalyzeNextBatch(db: SupabaseClient, scope: Scope = {}, n = 3) {
+  const { data } = await staleFilter(db, scope).order('analyzed_at').limit(n);
+  const ids = ((data ?? []) as unknown as { id: string }[]).map((r) => r.id);
+  const r = ids.length ? await analyzeMany(db, ids, { concurrency: n }) : { analyzed: 0, failed: 0, skipped: 0 };
+  return { processed: ids.length, analyzed: r.analyzed, failed: r.failed, remaining: await countStale(db, scope) };
 }

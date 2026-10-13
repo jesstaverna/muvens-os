@@ -10,6 +10,8 @@ import { dateTimeBR } from '@/lib/format';
 import { placesConfigured } from '@/integrations/google-places';
 import { LinkButton } from '@/components/LinkButton';
 import { AutoAnalyze } from './AutoAnalyze';
+import { ReanalyzeStale } from './ReanalyzeStale';
+import { countStale } from '@/lib/prospecting/pipeline';
 import { CONTACT_FILTERS, FOCUS_LABEL, matchesFocus, parseFocus, isReady, matchesContact, parseFilters, reachRank, whatsappNumber } from '@/lib/prospecting/filters';
 import { whatsappLink } from '@/lib/prospecting/message';
 import { diagnoseSending } from '@/lib/prospecting/send-diagnosis';
@@ -34,8 +36,9 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   const grp = sp.grp ?? '';
   const current = grp === 'todos' ? { title: 'Todos os prospectos' } : grp === 'manual' ? { title: 'Cadastrados manualmente' } : groups.get(grp) ? { title: `${groups.get(grp)!.niche} (${groups.get(grp)!.city})` } : null;
   const listMode = tab === 'prospectos' && !!current;
-  let pendingCount = 0;
+  let pendingCount = 0; let staleCount = 0;
   if (listMode) {
+    staleCount = await countStale(supabase, grp === 'manual' ? { manualOnly: true } : groups.get(grp) ? { campaignIds: groups.get(grp)!.ids } : {});
     let pcq = supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('status', 'novo').is('analyzed_at', null);
     if (grp === 'manual') pcq = pcq.is('campaign_id', null); else if (groups.get(grp)) pcq = pcq.in('campaign_id', groups.get(grp)!.ids);
     pendingCount = (await pcq).count ?? 0;
@@ -143,6 +146,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
         <>
           <div className="mb-5 flex flex-wrap items-center gap-3"><LinkButton href="/prospeccao?tab=prospectos" className="btn btn-sm">← Todos os grupos</LinkButton><h2 className="text-lg font-semibold">{current!.title}</h2></div>
           <AutoAnalyze grp={grp} pending={pendingCount} />
+          <ReanalyzeStale grp={grp} stale={staleCount} />
           <form method="get" className="card mb-5 space-y-3 !p-4"><input type="hidden" name="tab" value="prospectos" /><input type="hidden" name="grp" value={grp} />
             <div className="flex flex-wrap items-end gap-2">
               <label className="min-w-[14rem] flex-1"><span className="label">Buscar</span><input name="q" defaultValue={sp.q ?? ''} placeholder="Nome ou segmento da empresa" className="input" /></label>
