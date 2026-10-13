@@ -1,4 +1,5 @@
 'use server';
+import { appUrl } from '@/lib/app-url';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
@@ -262,7 +263,7 @@ export async function sendQueueNow() {
   if (profile.role !== 'admin') flash(`${B}?tab=fila`, 'err', 'Somente administradores podem processar a fila.');
   let msg: string;
   try {
-    const r = await processOutbox(createAdminClient(), resendProvider(), process.env.NEXT_PUBLIC_APP_URL ?? '');
+    const r = await processOutbox(createAdminClient(), resendProvider(), appUrl());
     msg = 'skipped' in r && r.skipped ? `Nada enviado: ${r.skipped}.` : r.sent + r.failed === 0 ? 'Nada saiu: nenhuma mensagem liberada pelas travas de envio (veja o diagnóstico abaixo).' : `Enviados: ${r.sent}. Falhas: ${r.failed}.`;
   } catch (e) { msg = `Erro ao processar a fila: ${e instanceof Error ? e.message : 'falha'}`; }
   revalidatePath(B);

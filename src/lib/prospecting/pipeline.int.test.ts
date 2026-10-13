@@ -50,6 +50,7 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     const { data: p } = await db.from('prospects').select('id').eq('email', E1).single();
     const sent: { to: string; text: string; html: string; unsubscribeUrl: string }[] = [];
     const provider = { send: async (m: any) => { sent.push(m); return { id: 'fake-1' }; } };
+    const noUrl = await processOutbox(db, provider, ''); expect(noUrl.sent).toBe(0); expect((noUrl as { skipped?: string }).skipped).toContain('NEXT_PUBLIC_APP_URL');   // sem endereço público não envia (links quebrariam)
     expect((await processOutbox(db, provider, 'https://app.test')).sent).toBe(0);               // ainda rascunho
     await db.from('outreach_messages').update({ status: 'aprovada', approved_at: new Date().toISOString() }).eq('prospect_id', p!.id).eq('channel', 'email');
     const r = await processOutbox(db, provider, 'https://app.test');

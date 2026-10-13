@@ -1,3 +1,4 @@
+import { appUrl } from '@/lib/app-url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resendProvider, type EmailProvider } from '@/integrations/email';
 import { draftInboundEmail, WHATSAPP_INBOUND } from '@/lib/prospecting/message';
@@ -65,6 +66,6 @@ export async function submitQualification(db: SupabaseClient, token: string, ans
   await db.from('lead_interactions').insert({ lead_id: q.lead_id, kind: 'sistema', content: `Qualificação respondida: ${sc.fit.toUpperCase()} (${sc.score}/100).\nDificuldade: ${answers.dificuldade}\nPrecisa: ${answers.precisa}\n${sc.reasons.join(' · ')}` });
   const { data: lead } = await db.from('leads').select('name, owner_id').eq('id', q.lead_id).maybeSingle();
   await db.from('notifications').insert({ title: `Lead ${sc.fit}: ${lead?.name ?? 'novo lead'} respondeu a qualificação`, body: `Pontuação ${sc.score}/100. ${answers.dificuldade.slice(0, 160)}`, link: `/crm/${q.lead_id}`, severity: sc.fit === 'quente' ? 'warning' : 'info', audience: 'comercial', user_id: lead?.owner_id ?? null, dedupe_key: `qualif:${q.id}` });
-  if (sc.fit === 'quente') { try { await sendHotLeadAlert(db, alertProvider, process.env.NEXT_PUBLIC_APP_URL ?? '', q.lead_id, answers, sc.score); } catch { /* o aviso no sistema já foi criado */ } }
+  if (sc.fit === 'quente') { try { await sendHotLeadAlert(db, alertProvider, appUrl(), q.lead_id, answers, sc.score); } catch { /* o aviso no sistema já foi criado */ } }
   return { ok: true };
 }

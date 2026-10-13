@@ -3,6 +3,7 @@ import { PageHeader, Empty, Stat } from '@/components/ui';
 import { dateTimeBR } from '@/lib/format';
 import { SubmitButton } from '@/components/SubmitButton';
 import { runWorkerNow } from './actions';
+import { appUrl, isValidAppUrl } from '@/lib/app-url';
 
 export const metadata = { title: 'Automações' };
 
@@ -46,7 +47,7 @@ export default async function Automacoes() {
             {healthErr ? <p className="text-sm text-danger">Não foi possível verificar. Rode no Supabase o arquivo <code>supabase/atualizacoes/L_saude_do_sistema.sql</code> (migração 20).</p> : (
               <ul className="space-y-1.5 text-sm">{MIGRATIONS.map(([k, label, file]) => <li key={k} className="flex gap-2"><span className={`font-bold ${h[k] ? 'text-ok' : 'text-danger'}`}>{h[k] ? '✓' : '✗'}</span><span>{label}{!h[k] && <span className="block text-xs text-muted">Falta rodar: {file}</span>}</span></li>)}</ul>)}</div>
           <div><h3 className="mb-2 text-sm font-semibold">Integrações (Vercel)</h3>
-            <ul className="space-y-1.5 text-sm">{ENV.map(([k, label, note]) => { const ok = !!process.env[k]; return <li key={k} className="flex gap-2"><span className={`font-bold ${ok ? 'text-ok' : 'text-danger'}`}>{ok ? '✓' : '✗'}</span><span>{label}{!ok && <span className="block text-xs text-muted">{k} não configurada. {note}.</span>}</span></li>; })}</ul></div>
+            <ul className="space-y-1.5 text-sm">{ENV.map(([k, label, note]) => { const ok = k === 'NEXT_PUBLIC_APP_URL' ? isValidAppUrl(appUrl()) : !!process.env[k]; return <li key={k} className="flex gap-2"><span className={`font-bold ${ok ? 'text-ok' : 'text-danger'}`}>{ok ? '✓' : '✗'}</span><span>{label}{!ok && <span className="block text-xs text-muted">{k} não configurada. {note}.</span>}</span></li>; })}</ul></div>
           <div><h3 className="mb-2 text-sm font-semibold">Operação</h3>
             <ul className="space-y-1.5 text-sm">
               <li className="flex gap-2"><span className={`font-bold ${stale ? 'text-danger' : 'text-ok'}`}>{stale ? '✗' : '✓'}</span><span>Agendador: {lastRun ? `última execução em ${dateTimeBR(lastRun.ran_at)}` : 'nunca executou'}{stale && <span className="block text-xs text-muted">Sem execução nas últimas 30 horas. Confira o CRON_SECRET, o cron da Vercel ou o pg_cron.</span>}</span></li>

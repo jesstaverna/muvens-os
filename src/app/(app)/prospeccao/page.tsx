@@ -17,6 +17,7 @@ import { whatsappLink } from '@/lib/prospecting/message';
 import { loadFunnel, type Origin } from '@/lib/prospecting/funnel';
 import { money } from '@/lib/format';
 import { periods, pct, summarize } from '@/lib/prospecting/summary';
+import { appUrl, isValidAppUrl } from '@/lib/app-url';
 import { diagnoseSending } from '@/lib/prospecting/send-diagnosis';
 import { ChannelBadges } from './ChannelBadges';
 import { NicheField } from './NicheField';
@@ -89,7 +90,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
     const [ap, dr, fa, sent, last] = await Promise.all([cnt('aprovada'), cnt('rascunho'), cnt('falhou'),
       supabase.from('outreach_messages').select('id', { count: 'exact', head: true }).eq('channel', 'email').in('status', ['enviada', 'enviando']).gte('sent_at', dayStart),
       supabase.from('outreach_messages').select('error').eq('channel', 'email').eq('status', 'falhou').order('created_at', { ascending: false }).limit(1)]);
-    diag = diagnoseSending({ settings, providerConfigured: !!process.env.RESEND_API_KEY, cronSecretConfigured: !!process.env.CRON_SECRET, approved: ap.count ?? 0, drafts: dr.count ?? 0, failed: fa.count ?? 0, sentToday: sent.count ?? 0, lastError: last.data?.[0]?.error ?? null });
+    diag = diagnoseSending({ settings, providerConfigured: !!process.env.RESEND_API_KEY, cronSecretConfigured: !!process.env.CRON_SECRET, appUrlConfigured: isValidAppUrl(appUrl()), approved: ap.count ?? 0, drafts: dr.count ?? 0, failed: fa.count ?? 0, sentToday: sent.count ?? 0, lastError: last.data?.[0]?.error ?? null });
   }
   const by = (s: string) => counts?.filter((c) => c.status === s).length ?? 0;
   const placesOk = placesConfigured(), emailOk = !!process.env.RESEND_API_KEY;

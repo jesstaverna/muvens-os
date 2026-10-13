@@ -1,3 +1,4 @@
+import { appUrl } from '@/lib/app-url';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
@@ -44,7 +45,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
         <div className="space-y-6">
           {qual && (() => {
-            const a = (qual.answers ?? {}) as Record<string, any>; const base = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, ''); const url = `${base}/qualificar/${qual.token}`;
+            const a = (qual.answers ?? {}) as Record<string, any>; const base = appUrl(); const url = `${base}/qualificar/${qual.token}`;
             const lab = (list: readonly { v: string; l: string }[], v: string) => list.find((x) => x.v === v)?.l ?? '—';
             const tone = qual.fit === 'quente' ? 'bg-lime/50 text-fg' : qual.fit === 'morno' ? 'bg-amber-500/15 text-warn' : 'text-muted';
             return (

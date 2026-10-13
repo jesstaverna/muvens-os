@@ -1,3 +1,4 @@
+import { appUrl } from '@/lib/app-url';
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -27,10 +28,10 @@ export async function POST(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const body = await req.json().catch(() => null);
   const items = Array.isArray(body) ? body.slice(0, 20) : [body];
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+  const base = appUrl() || new URL(req.url).origin;
   const db = createAdminClient(); const out: unknown[] = [];
   for (const raw of items) {
-    try { const r = await intakeLead(db, raw, appUrl); out.push({ ok: r.ok, duplicate: r.duplicate ?? false, lead_id: r.leadId ?? null, error: r.error }); }
+    try { const r = await intakeLead(db, raw, base); out.push({ ok: r.ok, duplicate: r.duplicate ?? false, lead_id: r.leadId ?? null, error: r.error }); }
     catch (e) { out.push({ ok: false, error: e instanceof Error ? e.message : 'falha' }); }
   }
   return NextResponse.json(Array.isArray(body) ? { results: out } : out[0], { status: 200 });

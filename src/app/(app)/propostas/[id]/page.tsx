@@ -1,3 +1,4 @@
+import { appUrl } from '@/lib/app-url';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
@@ -29,7 +30,7 @@ export default async function PropostaPage({ params }: { params: Promise<{ id: s
   ]);
   if (!p) notFound();
   const c = normalizeContent(p.content);
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
+  const base = appUrl();
   const link = `${base}/p/${p.token}`;
   const published = p.status !== 'rascunho';
   const st = PROPOSAL_STATUS[p.status];

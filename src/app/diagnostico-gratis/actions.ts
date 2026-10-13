@@ -1,4 +1,5 @@
 'use server';
+import { appUrl } from '@/lib/app-url';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { intakeLead, sourceFromUtm } from '@/lib/leads/intake';
@@ -15,8 +16,8 @@ export async function enviarPedido(fd: FormData) {
   if (nome.length < 2) return back('err=' + encodeURIComponent('Informe o seu nome.'));
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return back('err=' + encodeURIComponent('Informe um e-mail válido.'));
   if (tel.replace(/\D/g, '').length < 10) return back('err=' + encodeURIComponent('Informe o WhatsApp com DDD.'));
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-  const r = await intakeLead(createAdminClient(), { nome, email, telefone: tel, empresa: fd.get('empresa'), site: fd.get('site'), source: sourceFromUtm(utm), campaign_name: camp || null }, appUrl);
+  const base = appUrl();
+  const r = await intakeLead(createAdminClient(), { nome, email, telefone: tel, empresa: fd.get('empresa'), site: fd.get('site'), source: sourceFromUtm(utm), campaign_name: camp || null }, base);
   if (!r.ok) return back('err=' + encodeURIComponent('Não foi possível enviar agora. Tente novamente em instantes.'));
   return back('ok=1');
 }

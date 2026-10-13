@@ -1,11 +1,15 @@
+import { appUrl } from '@/lib/app-url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EmailProvider } from '@/integrations/email';
+import { isValidAppUrl } from '@/lib/app-url';
 import { isReady } from './filters';
 import { bodyToHtml, draftFollowup, draftNurture, emailFooter, NURTURE_AFTER_DAYS, type Sender } from './message';
 
 /** Envia e-mails aprovados respeitando TODAS as salvaguardas aplicadas no banco (claim_outreach) e registra o resultado. */
 export async function processOutbox(db: SupabaseClient, provider: EmailProvider | null, appUrl: string, batch = 10) {
   if (!provider) return { sent: 0, failed: 0, skipped: 'provedor de e-mail não configurado' };
+  // sem endereço público válido, o link de descadastro e o do diagnóstico sairiam quebrados no e-mail: não envia
+  if (!isValidAppUrl(appUrl)) return { sent: 0, failed: 0, skipped: 'endereço do sistema (NEXT_PUBLIC_APP_URL) não configurado: os links do e-mail ficariam quebrados' };
   const { data: s } = await db.from('outreach_settings').select('*').eq('id', 1).single();
   if (!s) return { sent: 0, failed: 0, skipped: 'sem configurações' };
   const { data: rows, error } = await db.rpc('claim_outreach', { p_limit: batch });
@@ -92,7 +96,7 @@ export async function createNurtureDrafts(db: SupabaseClient, now = new Date()) 
     // só cria o próximo passo quando o anterior já foi enviado ou cancelado (espaçamento real, sem empilhar rascunhos)
     const prev = (msgs ?? []).find((m) => m.step === next - 1);
     if (next > 2 && prev && prev.status !== 'enviada') continue;
-    const d = draftNurture(next, { name: lead.name, services: q.services ?? [] }, sender, { qualify: `${(process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')}/qualificar/${q.token}` });
+    const d = draftNurture(next, { name: lead.name, services: q.services ?? [] }, sender, { qualify: `${appUrl()}/qualificar/${q.token}` });
     const { error } = await db.from('outreach_messages').insert({ prospect_id: q.prospect_id, channel: 'email', step: next, subject: d.subject, body: d.body, status: 'rascunho' });
     if (!error) created++;
   }
