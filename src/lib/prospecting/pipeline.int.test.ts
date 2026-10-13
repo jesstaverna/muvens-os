@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { runRecurringCampaigns } from './recurring';
+import { periods, summarize } from './summary';
 import { createInboundDrafts, ingestLead, submitQualification } from '@/lib/leads/ingest';
 import { normalizeLead } from '@/lib/leads/normalize';
 import { parseAnswers } from '@/lib/leads/qualify';
@@ -171,6 +172,14 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     const row = (await db.from('prospects').select('status, analysis').eq('id', p!.id).single()).data!;
     expect(row.status).toBe('contatado'); expect((row.analysis as any).analyzed_with).toBe(ANALYSIS_VERSION); expect((row.analysis as any).needs).toBeTruthy();
     expect(((await db.from('prospects').select('analysis').eq('id', q!.id).single()).data!.analysis as any).analyzed_with).toBe('regras-v1');   // descartado não é refeito
+  });
+
+  it('resumo: conta o que aconteceu no período', async () => {
+    const { cur } = periods(1);
+    const r = await summarize(db, cur);
+    expect(r.novas).toBeGreaterThan(0); expect(r.analisadas).toBeGreaterThan(0); expect(r.emailsEnviados).toBeGreaterThan(0);
+    expect(r.leadsAnuncios).toBeGreaterThan(0); expect(r.qualificacoes).toBeGreaterThan(0); expect(r.quentes).toBeGreaterThan(0);
+    const old = await summarize(db, { since: '2000-01-01T00:00:00Z', until: '2000-02-01T00:00:00Z' }); expect(old.novas).toBe(0);
   });
 });
 

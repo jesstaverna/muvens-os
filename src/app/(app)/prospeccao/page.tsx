@@ -14,6 +14,7 @@ import { ReanalyzeStale } from './ReanalyzeStale';
 import { countStale } from '@/lib/prospecting/pipeline';
 import { CONTACT_FILTERS, FOCUS_LABEL, matchesFocus, parseFocus, isReady, matchesContact, parseFilters, reachRank, whatsappNumber } from '@/lib/prospecting/filters';
 import { whatsappLink } from '@/lib/prospecting/message';
+import { periods, pct, summarize } from '@/lib/prospecting/summary';
 import { diagnoseSending } from '@/lib/prospecting/send-diagnosis';
 import { ChannelBadges } from './ChannelBadges';
 import { NicheField } from './NicheField';
@@ -22,12 +23,12 @@ import { groupCampaigns, slug } from '@/lib/prospecting/groups';
 export const metadata = { title: 'Prospecção' };
 export const maxDuration = 60;
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
-type SP = { tab?: string; status?: string; grp?: string; min?: string; q?: string; f?: string | string[]; ord?: string; foco?: string };
+type SP = { tab?: string; status?: string; grp?: string; min?: string; q?: string; f?: string | string[]; ord?: string; foco?: string; d?: string };
 
 export default async function Prospeccao({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('prospeccao');
   const sp = await searchParams;
-  const tab = ['prospectos', 'campanhas', 'fila', 'novo', 'bloqueios', 'config'].includes(sp.tab ?? '') ? sp.tab! : 'prospectos';
+  const tab = ['prospectos', 'campanhas', 'fila', 'novo', 'bloqueios', 'config', 'resumo'].includes(sp.tab ?? '') ? sp.tab! : 'prospectos';
   const isAdmin = profile.role === 'admin';
   const [{ data: campaigns }, { data: settings, error: settingsError }] = await Promise.all([supabase.from('prospect_campaigns').select('*').order('created_at', { ascending: false }), supabase.from('outreach_settings').select('*').eq('id', 1).maybeSingle()]);
 
@@ -66,6 +67,8 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   let diag: ReturnType<typeof diagnoseSending> = [];
   let pendingAnalysis = 0;
   if (tab === 'campanhas') pendingAnalysis = (await supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('status', 'novo').is('analyzed_at', null)).count ?? 0;
+  const days = sp.d === '30' ? 30 : 7;
+  const sum = tab === 'resumo' ? await (async () => { const pr = periods(days); const [cur, prev] = await Promise.all([summarize(supabase, pr.cur), summarize(supabase, pr.prev)]); return { cur, prev }; })() : null;
   let readyCount = 0; let waDue: any[] = [];
   if (tab === 'fila') {
     const { data: rd } = await supabase.from('outreach_messages').select('id, prospects!inner(email, phone, status, site_numbers:analysis->site->whatsappNumbers)').eq('channel', 'email').eq('step', 1).eq('status', 'rascunho').limit(500);
@@ -116,7 +119,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
         <span>Envio automático: {settings?.sending_enabled ? <b className="text-warn">LIGADO</b> : <b>desligado</b>}</span>
       </div>
 
-      <Tabs current={tab} items={[{ key: 'prospectos', label: 'Prospectos', href: nav('prospectos') }, { key: 'campanhas', label: 'Campanhas (Google Maps)', href: nav('campanhas') }, { key: 'fila', label: 'Fila de e-mails', href: nav('fila') }, { key: 'novo', label: 'Cadastrar manualmente', href: nav('novo') }, { key: 'bloqueios', label: 'Lista de bloqueio', href: nav('bloqueios') }, { key: 'config', label: 'Configurações de envio', href: nav('config') }]} />
+      <Tabs current={tab} items={[{ key: 'prospectos', label: 'Prospectos', href: nav('prospectos') }, { key: 'resumo', label: 'Resumo', href: nav('resumo') }, { key: 'campanhas', label: 'Campanhas (Google Maps)', href: nav('campanhas') }, { key: 'fila', label: 'Fila de e-mails', href: nav('fila') }, { key: 'novo', label: 'Cadastrar manualmente', href: nav('novo') }, { key: 'bloqueios', label: 'Lista de bloqueio', href: nav('bloqueios') }, { key: 'config', label: 'Configurações de envio', href: nav('config') }]} />
 
       {tab === 'prospectos' && !listMode && (() => {
         const boxes = [...groups.values()].sort((x, y) => y.latest.localeCompare(x.latest)).map((g) => ({ href: `/prospeccao?tab=prospectos&grp=${g.key}`, title: `${g.niche} (${g.city})`, sub: `${g.ids.length} campanha(s)`, rows: counts?.filter((c) => g.ids.includes(c.campaign_id)) ?? [] }));
@@ -166,6 +169,38 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
                 <td className="td">{p.score == null ? <span className="text-muted">—</span> : <span className={`font-semibold ${p.score >= 60 ? 'text-ok' : ''}`}>{p.score}/100</span>}</td>
                 <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}<div className="mt-1 flex flex-wrap gap-1">{matchesFocus(p, 'sites') && <span className="badge text-[10px]">Site</span>}{matchesFocus(p, 'recorrentes') && <span className="badge text-[10px]">Recorrente</span>}</div></td><td className="td"><div className="mb-1.5 text-xs text-muted">{[p.phone, p.email].filter(Boolean).join(' · ') || 'sem contato'}</div><ChannelBadges email={p.email} emailFromSite={p.email_src === 'site'} phone={p.phone} siteNumbers={p.site_numbers} linkedin={p.linkedin} people={p.people} analyzed={!!p.analyzed_at} /></td>
                 <td className="td"><span className={`badge ${PROSPECT_STATUS[p.status].tone}`}>{PROSPECT_STATUS[p.status].label}</span></td></tr>))}</tbody></table></div>)}
+        </>)}
+
+      {tab === 'resumo' && sum && (
+        <>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">Últimos {days} dias, comparado aos {days} dias anteriores. Números reais do sistema, sem estimativas.</p>
+            <div className="flex gap-2"><LinkButton href="/prospeccao?tab=resumo&d=7" className={`btn btn-sm ${days === 7 ? 'btn-dark' : ''}`}>7 dias</LinkButton><LinkButton href="/prospeccao?tab=resumo&d=30" className={`btn btn-sm ${days === 30 ? 'btn-dark' : ''}`}>30 dias</LinkButton></div></div>
+          {(() => {
+            const c = sum.cur, p = sum.prev; const d = (a: number, b: number, good = true) => ({ pct: pct(a, b), goodWhenUp: good });
+            return (<>
+              <h2 className="mb-3 text-sm font-semibold text-muted">PROSPECÇÃO</h2>
+              <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Stat label="Empresas novas" value={c.novas} delta={d(c.novas, p.novas)} hint="encontradas ou cadastradas" />
+                <Stat label="Analisadas" value={c.analisadas} delta={d(c.analisadas, p.analisadas)} />
+                <Stat label="Prontas (e-mail + WhatsApp)" value={c.prontas} delta={d(c.prontas, p.prontas)} hint="entre as novas do período" />
+                <Stat label="Landing aberta" value={c.landingAbertas} delta={d(c.landingAbertas, p.landingAbertas)} hint="1ª abertura do diagnóstico" />
+              </div>
+              <h2 className="mb-3 text-sm font-semibold text-muted">CONTATOS</h2>
+              <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Stat label="E-mails enviados" value={c.emailsEnviados} delta={d(c.emailsEnviados, p.emailsEnviados)} />
+                <Stat label="WhatsApp registrados" value={c.whatsappFeitos} delta={d(c.whatsappFeitos, p.whatsappFeitos)} />
+                <Stat label="Respostas" value={c.respostas} delta={d(c.respostas, p.respostas)} tone={c.respostas > 0 ? 'lime' : undefined} />
+                <Stat label="E-mails com falha" value={c.falhas} delta={d(c.falhas, p.falhas, false)} tone={c.falhas > 0 ? 'danger' : undefined} />
+              </div>
+              <h2 className="mb-3 text-sm font-semibold text-muted">LEADS NO CRM</h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Stat label="Leads da prospecção" value={c.leadsProspeccao} delta={d(c.leadsProspeccao, p.leadsProspeccao)} hint="1º contato feito" />
+                <Stat label="Leads de anúncios e links" value={c.leadsAnuncios} delta={d(c.leadsAnuncios, p.leadsAnuncios)} />
+                <Stat label="Qualificações respondidas" value={c.qualificacoes} delta={d(c.qualificacoes, p.qualificacoes)} />
+                <Stat label="Quentes · mornos · frios" value={`${c.quentes} · ${c.mornos} · ${c.frios}`} hint="das respostas do período" />
+              </div>
+            </>);
+          })()}
         </>)}
 
       {tab === 'campanhas' && (() => {
