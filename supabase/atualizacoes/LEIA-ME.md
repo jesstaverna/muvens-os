@@ -45,3 +45,7 @@ Pré-requisito: migrações 2 (CRM) e 11 (Prospecção). Rode `J_leads_anuncios.
 ## K — Prospecto vai para o CRM no 1º contato (migração 19)
 
 Pré-requisitos: migrações 2 (CRM) e 11 (Prospecção). Rode `K_prospecto_para_crm.sql` **uma vez** (pode ser repetido). Quando o 1º e-mail é enviado (ou o WhatsApp é registrado), o prospecto vira lead na etapa "Primeiro Contato"; quando responde, o lead vai para "Qualificação". Conferência: `select tgname from pg_trigger where tgname = 'trg_prospects_to_crm';` → 1 linha.
+
+## L — Saúde do sistema (migração 20)
+
+Rode `L_saude_do_sistema.sql` **uma vez** (pode ser repetido). Ele cria o registro das execuções do agendador e a verificação do banco usadas na página **Automações**. Conferência: `select to_regclass('public.worker_runs') is not null;` → `true`.

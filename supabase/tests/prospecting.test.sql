@@ -202,3 +202,16 @@ end $$;
 insert into prospects (id, name, source, status) values ('bbbbbbbb-0000-0000-0000-000000000097', 'Sem Contato', 'manual', 'analisado');
 update prospects set status = 'contatado' where id = 'bbbbbbbb-0000-0000-0000-000000000097';
 do $$ begin assert (select lead_id from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000097') is null, 'sem contato não vira lead'; end $$;
+
+-- 0020: saúde do sistema só para administradores
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
+do $$ declare r jsonb; begin
+  r := public.system_health();
+  assert (r->>'m11_prospeccao')::boolean and (r->>'m18_leads_anuncios')::boolean and (r->>'m19_prospecto_crm')::boolean and (r->>'m20_saude')::boolean, 'admin vê a saúde do banco';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a2';
+select pg_temp.expect_error($$select public.system_health()$$, '42501');
+do $$ begin assert (select count(*) from worker_runs) = 0, 'comercial não lê o registro do agendador'; end $$;
+reset role;

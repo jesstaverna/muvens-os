@@ -69,5 +69,13 @@ export async function runWorker(db: SupabaseClient, batch = 20, email: EmailProv
   for (const [name, fn] of [['recurring', () => runRecurringCampaigns(db)], ['analysis', () => analyzePending(db)], ['autoApprove', () => autoApproveReady(db)], ['followups', () => createFollowups(db)], ['outbox', () => processOutbox(db, email, process.env.NEXT_PUBLIC_APP_URL ?? '')]] as const) {
     try { prospecting[name] = await fn(); } catch (e) { prospecting[name] = { error: e instanceof Error ? e.message : String(e) }; }
   }
-  return { claimed: jobs?.length ?? 0, done, failed, prospecting };
+  const result = { claimed: jobs?.length ?? 0, done, failed, prospecting };
+  // registro da execução (Saúde do sistema); mantém só as últimas 50. Falhar aqui nunca derruba o processamento.
+  try {
+    const bad = Object.values(prospecting).some((v) => v && typeof v === 'object' && 'error' in (v as object));
+    await db.from('worker_runs').insert({ ok: failed === 0 && !bad, result });
+    const { data: old } = await db.from('worker_runs').select('id').order('id', { ascending: false }).range(50, 60);
+    if (old?.length) await db.from('worker_runs').delete().in('id', old.map((o) => o.id));
+  } catch { /* tabela ainda não criada */ }
+  return result;
 }
