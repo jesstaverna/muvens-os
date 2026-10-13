@@ -15,6 +15,12 @@ function authorized(req: NextRequest) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** Diagnóstico: informa se o segredo está configurado neste deploy (nunca mostra o valor). Abra o endereço no navegador. */
+export async function GET() {
+  const secret = process.env.LEADS_WEBHOOK_SECRET;
+  return NextResponse.json({ ok: true, configured: !!secret, secret_length: secret ? secret.length : 0, hint: secret ? 'O segredo existe neste deploy. Se o Zapier dá "unauthorized", o valor do cabeçalho x-webhook-secret está diferente.' : 'LEADS_WEBHOOK_SECRET não existe neste deploy: cadastre na Vercel (Production) e faça Redeploy.' });
+}
+
 /**
  * Recebe leads de anúncios (Meta Lead Ads via Make/Zapier/n8n) e de formulários. Autenticação por segredo (LEADS_WEBHOOK_SECRET).
  * Cria o lead no CRM, o prospecto para análise do site, o link de qualificação e os RASCUNHOS de contato (nada é enviado sem aprovação).
