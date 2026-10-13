@@ -25,3 +25,12 @@ describe('catálogo ampliado', () => {
     expect(suggestNiches('pet').groups.some((g) => g.key === 'pet')).toBe(true);
   });
 });
+
+import { DESIGN_FOCUS } from './niches';
+describe('nichos com foco em design', () => {
+  it('lista sem repetição, com termo de busca e motivo', () => {
+    expect(DESIGN_FOCUS.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(DESIGN_FOCUS.map((d) => d.q)).size).toBe(DESIGN_FOCUS.length);
+    for (const d of DESIGN_FOCUS) { expect(d.q.length).toBeGreaterThan(2); expect(d.why.length).toBeGreaterThan(5); }
+  });
+});

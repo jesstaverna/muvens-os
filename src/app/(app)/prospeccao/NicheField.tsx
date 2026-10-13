@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Check, X } from 'lucide-react';
-import { suggestNiches } from '@/lib/prospecting/niches';
+import { DESIGN_FOCUS, suggestNiches } from '@/lib/prospecting/niches';
 
 const MAX = 5;
 
@@ -37,7 +37,9 @@ export function NicheField({ children }: { children?: ReactNode }) {
             <div key={g.key} className="mb-2 last:mb-0"><div className="mb-2 text-xs text-muted">Tipos de <b className="text-fg">{g.label}</b> — marque um ou mais, ou deixe em branco para buscar “{text || g.label}”:</div>
               <div className="flex flex-wrap gap-2">{g.options.map((op) => <button type="button" key={op.q} onClick={() => toggle(op.q, op.label)} className={chip(has(op.q))} aria-pressed={has(op.q)}>{has(op.q) && <Check className="h-3 w-3" strokeWidth={2.2} />}{op.label}</button>)}</div></div>
           )) : !text ? (
-            <div><div className="mb-2 text-xs text-muted">Escolha uma área para ver os tipos, ou digite livremente:</div>
+            <div><div className="mb-1 text-xs text-muted">Nichos que <b className="text-fg">mais precisam de design</b> (posts, identidade visual, site) — marque um ou mais:</div>
+              <div className="mb-4 flex flex-wrap gap-2">{DESIGN_FOCUS.map((d) => <button type="button" key={d.q} title={d.why} onClick={() => toggle(d.q, d.label)} className={chip(has(d.q))} aria-pressed={has(d.q)}>{has(d.q) && <Check className="h-3 w-3" strokeWidth={2} />}{d.label}</button>)}</div>
+              <div className="mb-2 text-xs text-muted">Ou escolha uma área para ver os tipos, ou digite livremente:</div>
               <div className="flex flex-wrap gap-2">{sug.groups.map((g) => <button type="button" key={g.key} onClick={() => setText(g.label)} className={chip(false)}>{g.label}</button>)}</div></div>
           ) : sug.groups.length > 2 ? (
             <div className="flex flex-wrap gap-2">{sug.groups.map((g) => <button type="button" key={g.key} onClick={() => setText(g.label)} className={chip(false)}>{g.label}</button>)}</div>

@@ -54,3 +54,26 @@ export function suggestNiches(text: string): Suggestion {
   const options = NICHE_GROUPS.filter((g) => !inGroups.has(g.key)).flatMap((g) => g.options.filter((x) => slug(x.label).includes(t) || slug(x.q).includes(t)).map((x) => ({ ...x, group: g.label }))).slice(0, 8);
   return { groups, options };
 }
+
+/**
+ * Nichos que, na prática, mais compram design (posts, identidade visual, site): negócios que vendem pela imagem e pelo Instagram.
+ * É uma seleção editorial da Muvens (não um ranking estatístico): ajuste a lista e a ordem conforme os seus resultados.
+ */
+export const DESIGN_FOCUS: { label: string; q: string; why: string }[] = [
+  { label: 'Clínica odontológica', q: 'clínica odontológica', why: 'vende confiança e antes/depois' },
+  { label: 'Clínica de estética', q: 'clínica de estética', why: 'Instagram é a vitrine' },
+  { label: 'Restaurante', q: 'restaurante', why: 'cardápio e fotos' },
+  { label: 'Hamburgueria', q: 'hamburgueria', why: 'marca forte e delivery' },
+  { label: 'Cafeteria', q: 'cafeteria', why: 'experiência visual' },
+  { label: 'Confeitaria e doceria', q: 'confeitaria', why: 'produto visual' },
+  { label: 'Salão de beleza', q: 'salão de beleza', why: 'portfólio de trabalhos' },
+  { label: 'Barbearia', q: 'barbearia', why: 'identidade e redes sociais' },
+  { label: 'Academia', q: 'academia', why: 'conteúdo e promoções constantes' },
+  { label: 'Studio de pilates', q: 'pilates', why: 'marca e captação por Instagram' },
+  { label: 'Imobiliária', q: 'imobiliária', why: 'peças para imóveis e anúncios' },
+  { label: 'Pet shop', q: 'pet shop', why: 'conteúdo e promoções' },
+  { label: 'Escola e curso', q: 'escola particular', why: 'captação de matrículas' },
+  { label: 'Advocacia', q: 'escritório de advocacia', why: 'autoridade e identidade' },
+  { label: 'Arquitetura', q: 'escritório de arquitetura', why: 'portfólio visual' },
+  { label: 'Loja de roupas', q: 'loja de roupas', why: 'catálogo e campanhas' },
+];
