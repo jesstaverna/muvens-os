@@ -11,6 +11,7 @@ import { parseAnswers } from '@/lib/leads/qualify';
 import { analyzeNextBatch, analyzeProspect, ANALYSIS_VERSION, countStale, reanalyzeNextBatch } from './pipeline';
 import { autoApproveReady, createFollowups, createNurtureDrafts, processOutbox } from './outbox';
 import { sendWeeklyDigest } from './digest';
+import { loadFunnel } from './funnel';
 
 // Integração com PostgREST local (ver supabase/tests/). Ignorado sem PGRST_URL.
 const URL = process.env.PGRST_URL;
@@ -213,6 +214,25 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     expect(sent.length).toBe(1); expect(sent[0].to).toBe('equipe@muvens.test'); expect(sent[0].text).toContain('PROSPECÇÃO');
     expect((await sendWeeklyDigest(db, provider as never, 'https://app.test', monday)).sent).toBe(false);          // não repete
     await db.from('outreach_settings').update({ weekly_digest_enabled: false, weekly_digest_to: null, last_digest_at: null }).eq('id', 1);
+  });
+
+  it('alerta por e-mail: só lead quente, só se ligado, com link do WhatsApp e do CRM', async () => {
+    const sent: { to: string; subject: string; text: string }[] = []; const provider = { send: async (m: { to: string; subject: string; text: string }) => { sent.push(m); return { id: 'x' }; } };
+    const ans = (prazo: string, decisor: string, invest: string) => { const a = parseAnswers({ dificuldade: 'Não consigo clientes novos', precisa: 'Site e anúncios que tragam contatos', areas: ['site_institucional'], prazo, invest, decisor }); if (!a.ok) throw new Error(a.error); return a.answers; };
+    const mk = async (tag: string, phone: string) => { const r = await ingestLead(db, normalizeLead({ nome: `Alerta ${tag} ${RUN}`, email: `alerta${tag}${RUN}@a.com`, telefone: phone })!, 'https://app.test'); return (await db.from('lead_qualifications').select('token').eq('lead_id', r.leadId!).single()).data!.token as string; };
+    await db.from('outreach_settings').update({ alert_hot_enabled: false, alert_to: 'alerta@muvens.test', sender_name: 'Ana', sender_email: 'ana@updates.muvens.test' }).eq('id', 1);
+    const t1 = await mk('1', '(41) 99333-1111'); await submitQualification(db, t1, ans('agora', 'sim', '1a5k'), provider as never); expect(sent.length).toBe(0);   // desligado
+    await db.from('outreach_settings').update({ alert_hot_enabled: true }).eq('id', 1);
+    const t2 = await mk('2', '(41) 99333-2222'); await submitQualification(db, t2, ans('agora', 'sim', '1a5k'), provider as never);
+    expect(sent.length).toBe(1); expect(sent[0].to).toBe('alerta@muvens.test'); expect(sent[0].subject).toContain('Lead quente'); expect(sent[0].text).toContain('wa.me/55419933322'); expect(sent[0].text).toContain('/crm/');
+    const t3 = await mk('3', '(41) 99333-3333'); await submitQualification(db, t3, ans('pesquisando', 'nao', 'nenhum'), provider as never); expect(sent.length).toBe(1);   // frio não avisa
+    await db.from('outreach_settings').update({ alert_hot_enabled: false, alert_to: null }).eq('id', 1);
+  });
+
+  it('funil: carrega do banco e separa as origens', async () => {
+    const all = await loadFunnel(db, null, 'todos'); const ads = await loadFunnel(db, null, 'anuncios'); const pro = await loadFunnel(db, null, 'prospeccao');
+    expect(all.total).toBeGreaterThan(0); expect(ads.total).toBeGreaterThan(0); expect(ads.total + pro.total).toBe(all.total);
+    expect(all.stages.find((x) => x.key === 'leads')!.count).toBeGreaterThan(0);
   });
 });
 

@@ -12,7 +12,7 @@ const TONE: Record<string, string> = { done: 'text-ok', failed: 'text-warn', dea
 const MIGRATIONS: [string, string, string][] = [
   ['m11_prospeccao', 'Prospecção (11)', 'setup.sql ou A/B'], ['m12_link_publico', 'Link público do diagnóstico (12)', 'C_link_publico_diagnostico.sql'], ['m13_precos_visualizacoes', 'Preços e visualizações (13)', 'D ou G'],
   ['m14_pontuacao_landing', 'Pontuação na landing (14)', 'E ou G'], ['m15_novos_servicos', 'Novos serviços (15)', 'F ou G'], ['m16_cadencia', 'Cadência (16)', 'H_cadencia.sql'], ['m17_busca_semanal', 'Busca semanal (17)', 'I_busca_semanal.sql'],
-  ['m18_leads_anuncios', 'Leads de anúncios (18)', 'J_leads_anuncios.sql'], ['m19_prospecto_crm', 'Prospecto vai ao CRM (19)', 'K_prospecto_para_crm.sql'], ['m21_resumo_email', 'Resumo semanal por e-mail (21)', 'M_resumo_por_email.sql'],
+  ['m18_leads_anuncios', 'Leads de anúncios (18)', 'J_leads_anuncios.sql'], ['m19_prospecto_crm', 'Prospecto vai ao CRM (19)', 'K_prospecto_para_crm.sql'], ['m21_resumo_email', 'Resumo semanal por e-mail (21)', 'M_resumo_por_email.sql'], ['m22_alerta_lead_quente', 'Alerta de lead quente (22)', 'N_alerta_lead_quente.sql'],
 ];
 const ENV: [string, string, string][] = [
   ['GOOGLE_PLACES_API_KEY', 'Google Maps (busca de empresas)', 'Obrigatória para a busca de prospectos'], ['RESEND_API_KEY', 'Resend (envio de e-mails)', 'Obrigatória para enviar e-mails'], ['CRON_SECRET', 'Agendador (segredo)', 'Obrigatória para o processamento automático'],

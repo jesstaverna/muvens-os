@@ -14,6 +14,8 @@ import { ReanalyzeStale } from './ReanalyzeStale';
 import { countStale } from '@/lib/prospecting/pipeline';
 import { CONTACT_FILTERS, FOCUS_LABEL, matchesFocus, parseFocus, isReady, matchesContact, parseFilters, reachRank, whatsappNumber } from '@/lib/prospecting/filters';
 import { whatsappLink } from '@/lib/prospecting/message';
+import { loadFunnel, type Origin } from '@/lib/prospecting/funnel';
+import { money } from '@/lib/format';
 import { periods, pct, summarize } from '@/lib/prospecting/summary';
 import { diagnoseSending } from '@/lib/prospecting/send-diagnosis';
 import { ChannelBadges } from './ChannelBadges';
@@ -23,12 +25,12 @@ import { groupCampaigns, slug } from '@/lib/prospecting/groups';
 export const metadata = { title: 'Prospecção' };
 export const maxDuration = 60;
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
-type SP = { tab?: string; status?: string; grp?: string; min?: string; q?: string; f?: string | string[]; ord?: string; foco?: string; d?: string };
+type SP = { tab?: string; status?: string; grp?: string; min?: string; q?: string; f?: string | string[]; ord?: string; foco?: string; d?: string; o?: string; per?: string };
 
 export default async function Prospeccao({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('prospeccao');
   const sp = await searchParams;
-  const tab = ['prospectos', 'campanhas', 'fila', 'novo', 'bloqueios', 'config', 'resumo'].includes(sp.tab ?? '') ? sp.tab! : 'prospectos';
+  const tab = ['prospectos', 'campanhas', 'fila', 'novo', 'bloqueios', 'config', 'resumo', 'funil'].includes(sp.tab ?? '') ? sp.tab! : 'prospectos';
   const isAdmin = profile.role === 'admin';
   const [{ data: campaigns }, { data: settings, error: settingsError }] = await Promise.all([supabase.from('prospect_campaigns').select('*').order('created_at', { ascending: false }), supabase.from('outreach_settings').select('*').eq('id', 1).maybeSingle()]);
 
@@ -69,6 +71,8 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
   if (tab === 'campanhas') pendingAnalysis = (await supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('status', 'novo').is('analyzed_at', null)).count ?? 0;
   const days = sp.d === '30' ? 30 : 7;
   const sum = tab === 'resumo' ? await (async () => { const pr = periods(days); const [cur, prev] = await Promise.all([summarize(supabase, pr.cur), summarize(supabase, pr.prev)]); return { cur, prev }; })() : null;
+  const origin: Origin = sp.o === 'prospeccao' || sp.o === 'anuncios' ? sp.o : 'todos'; const per = sp.per === '30' || sp.per === '90' ? Number(sp.per) : null;
+  const fun = tab === 'funil' ? await loadFunnel(supabase, per ? new Date(Date.now() - per * 86400_000).toISOString() : null, origin) : null;
   let readyCount = 0; let waDue: any[] = [];
   if (tab === 'fila') {
     const { data: rd } = await supabase.from('outreach_messages').select('id, prospects!inner(email, phone, status, site_numbers:analysis->site->whatsappNumbers)').eq('channel', 'email').eq('step', 1).eq('status', 'rascunho').limit(500);
@@ -119,7 +123,7 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
         <span>Envio automático: {settings?.sending_enabled ? <b className="text-warn">LIGADO</b> : <b>desligado</b>}</span>
       </div>
 
-      <Tabs current={tab} items={[{ key: 'prospectos', label: 'Prospectos', href: nav('prospectos') }, { key: 'resumo', label: 'Resumo', href: nav('resumo') }, { key: 'campanhas', label: 'Campanhas (Google Maps)', href: nav('campanhas') }, { key: 'fila', label: 'Fila de e-mails', href: nav('fila') }, { key: 'novo', label: 'Cadastrar manualmente', href: nav('novo') }, { key: 'bloqueios', label: 'Lista de bloqueio', href: nav('bloqueios') }, { key: 'config', label: 'Configurações de envio', href: nav('config') }]} />
+      <Tabs current={tab} items={[{ key: 'prospectos', label: 'Prospectos', href: nav('prospectos') }, { key: 'resumo', label: 'Resumo', href: nav('resumo') }, { key: 'funil', label: 'Funil comercial', href: nav('funil') }, { key: 'campanhas', label: 'Campanhas (Google Maps)', href: nav('campanhas') }, { key: 'fila', label: 'Fila de e-mails', href: nav('fila') }, { key: 'novo', label: 'Cadastrar manualmente', href: nav('novo') }, { key: 'bloqueios', label: 'Lista de bloqueio', href: nav('bloqueios') }, { key: 'config', label: 'Configurações de envio', href: nav('config') }]} />
 
       {tab === 'prospectos' && !listMode && (() => {
         const boxes = [...groups.values()].sort((x, y) => y.latest.localeCompare(x.latest)).map((g) => ({ href: `/prospeccao?tab=prospectos&grp=${g.key}`, title: `${g.niche} (${g.city})`, sub: `${g.ids.length} campanha(s)`, rows: counts?.filter((c) => g.ids.includes(c.campaign_id)) ?? [] }));
@@ -169,6 +173,28 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
                 <td className="td">{p.score == null ? <span className="text-muted">—</span> : <span className={`font-semibold ${p.score >= 60 ? 'text-ok' : ''}`}>{p.score}/100</span>}</td>
                 <td className="td">{SERVICE_LABEL[p.recommended_service ?? ''] ?? '—'}<div className="mt-1 flex flex-wrap gap-1">{matchesFocus(p, 'sites') && <span className="badge text-[10px]">Site</span>}{matchesFocus(p, 'recorrentes') && <span className="badge text-[10px]">Recorrente</span>}</div></td><td className="td"><div className="mb-1.5 text-xs text-muted">{[p.phone, p.email].filter(Boolean).join(' · ') || 'sem contato'}</div><ChannelBadges email={p.email} emailFromSite={p.email_src === 'site'} phone={p.phone} siteNumbers={p.site_numbers} linkedin={p.linkedin} people={p.people} analyzed={!!p.analyzed_at} /></td>
                 <td className="td"><span className={`badge ${PROSPECT_STATUS[p.status].tone}`}>{PROSPECT_STATUS[p.status].label}</span></td></tr>))}</tbody></table></div>)}
+        </>)}
+
+      {tab === 'funil' && fun && (
+        <>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">Da empresa encontrada até a proposta fechada, para as empresas e leads criados no período. Só entram contatos que passaram pela Prospecção, por anúncios ou pelo formulário.</p>
+            <div className="flex flex-wrap gap-2">
+              {([['', 'Todo o período'], ['30', '30 dias'], ['90', '90 dias']] as const).map(([v, l]) => <LinkButton key={v} href={`/prospeccao?tab=funil&per=${v}&o=${origin}`} className={`btn btn-sm ${(per ? String(per) : '') === v ? 'btn-dark' : ''}`}>{l}</LinkButton>)}
+              <span className="mx-1 w-px bg-line" />
+              {([['todos', 'Todas as origens'], ['prospeccao', 'Prospecção'], ['anuncios', 'Anúncios e links']] as const).map(([v, l]) => <LinkButton key={v} href={`/prospeccao?tab=funil&per=${per ?? ''}&o=${v}`} className={`btn btn-sm ${origin === v ? 'btn-dark' : ''}`}>{l}</LinkButton>)}
+            </div></div>
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <Stat label="Valor fechado" value={money(fun.wonValue)} tone={fun.wonValue > 0 ? 'lime' : undefined} hint="propostas aceitas" />
+            <Stat label="Em propostas abertas" value={money(fun.openValue)} hint="enviadas, visualizadas ou em negociação" />
+            <Stat label="Leads quentes sem proposta" value={fun.hotWithoutProposal} tone={fun.hotWithoutProposal > 0 ? 'danger' : undefined} hint="envie a proposta" />
+            <Stat label="Propostas sem resposta" value={fun.proposalsStale} tone={fun.proposalsStale > 0 ? 'danger' : undefined} hint="enviadas há 7+ dias" />
+            <Stat label="Abriram o diagnóstico" value={fun.landingOpened} hint="landing personalizada" />
+          </div>
+          {fun.total === 0 ? <Empty title="Nenhum dado no período" text="Quando houver prospectos e leads neste período, o funil aparece aqui." /> : (
+            <section className="card"><ul className="space-y-4">{fun.stages.map((st, i) => (
+              <li key={st.key}><div className="flex flex-wrap items-baseline justify-between gap-2 text-sm"><span className="font-medium">{i + 1}. {st.label}</span><span><b className="text-base">{st.count}</b><span className="ml-2 text-xs text-muted">{st.pctOfFirst}% do total{st.convFromPrev != null ? ` · ${st.convFromPrev}% da etapa anterior` : ''}</span></span></div>
+                <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-subtle"><div className="h-full rounded-full bg-lime" style={{ width: `${Math.max(st.pctOfFirst, st.count > 0 ? 2 : 0)}%` }} /></div></li>))}</ul>
+              <p className="mt-5 text-xs text-muted">Cada etapa conta empresas/leads reais do período. "Fechadas" inclui leads ganhos no CRM e propostas aceitas. Leads cadastrados manualmente no CRM, sem passar pela Prospecção, não entram neste funil.</p></section>)}
         </>)}
 
       {tab === 'resumo' && sum && (
@@ -284,6 +310,8 @@ export default async function Prospeccao({ searchParams }: { searchParams: Promi
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="require_approval" defaultChecked={settings.require_approval} className="mt-1" /><span><b>Exigir aprovação humana de cada e-mail</b> (recomendado). Desmarque só depois de revisar vários textos e ver que a qualidade está boa.</span></label>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="auto_approve_ready" defaultChecked={settings.auto_approve_ready} className="mt-1" /><span><b>Aprovar automaticamente</b> o 1º e-mail de quem tem <b>e-mail e WhatsApp</b> (pontuação mínima abaixo). Os demais continuam esperando a sua aprovação. As travas de envio (horário, limite, bloqueios, identificação) continuam valendo.</span></label>
             <div className="grid gap-4 pl-6 sm:grid-cols-2"><Field label="Pontuação mínima para aprovar sozinho"><input name="auto_approve_min_score" type="number" min={0} max={100} defaultValue={settings.auto_approve_min_score ?? 0} className="input" /></Field><Field label="Dias até o WhatsApp (depois do e-mail)"><input name="whatsapp_after_days" type="number" min={1} max={30} defaultValue={settings.whatsapp_after_days ?? 3} className="input" /></Field></div>
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="alert_hot_enabled" defaultChecked={settings.alert_hot_enabled} className="mt-1" /><span><b>Avisar por e-mail quando um lead quente responder</b> à qualificação. O e-mail traz as respostas, o telefone e um link para abrir o WhatsApp do lead.</span></label>
+            <div className="pl-6"><Field label="Enviar o alerta para" hint="Se ficar em branco, usa o e-mail do resumo semanal."><input name="alert_to" type="email" defaultValue={settings.alert_to ?? ''} className="input" placeholder="voce@suaempresa.com.br" /></Field></div>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="weekly_digest_enabled" defaultChecked={settings.weekly_digest_enabled} className="mt-1" /><span><b>Receber o resumo semanal por e-mail</b> (toda segunda-feira, com os números da semana e o que precisa de ação).</span></label>
             <div className="pl-6"><Field label="Enviar o resumo para" hint="Use o e-mail de quem acompanha a prospecção."><input name="weekly_digest_to" type="email" defaultValue={settings.weekly_digest_to ?? ''} className="input" placeholder="voce@suaempresa.com.br" /></Field></div>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="sending_enabled" defaultChecked={settings.sending_enabled} className="mt-1" /><span><b>Ligar o envio automático.</b> Só envia se: provedor configurado, identificação completa, dentro do horário e do limite, e fora da lista de bloqueio. Todo e-mail leva identificação, motivo do contato e link de descadastro.</span></label></div>

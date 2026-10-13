@@ -53,3 +53,7 @@ Rode `L_saude_do_sistema.sql` **uma vez** (pode ser repetido). Ele cria o regist
 ## M — Resumo semanal por e-mail (migração 21)
 
 Rode `M_resumo_por_email.sql` **uma vez** (pode ser repetido). Depois, em Prospecção > Configurações de envio, marque "Receber o resumo semanal por e-mail" e informe o destinatário. A nutrição de leads frios não precisa de SQL.
+
+## N — Alerta por e-mail de lead quente (migração 22)
+
+Rode `N_alerta_lead_quente.sql` **uma vez** (pode ser repetido). Depois, em Prospecção > Configurações de envio, marque "Avisar por e-mail quando um lead quente responder" e informe o destinatário. O alerta traz as respostas, o telefone e um link para abrir o WhatsApp do lead.
