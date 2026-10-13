@@ -39,7 +39,7 @@ export default async function Qualificar({ params, searchParams }: { params: Pro
               <fieldset><legend className="font-semibold">Você decide a contratação?</legend><div className="mt-2 grid gap-2">{DECISOR.map((o) => <label key={o.v} className={radio}><input type="radio" name="decisor" value={o.v} required className="h-4 w-4 accent-black" />{o.l}</label>)}</div></fieldset>
               <fieldset><legend className="font-semibold">Como prefere ser contatado?</legend><div className="mt-2 flex flex-wrap gap-2">{CONTATO.map((o) => <label key={o.v} className={radio}><input type="radio" name="contato" value={o.v} className="h-4 w-4 accent-black" />{o.l}</label>)}</div></fieldset>
               <button className="w-full rounded-full bg-black px-6 py-4 text-sm font-semibold text-[#DCEA1E] hover:opacity-90">Enviar respostas</button>
-              <p className="text-center text-xs text-neutral-500">Usamos estas informações apenas para atender o seu pedido de contato. Você pode pedir a exclusão a qualquer momento respondendo ao nosso e-mail.</p>
+              <p className="text-center text-xs text-neutral-500">Usamos estas informações apenas para atender o seu pedido de contato. Você pode pedir a exclusão a qualquer momento respondendo ao nosso e-mail. <a href="/privacidade" className="underline">Política de privacidade</a>.</p>
             </form>
           </>
         )}

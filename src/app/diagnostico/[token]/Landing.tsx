@@ -154,7 +154,7 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
       <footer className="border-t border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-xs text-neutral-500 sm:px-8">
           <img src="/logo-muvens.svg" alt="Muvens" className="h-6 w-auto rounded bg-black p-1" />
-          <p>Baseado somente em informações públicas (site e Google); não substitui uma auditoria completa.{props.generatedAt && ` Gerado em ${props.generatedAt}.`}</p>
+          <p>Baseado somente em informações públicas (site e Google); não substitui uma auditoria completa.{props.generatedAt && ` Gerado em ${props.generatedAt}.`} <a href="/privacidade" className="underline">Privacidade</a></p>
         </div>
       </footer>
     {cta && <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/95 p-3 sm:hidden"><a href={cta} className="flex items-center justify-center gap-2 rounded-full bg-[#DCEA1E] px-5 py-3 text-sm font-semibold text-black">Quero conversar com a Muvens <ArrowRight className="h-4 w-4" strokeWidth={2} /></a></div>}

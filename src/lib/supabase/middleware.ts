@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PREFIXES = ['/login', '/p/', '/descadastro/', '/diagnostico/', '/qualificar/', '/api/leads/webhook', '/api/worker', '/api/health'];
+const PUBLIC_PREFIXES = ['/login', '/p/', '/descadastro/', '/diagnostico/', '/qualificar/', '/privacidade', '/api/leads/webhook', '/api/worker', '/api/health'];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
