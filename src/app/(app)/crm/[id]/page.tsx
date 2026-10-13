@@ -7,6 +7,9 @@ import { LeadForm } from '../LeadForm';
 import { addInteraction, addReminder, completeReminder, updateLead } from '../actions';
 import { dateTimeBR, money } from '@/lib/format';
 import { PROPOSAL_STATUS } from '@/lib/domain';
+import { AREAS, CONTATO, DECISOR, INVEST, PRAZO } from '@/lib/leads/qualify';
+import { CopyButton } from '@/components/ClientButtons';
+import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { LinkButton } from '@/components/LinkButton';
 
 const KIND: Record<string, string> = { nota: 'Nota', ligacao: 'Ligação', whatsapp: 'WhatsApp', email: 'E-mail', reuniao: 'Reunião', sistema: 'Sistema' };
@@ -15,13 +18,14 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const { supabase } = await requireModule('crm');
-  const [{ data: lead }, { data: stages }, { data: owners }, { data: inter }, { data: rem }, { data: props }] = await Promise.all([
+  const [{ data: lead }, { data: stages }, { data: owners }, { data: inter }, { data: rem }, { data: props }, { data: qual }] = await Promise.all([
     supabase.from('leads').select('*, pipeline_stages(name, kind)').eq('id', id).maybeSingle(),
     supabase.from('pipeline_stages').select('id, name').eq('active', true).order('position'),
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'comercial']).eq('active', true),
     supabase.from('lead_interactions').select('id, kind, content, created_at, profiles(full_name)').eq('lead_id', id).order('created_at', { ascending: false }),
     supabase.from('lead_reminders').select('id, title, due_at, done_at').eq('lead_id', id).order('due_at'),
     supabase.from('proposals').select('id, number, title, status, total_value').eq('lead_id', id).order('number', { ascending: false }),
+    supabase.from('lead_qualifications').select('token, status, answers, score, fit, services, answered_at').eq('lead_id', id).maybeSingle(),
   ]);
   if (!lead) notFound();
   const st = Array.isArray(lead.pipeline_stages) ? lead.pipeline_stages[0] : lead.pipeline_stages;
@@ -39,6 +43,24 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           <LeadForm action={updateLead.bind(null, id)} stages={stages ?? []} owners={owners ?? []} lead={lead} submitLabel="Salvar alterações" /></div>
 
         <div className="space-y-6">
+          {qual && (() => {
+            const a = (qual.answers ?? {}) as Record<string, any>; const base = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, ''); const url = `${base}/qualificar/${qual.token}`;
+            const lab = (list: readonly { v: string; l: string }[], v: string) => list.find((x) => x.v === v)?.l ?? '—';
+            const tone = qual.fit === 'quente' ? 'bg-lime/50 text-fg' : qual.fit === 'morno' ? 'bg-amber-500/15 text-warn' : 'text-muted';
+            return (
+              <section className="card"><div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold">Qualificação</h2>{qual.status === 'respondido' ? <span className={`badge ${tone}`}>Lead {qual.fit} · {qual.score}/100</span> : <span className="badge text-muted">Aguardando respostas</span>}</div>
+                {qual.status !== 'respondido' ? (<><p className="text-sm text-muted">O lead ainda não respondeu às perguntas. O convite está nos rascunhos de e-mail/WhatsApp da Prospecção (aprove para enviar) ou envie o link abaixo.</p><div className="mt-3"><CopyButton text={url} label="Copiar link do formulário" /></div></>) : (
+                  <div className="space-y-3 text-sm">
+                    <div><div className="label">Maior dificuldade</div>{a.dificuldade}</div>
+                    <div><div className="label">O que precisa resolver</div>{a.precisa}</div>
+                    <div className="grid grid-cols-2 gap-3"><div><div className="label">Investe hoje</div>{lab(INVEST, a.invest)}</div><div><div className="label">Prazo</div>{lab(PRAZO, a.prazo)}</div><div><div className="label">Decide?</div>{lab(DECISOR, a.decisor)}</div><div><div className="label">Prefere</div>{a.contato ? lab(CONTATO, a.contato) : '—'}</div></div>
+                    <div><div className="label">Áreas de interesse</div>{(qual.services ?? []).length ? (qual.services as string[]).map((k) => AREAS.find((x) => x.key === k)?.label ?? k).join(' · ') : '—'}</div>
+                    {(qual.services ?? []).length > 0 && qual.fit !== 'frio' && <div className="border-t border-line pt-3"><div className="label mb-2">Enviar proposta</div><div className="flex flex-wrap gap-2">{(qual.services as string[]).slice(0, 3).map((k) => <LinkButton key={k} href={`/propostas/nova?lead=${id}&servico=${k}`} className="btn btn-sm btn-primary">Proposta de {SERVICE_LABEL[k] ?? k}</LinkButton>)}</div></div>}
+                    {qual.fit === 'frio' && <p className="text-xs text-muted">Lead frio: o ideal é nutrir com conteúdo e voltar a falar mais adiante, sem enviar proposta agora.</p>}
+                  </div>)}
+              </section>);
+          })()}
+
           <section className="card"><h2 className="mb-4 text-base font-semibold">Propostas vinculadas</h2>
             {props?.length ? <ul className="space-y-2.5">{props.map((p) => (
               <li key={p.id} className="flex items-center justify-between text-sm"><Link href={`/propostas/${p.id}`} className="hover:underline">#{p.number} · {p.title}</Link>

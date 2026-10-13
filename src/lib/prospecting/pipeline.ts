@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { analyzeSite } from '@/integrations/site-analyzer';
 import type { SafeFetchOptions } from '@/integrations/net-safe';
 import { scoreProspect } from './analysis';
+import { createInboundDrafts } from '@/lib/leads/ingest';
 import { draftFirstEmail, WHATSAPP_INTRO } from './message';
 import { runPool } from './pool';
 import { pickBestEmail } from './emails';
@@ -10,7 +11,7 @@ export interface AnalyzeOptions { site?: SafeFetchOptions & { withPageSpeed?: bo
 
 /** Analisa um prospecto (site público), calcula a pontuação e prepara os rascunhos de mensagem. Idempotente. */
 export async function analyzeProspect(db: SupabaseClient, prospectId: string, opts: AnalyzeOptions = {}): Promise<{ ok: boolean; error?: string }> {
-  const { data: p, error } = await db.from('prospects').select('id, name, category, website, phone, email, rating, reviews_count, status, campaign_id, prospect_campaigns(city)').eq('id', prospectId).maybeSingle();
+  const { data: p, error } = await db.from('prospects').select('id, name, category, source, website, phone, email, rating, reviews_count, status, campaign_id, prospect_campaigns(city)').eq('id', prospectId).maybeSingle();
   if (error || !p) return { ok: false, error: error?.message ?? 'Prospecto não encontrado' };
   const site = p.website ? await analyzeSite(p.website, opts.site) : null;
   // sem e-mail cadastrado: usa um e-mail comercial público encontrado no próprio site da empresa
@@ -32,6 +33,7 @@ export async function analyzeProspect(db: SupabaseClient, prospectId: string, op
   const { data: s } = await db.from('outreach_settings').select('sender_name, company_legal_name, company_document, company_address, require_approval').eq('id', 1).maybeSingle();
   const sender = { name: s?.sender_name ?? 'Equipe Muvens', companyLegalName: s?.company_legal_name ?? '', companyDocument: s?.company_document, companyAddress: s?.company_address ?? '' };
   const city = (Array.isArray(p.prospect_campaigns) ? p.prospect_campaigns[0] : p.prospect_campaigns)?.city ?? null;
+  if (p.source === 'inbound') { await createInboundDrafts(db, p.id, process.env.NEXT_PUBLIC_APP_URL ?? ''); return { ok: true }; }   // lead de anúncio: relacionamento, não abordagem fria
   const rows: Record<string, unknown>[] = [];
   if (email) { const m = draftFirstEmail({ name: p.name, category: p.category, city }, scored, sender); rows.push({ prospect_id: p.id, channel: 'email', step: 1, subject: m.subject, body: m.body, status: 'rascunho' }); }
   if (p.phone || site?.whatsappNumbers?.length) rows.push({ prospect_id: p.id, channel: 'whatsapp_manual', step: 1, body: WHATSAPP_INTRO(p.name, sender.name), status: 'rascunho' });

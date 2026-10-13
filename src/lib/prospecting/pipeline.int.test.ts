@@ -4,6 +4,9 @@ import type { AddressInfo } from 'node:net';
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { runRecurringCampaigns } from './recurring';
+import { createInboundDrafts, ingestLead, submitQualification } from '@/lib/leads/ingest';
+import { normalizeLead } from '@/lib/leads/normalize';
+import { parseAnswers } from '@/lib/leads/qualify';
 import { analyzeNextBatch, analyzeProspect } from './pipeline';
 import { autoApproveReady, createFollowups, processOutbox } from './outbox';
 
@@ -131,6 +134,33 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
       const r2 = await runRecurringCampaigns(db); expect(r2.campaigns).toBe(0);                      // já rodou esta semana
       calls = 0; const r3 = await runRecurringCampaigns(db, new Date(), { force: true }); expect(r3.created).toBe(0); // mesmos locais = duplicados
     } finally { vi.unstubAllGlobals(); delete process.env.GOOGLE_PLACES_API_KEY; }
+  });
+
+  it('lead de anúncio: cria lead + prospecto + link, só rascunhos (sem site), não duplica, e a qualificação pontua e avisa', async () => {
+    const lead = normalizeLead({ field_data: [{ name: 'full_name', values: [`Ana Lead ${RUN}`] }, { name: 'email', values: [`ana${RUN}@lead.com`] }, { name: 'phone_number', values: ['(41) 99555-1234'] }, { name: 'company_name', values: [`Loja ${RUN}`] }], platform: 'ig', campaign_name: 'Verão' })!;
+    const r = await ingestLead(db, lead, 'https://app.test');
+    expect(r.ok).toBe(true); expect(r.duplicate).toBeFalsy(); expect(r.needsAnalysis).toBe(false);
+    const l = (await db.from('leads').select('source, email').eq('id', r.leadId!).single()).data!; expect(l.source).toBe('Instagram Ads');
+    const msgs = (await db.from('outreach_messages').select('channel, status, body').eq('prospect_id', r.prospectId!)).data!;
+    expect(msgs.map((m) => m.channel).sort()).toEqual(['email', 'whatsapp_manual']); expect(msgs.every((m) => m.status === 'rascunho')).toBe(true);
+    const q = (await db.from('lead_qualifications').select('token, status').eq('lead_id', r.leadId!).single()).data!;
+    expect(msgs.find((m) => m.channel === 'email')!.body).toContain(`https://app.test/qualificar/${q.token}`); expect(q.status).toBe('pendente');
+    expect((await createInboundDrafts(db, r.prospectId!, 'https://app.test'))).toBe(0);                     // idempotente
+    const dup = await ingestLead(db, lead, 'https://app.test'); expect(dup.duplicate).toBe(true); expect(dup.leadId).toBe(r.leadId);
+    // aprovação automática e follow-up frio ignoram lead de anúncio
+    await db.from('outreach_settings').update({ auto_approve_ready: true, auto_approve_min_score: 0 }).eq('id', 1);
+    await db.from('prospects').update({ score: 90 }).eq('id', r.prospectId!);
+    await autoApproveReady(db);
+    expect((await db.from('outreach_messages').select('status').eq('prospect_id', r.prospectId!).eq('channel', 'email').single()).data!.status).toBe('rascunho');
+    await db.from('outreach_settings').update({ auto_approve_ready: false }).eq('id', 1);
+    // qualificação
+    const a = parseAnswers({ dificuldade: 'Não consigo clientes novos', precisa: 'Site e anúncios que tragam contatos', areas: ['site_institucional', 'trafego_pago'], prazo: 'agora', invest: '1a5k', decisor: 'sim' }); if (!a.ok) throw new Error(a.error);
+    expect((await submitQualification(db, q.token, a.answers)).ok).toBe(true);
+    expect((await submitQualification(db, q.token, a.answers)).already).toBe(true);
+    const done = (await db.from('lead_qualifications').select('status, fit, score, services').eq('lead_id', r.leadId!).single()).data!; expect(done.status).toBe('respondido'); expect(done.fit).toBe('quente');
+    expect((await db.from('leads').select('service_interest').eq('id', r.leadId!).single()).data!.service_interest).toBe('site_institucional');
+    expect((await db.from('notifications').select('id', { count: 'exact', head: true }).like('dedupe_key', 'qualif:%')).count).toBeGreaterThan(0);
+    expect((await submitQualification(db, 'x'.repeat(64), a.answers)).ok).toBe(false);
   });
 });
 

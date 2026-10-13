@@ -60,3 +60,20 @@ export function whatsappLink(phone: string | null | undefined, text: string) {
 }
 
 export const WHATSAPP_INTRO = (name: string, sender: string) => `Olá! Aqui é ${sender}, da Muvens Agência. Vi a ${name} e analisei a presença online de vocês. Posso enviar uma análise rápida e gratuita? Se não quiser receber contato, é só avisar.`;
+
+/** Rascunho para LEAD DE ANÚNCIO (relacionamento, não é abordagem fria): agradece, apresenta e convida a responder perguntas rápidas. */
+export function draftInboundEmail(p: { name: string; company?: string | null }, s: Sender, qualifyUrl: string) {
+  const first = p.name.trim().split(/\s+/)[0];
+  return {
+    subject: `${first}, obrigado pelo interesse — algumas perguntas rápidas`,
+    body: [
+      `Olá, ${first}! Tudo bem?`, '',
+      `Aqui é ${s.name}, da Muvens Agência (design, marketing digital e IA aplicada a negócios). Recebemos o seu interesse${p.company ? ` pela ${p.company}` : ''} e queremos entender o seu momento antes de sugerir qualquer coisa.`, '',
+      'Para isso, preparamos algumas perguntas rápidas (leva cerca de 2 minutos): quais são as suas maiores dificuldades hoje e o que você mais precisa resolver. Com as respostas, indicamos o melhor caminho e, se fizer sentido, enviamos uma proposta sob medida.', '',
+      `Responder agora: ${qualifyUrl}`, '',
+      'Se preferir, é só responder este e-mail contando o que está precisando.', '',
+      'Um abraço,', s.name,
+    ].join('\n'),
+  };
+}
+export const WHATSAPP_INBOUND = (name: string, sender: string, qualifyUrl: string) => `Olá, ${name.trim().split(/\s+/)[0]}! Aqui é ${sender}, da Muvens Agência. Vi que você demonstrou interesse nos nossos serviços. Para entender como podemos ajudar, pode responder algumas perguntas rápidas? ${qualifyUrl}`;

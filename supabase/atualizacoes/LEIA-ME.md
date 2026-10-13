@@ -37,3 +37,11 @@ Pré-requisito: migração 11 (Prospecção). Rode `H_cadencia.sql` **uma vez** 
 ## I — Busca semanal das campanhas (migração 17)
 
 Pré-requisito: migração 11. Rode `I_busca_semanal.sql` **uma vez** (pode ser repetido). Conferência: `select auto_weekly from public.prospect_campaigns limit 1;` (sem erro).
+
+## J — Leads de anúncios e qualificação (migração 18)
+
+Pré-requisito: migrações 2 (CRM) e 11 (Prospecção). Rode `J_leads_anuncios.sql` **uma vez** (pode ser repetido). Conferência: `select to_regclass('public.lead_qualifications') is not null;` → `true`. Guia completo em `docs/LEADS-ANUNCIOS.md`.
+
+## K — Prospecto vai para o CRM no 1º contato (migração 19)
+
+Pré-requisitos: migrações 2 (CRM) e 11 (Prospecção). Rode `K_prospecto_para_crm.sql` **uma vez** (pode ser repetido). Quando o 1º e-mail é enviado (ou o WhatsApp é registrado), o prospecto vira lead na etapa "Primeiro Contato"; quando responde, o lead vai para "Qualificação". Conferência: `select tgname from pg_trigger where tgname = 'trg_prospects_to_crm';` → 1 linha.

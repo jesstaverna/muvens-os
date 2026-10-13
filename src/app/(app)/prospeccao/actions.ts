@@ -175,7 +175,7 @@ export async function convertToLead(prospectId: string) {
   const back = `${B}/${prospectId}`;
   const { data: p } = await supabase.from('prospects').select('*').eq('id', prospectId).maybeSingle();
   if (!p) flash(B, 'err', 'Prospecto não encontrado.');
-  if (p!.lead_id) flash(back, 'err', 'Já convertido em lead.');
+  if (p!.lead_id) flash(`/crm/${p!.lead_id}`, 'ok', 'Este prospecto já está no CRM como lead.');
   if (!p!.email && !p!.phone) flash(back, 'err', 'Preencha e-mail ou telefone do prospecto antes de converter.');
   const { data: stage } = await supabase.from('pipeline_stages').select('id').eq('active', true).order('position').limit(1).single();
   const obs = ((p!.analysis as { observations?: string[] } | null)?.observations ?? []).map((o) => `• ${o}`).join('\n');

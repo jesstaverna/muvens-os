@@ -172,3 +172,33 @@ do $$ declare t text; begin
   select report_token into t from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001';
   assert (public.public_prospect_report(t)->>'score')::int = 70, 'landing usa a pontuação de necessidade';
 end $$;
+
+-- 0019: 1º contato leva o prospecto ao CRM; resposta move o lead para Qualificação
+reset role;
+insert into prospects (id, name, email, phone, source, status, category, score) values ('bbbbbbbb-0000-0000-0000-000000000099', 'Contato CRM Ltda', 'crm@contatocrm.com', '(41) 99888-1111', 'google_maps', 'analisado', 'Escola', 61);
+insert into outreach_messages (prospect_id, channel, step, subject, body, status, sent_at) values ('bbbbbbbb-0000-0000-0000-000000000099', 'email', 1, 'Olá escola', 'texto', 'enviada', now());
+update prospects set status = 'contatado' where id = 'bbbbbbbb-0000-0000-0000-000000000099';
+do $$ declare v uuid; begin
+  select lead_id into v from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000099';
+  assert v is not null, 'prospecto contatado vira lead';
+  assert (select s.name from leads l join pipeline_stages s on s.id = l.stage_id where l.id = v) = 'Primeiro Contato', 'entra em Primeiro Contato';
+  assert (select count(*) from lead_interactions where lead_id = v and content like '%e-mail enviado%') = 1, 'registra o 1º contato no histórico';
+end $$;
+update prospects set status = 'contatado', lead_id = lead_id where id = 'bbbbbbbb-0000-0000-0000-000000000099';
+update prospects set status = 'respondeu' where id = 'bbbbbbbb-0000-0000-0000-000000000099';
+do $$ declare v uuid; begin
+  select lead_id into v from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000099';
+  assert (select s.name from leads l join pipeline_stages s on s.id = l.stage_id where l.id = v) = 'Qualificação', 'resposta move para Qualificação';
+end $$;
+-- lead já existente (mesmo e-mail) é reaproveitado, sem duplicar
+insert into leads (id, name, email, stage_id) values ('dddddddd-0000-0000-0000-000000000001', 'Lead Antigo', 'antigo@reuso.com', (select id from pipeline_stages where active order by position limit 1));
+insert into prospects (id, name, email, source, status) values ('bbbbbbbb-0000-0000-0000-000000000098', 'Prospecto Reuso', 'antigo@reuso.com', 'manual', 'analisado');
+update prospects set status = 'contatado' where id = 'bbbbbbbb-0000-0000-0000-000000000098';
+do $$ begin
+  assert (select lead_id from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000098') = 'dddddddd-0000-0000-0000-000000000001', 'reaproveita o lead existente';
+  assert (select count(*) from leads where email_norm = 'antigo@reuso.com') = 1, 'não duplica o lead';
+end $$;
+-- sem e-mail e sem telefone: não cria lead (a regra do CRM exige um contato)
+insert into prospects (id, name, source, status) values ('bbbbbbbb-0000-0000-0000-000000000097', 'Sem Contato', 'manual', 'analisado');
+update prospects set status = 'contatado' where id = 'bbbbbbbb-0000-0000-0000-000000000097';
+do $$ begin assert (select lead_id from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000097') is null, 'sem contato não vira lead'; end $$;

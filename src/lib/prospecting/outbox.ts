@@ -39,8 +39,8 @@ export async function createFollowups(db: SupabaseClient) {
   const { data: cands } = await db.rpc('followup_candidates');
   let created = 0;
   for (const c of (cands ?? []) as { prospect_id: string; next_step: number }[]) {
-    const { data: p } = await db.from('prospects').select('name').eq('id', c.prospect_id).single();
-    if (!p) continue;
+    const { data: p } = await db.from('prospects').select('name, source').eq('id', c.prospect_id).single();
+    if (!p || p.source === 'inbound') continue;   // lead de anúncio não recebe follow-up de abordagem fria
     const d = draftFollowup({ name: p.name }, { name: s.sender_name, companyLegalName: s.company_legal_name ?? '', companyAddress: s.company_address ?? '' });
     const { error } = await db.from('outreach_messages').insert({ prospect_id: c.prospect_id, channel: 'email', step: c.next_step, subject: d.subject, body: d.body, status: s.require_approval ? 'rascunho' : 'aprovada', approved_at: s.require_approval ? null : new Date().toISOString() });
     if (!error) created++;
@@ -55,12 +55,12 @@ export async function createFollowups(db: SupabaseClient) {
 export async function autoApproveReady(db: SupabaseClient, opts: { force?: boolean } = {}) {
   const { data: s } = await db.from('outreach_settings').select('auto_approve_ready, auto_approve_min_score').eq('id', 1).single();
   if (!opts.force && !s?.auto_approve_ready) return { approved: 0, skipped: 'aprovação automática desligada' };
-  let q = db.from('outreach_messages').select('id, prospect_id, prospects!inner(email, phone, status, score, site_numbers:analysis->site->whatsappNumbers)').eq('channel', 'email').eq('step', 1).eq('status', 'rascunho').limit(200);
+  let q = db.from('outreach_messages').select('id, prospect_id, prospects!inner(email, phone, status, score, source, site_numbers:analysis->site->whatsappNumbers)').eq('channel', 'email').eq('step', 1).eq('status', 'rascunho').limit(200);
   const { data: rows, error } = await q;
   if (error) throw new Error(error.message);
   const min = s?.auto_approve_min_score ?? 0;
-  const ids = ((rows ?? []) as unknown as { id: string; prospects: { email: string | null; phone: string | null; status: string; score: number | null; site_numbers: string[] | null } | { email: string | null; phone: string | null; status: string; score: number | null; site_numbers: string[] | null }[] }[])
-    .filter((r) => { const p = Array.isArray(r.prospects) ? r.prospects[0] : r.prospects; return !!p && !['descartado', 'respondeu', 'convertido'].includes(p.status) && (p.score ?? 0) >= min && isReady(p); })
+  const ids = ((rows ?? []) as unknown as { id: string; prospects: { email: string | null; phone: string | null; status: string; score: number | null; source?: string; site_numbers: string[] | null } | { email: string | null; phone: string | null; status: string; score: number | null; source?: string; site_numbers: string[] | null }[] }[])
+    .filter((r) => { const p = Array.isArray(r.prospects) ? r.prospects[0] : r.prospects; return !!p && p.source !== 'inbound' && !['descartado', 'respondeu', 'convertido'].includes(p.status) && (p.score ?? 0) >= min && isReady(p); })
     .map((r) => r.id);
   if (!ids.length) return { approved: 0 };
   const { error: uErr } = await db.from('outreach_messages').update({ status: 'aprovada', approved_at: new Date().toISOString() }).in('id', ids).eq('status', 'rascunho');
