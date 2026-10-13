@@ -1,9 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
-import { after, NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { normalizeLead } from '@/lib/leads/normalize';
-import { ingestLead } from '@/lib/leads/ingest';
-import { analyzeProspect } from '@/lib/prospecting/pipeline';
+import { intakeLead } from '@/lib/leads/intake';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -32,13 +30,8 @@ export async function POST(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
   const db = createAdminClient(); const out: unknown[] = [];
   for (const raw of items) {
-    const lead = normalizeLead(raw);
-    if (!lead) { out.push({ ok: false, error: 'lead sem nome e sem contato' }); continue; }
-    try {
-      const r = await ingestLead(db, lead, appUrl);
-      if (r.ok && r.needsAnalysis && r.prospectId) { const id = r.prospectId; after(async () => { try { await analyzeProspect(db, id, { site: { withPageSpeed: false } }); } catch { /* o worker tenta de novo */ } }); }
-      out.push({ ok: r.ok, duplicate: r.duplicate ?? false, lead_id: r.leadId ?? null, error: r.error });
-    } catch (e) { out.push({ ok: false, error: e instanceof Error ? e.message : 'falha' }); }
+    try { const r = await intakeLead(db, raw, appUrl); out.push({ ok: r.ok, duplicate: r.duplicate ?? false, lead_id: r.leadId ?? null, error: r.error }); }
+    catch (e) { out.push({ ok: false, error: e instanceof Error ? e.message : 'falha' }); }
   }
   return NextResponse.json(Array.isArray(body) ? { results: out } : out[0], { status: 200 });
 }

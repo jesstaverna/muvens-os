@@ -35,5 +35,5 @@ export function normalizeLead(raw: unknown): InboundLead | null {
   const digits = phone ? phone.replace(/\D/g, '') : '';
   const ph = digits.length >= 8 ? phone : null;
   if (!name && !mail && !ph) return null;
-  return { name: name || mail?.split('@')[0] || 'Lead sem nome', email: mail, phone: ph, company, website, instagram, source: /instagram|^ig$/i.test(source) ? 'Instagram Ads' : /facebook|meta|^fb$/i.test(source) ? 'Facebook Ads' : source, campaign, ad, message, extra: flat };
+  return { name: name || mail?.split('@')[0] || 'Lead sem nome', email: mail, phone: ph, company, website, instagram, source: /^(instagram|ig)$/i.test(source) ? 'Instagram Ads' : /^(facebook|meta|fb)$/i.test(source) ? 'Facebook Ads' : source, campaign, ad, message, extra: flat };
 }
