@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertTriangle, XCircle, HelpCircle, ArrowRight, Globe, Share2, MousePointerClick, BarChart3, Gem } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, HelpCircle, ArrowRight, Globe, Share2, MousePointerClick, BarChart3, Gem, MapPin } from 'lucide-react';
 import { buildReport, type ReportInput, type Status } from '@/lib/prospecting/report';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { segmentFor } from '@/lib/prospecting/market';
@@ -12,7 +12,7 @@ const ST: Record<Status, { Icon: typeof CheckCircle2; cls: string; label: string
   ok: { Icon: CheckCircle2, cls: 'text-emerald-600', label: 'Em dia' }, atencao: { Icon: AlertTriangle, cls: 'text-amber-600', label: 'Atenção' },
   ausente: { Icon: XCircle, cls: 'text-red-600', label: 'Ausente' }, desconhecido: { Icon: HelpCircle, cls: 'text-neutral-500', label: 'Sem dados' },
 };
-const ICON = { site: Globe, redes: Share2, conversao: MousePointerClick, anuncios: BarChart3, marca: Gem } as const;
+const ICON = { site: Globe, redes: Share2, conversao: MousePointerClick, anuncios: BarChart3, marca: Gem, google: MapPin } as const;
 const LEVEL = { alta: 'Alto potencial de crescimento', media: 'Bom potencial de melhoria', baixa: 'Base digital sólida', indefinida: 'Diagnóstico' } as const;
 
 /** Landing page do diagnóstico de um prospecto: tema próprio da marca (preto, verde-limão, off-white), independente do tema do sistema. */
@@ -62,11 +62,11 @@ export function Landing(props: ReportInput & { generatedAt?: string; whatsapp?: 
             <p className="mt-3 max-w-3xl text-neutral-700">{!r.hasSite ? 'Sem site, a empresa depende só de indicação e de perfis em terceiros. Quem pesquisa para comparar fornecedores segue para o concorrente que aparece primeiro e passa mais confiança.' : 'Um site fora do ar ou lento faz o cliente desistir em segundos. Vale confirmar o motivo e corrigir antes de investir em divulgação.'}</p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-3">{['Clientes não conseguem conferir serviços e contato', 'Anúncios e redes não têm para onde levar o interesse', 'A marca perde credibilidade frente a quem tem site'].map((t) => <li key={t} className="flex gap-3 rounded-xl bg-[#F7F7F4] p-4 text-sm"><XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" strokeWidth={2} />{t}</li>)}</ul>
             <p className="mt-6 text-sm text-neutral-600">Redes sociais, conversão e anúncios só podem ser medidos depois que houver um site no ar.</p>
-            {r.pillars.filter((p) => p.key === 'marca').map((p) => <div key={p.key} className="mt-6 rounded-xl border border-neutral-200 p-4"><h3 className="font-semibold">{p.title}</h3><ul className="mt-2 space-y-1 text-sm">{p.items.filter((x) => x.ok !== null).map((x) => <li key={x.label} className="flex gap-2"><span className={x.ok ? 'text-emerald-600' : 'text-red-600'}>{x.ok ? '✓' : '✗'}</span>{x.label}</li>)}</ul></div>)}
+            {r.pillars.filter((p) => p.key === 'marca' || p.key === 'google').map((p) => <div key={p.key} className="mt-6 rounded-xl border border-neutral-200 p-4"><h3 className="font-semibold">{p.title}</h3><ul className="mt-2 space-y-1 text-sm">{p.items.filter((x) => x.ok !== null).map((x) => <li key={x.label} className="flex gap-2"><span className={x.ok ? 'text-emerald-600' : 'text-red-600'}>{x.ok ? '✓' : '✗'}</span>{x.label}</li>)}</ul></div>)}
           </section>
         ) : (<>
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Como está a presença digital hoje</h2>
-        <p className="mt-2 max-w-2xl text-neutral-600">Cinco áreas que influenciam diretamente quantos clientes encontram e escolhem {props.name}.</p>
+        <p className="mt-2 max-w-2xl text-neutral-600">As áreas que influenciam diretamente quantos clientes encontram e escolhem {props.name}.</p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {r.pillars.map((p, pi) => { const s = ST[p.status]; const I = ICON[p.key as keyof typeof ICON]; return (
             <Reveal key={p.key} delay={pi * 80}><article className="h-full rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">

@@ -7,6 +7,7 @@ const PLAN: Record<string, { title: string; service: string; deliverables: strin
   conversao: { title: 'Mais contatos vindos do site', service: 'landing_page', deliverables: ['Botão de WhatsApp e formulário de contato', 'Página de conversão focada em uma oferta', 'Mensagens prontas de atendimento'] },
   redes: { title: 'Redes sociais com constância', service: 'redes_sociais', deliverables: ['Perfis organizados e ligados ao site', 'Calendário de conteúdo', 'Peças de design com padrão visual'] },
   marca: { title: 'Marca mais profissional e reconhecível', service: 'branding', deliverables: ['Revisão da identidade visual (logo, cores, tipografia)', 'Ícone e imagem de compartilhamento do site', 'Estratégia para ganhar avaliações no Google'] },
+  google: { title: 'Perfil no Google otimizado (Google Meu Negócio)', service: 'google_meu_negocio', deliverables: ['Auditoria e otimização do perfil (categorias, descrição, serviços, horários)', 'Fotos organizadas e publicações periódicas', 'Estratégia de avaliações e respostas, com relatório mensal'] },
   anuncios: { title: 'Anúncios com resultado medido', service: 'trafego_pago', deliverables: ['Instalação de pixel e Tag Manager', 'Campanhas iniciais segmentadas', 'Relatório de resultados'] },
 };
 const EXTRAS: Record<string, { title: string; service: string; deliverables: string[] }> = {
@@ -21,7 +22,8 @@ const B2B_STEPS: { title: string; why: string; service: string; deliverables: st
 const RANK = { ausente: 0, atencao: 1, desconhecido: 2, ok: 3 } as const;
 
 export function buildProposal(r: Report): Step[] {
-  const steps = r.pillars.filter((p) => p.status === 'ausente' || p.status === 'atencao').sort((a, b) => RANK[a.status] - RANK[b.status]).map((p) => ({ p, plan: PLAN[p.key] })).filter((x) => x.plan);
+  // negócio local: o perfil no Google vem primeiro
+  const steps = r.pillars.filter((p) => p.status === 'ausente' || p.status === 'atencao').sort((a, b) => { const pri = (x: { key: string }) => (r.local && x.key === 'google' ? 0 : 1); return pri(a) - pri(b) || RANK[a.status] - RANK[b.status]; }).map((p) => ({ p, plan: PLAN[p.key] })).filter((x) => x.plan);
   const out: Step[] = steps.map(({ p, plan }, i) => ({ phase: i < 2 ? 1 : i < 4 ? 2 : 3, title: plan.title, why: p.summary, deliverables: plan.deliverables, service: plan.service }));
   if (r.service && !out.some((s) => s.service === r.service) && out.length < 3 && PLAN[Object.keys(PLAN).find((k) => PLAN[k].service === r.service) ?? '']) {
     const k = Object.keys(PLAN).find((x) => PLAN[x].service === r.service)!; out.unshift({ phase: 1, title: PLAN[k].title, why: 'Serviço com maior potencial segundo a análise', deliverables: PLAN[k].deliverables, service: r.service });
@@ -47,5 +49,6 @@ export const SERVICE_BLURB: Record<string, string> = {
   rd_conversas: 'Atendimento centralizado (WhatsApp e chat) com distribuição de conversas e respostas rápidas.',
   automacao: 'Mapeamento e automação dos processos comerciais e de marketing.',
   ia_aplicada: 'Inteligência artificial aplicada a atendimento, conteúdo e prospecção, com supervisão humana.',
+  google_meu_negocio: 'Perfil da empresa no Google otimizado: fotos, avaliações, publicações e relatório de buscas, rotas e ligações.',
   personalizado: 'Projeto sob medida para uma necessidade específica.',
 };

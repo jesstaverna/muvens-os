@@ -61,7 +61,7 @@ export function analyzeHtml(html: string, finalUrl: string): SiteFindings {
 
 export const unreachable = (error: string): SiteFindings => ({ reachable: false, https: false, hasMetaDescription: false, hasViewport: false, hasWhatsappLink: false, hasAdsPixel: false, hasContactForm: false, hasFavicon: false, hasShareImage: false, socials: {}, error });
 
-export type ServiceKey = 'site_institucional' | 'landing_page' | 'redes_sociais' | 'trafego_pago' | 'branding' | 'design_posts' | 'consultoria' | 'rd_marketing' | 'rd_conversas' | 'automacao' | 'ia_aplicada';
+export type ServiceKey = 'site_institucional' | 'landing_page' | 'redes_sociais' | 'trafego_pago' | 'branding' | 'design_posts' | 'consultoria' | 'rd_marketing' | 'rd_conversas' | 'automacao' | 'ia_aplicada' | 'google_meu_negocio';
 
 export interface ScoreInput {
   hasWebsite: boolean;
@@ -71,7 +71,7 @@ export interface ScoreInput {
   /** Alcance: quando informado, entra na pontuação (quem dá para contatar vale mais como oportunidade). */
   contact?: { email?: string | null; phone?: string | null };
 }
-export interface Scored { score: number; service: ServiceKey; reasons: string[]; observations: string[]; need: number; buckets: { site: number; social: number; ads: number; brand: number; convert: number }; contactBonus: number; contactReasons: string[] }
+export interface Scored { score: number; service: ServiceKey; reasons: string[]; observations: string[]; need: number; buckets: { site: number; social: number; ads: number; brand: number; convert: number; local: number }; contactBonus: number; contactReasons: string[] }
 
 /** Bônus (até +17) ou penalidade (-10) pela facilidade de abordar o prospecto. Não altera o serviço sugerido nem as observações mostradas ao cliente. */
 export function contactAdjustment(site: SiteFindings | null | undefined, c: { email?: string | null; phone?: string | null }): { points: number; reasons: string[] } {
@@ -92,7 +92,7 @@ export function contactAdjustment(site: SiteFindings | null | undefined, c: { em
  * Pesos são heurísticas editáveis, não estatística — calibre com seus resultados reais.
  */
 export function scoreProspect({ hasWebsite, site, rating, reviews, contact }: ScoreInput): Scored {
-  let score = 0; const reasons: string[] = []; const obs: string[] = []; const need = { site: 0, social: 0, ads: 0, brand: 0, convert: 0 };
+  let score = 0; const reasons: string[] = []; const obs: string[] = []; const need = { site: 0, social: 0, ads: 0, brand: 0, convert: 0, local: 0 };
   const add = (pts: number, bucket: keyof typeof need, reason: string, observation: string) => { score += pts; need[bucket] += pts; reasons.push(reason); obs.push(observation); };
 
   if (!hasWebsite) add(45, 'site', 'Sem site', 'Não encontramos um site da empresa');
@@ -108,13 +108,13 @@ export function scoreProspect({ hasWebsite, site, rating, reviews, contact }: Sc
     if (typeof site.pageSpeedScore === 'number' && site.pageSpeedScore < 50) add(10, 'site', 'Site lento (PageSpeed < 50)', `A nota de velocidade no celular (PageSpeed) foi ${site.pageSpeedScore}/100`);
   }
   if (!site || !site.reachable || Object.keys(site.socials).length === 0) add(10, 'social', 'Sem redes sociais encontradas', hasWebsite && site?.reachable ? 'Não encontramos links de redes sociais no site' : 'Não encontramos redes sociais ligadas ao site');
-  if (typeof reviews === 'number' && reviews < 15) add(4, 'brand', 'Poucas avaliações no Google', `Há poucas avaliações no Google (${reviews})`);
-  if (typeof rating === 'number' && rating < 4 && (reviews ?? 0) >= 5) add(4, 'brand', 'Nota baixa no Google', `A nota no Google é ${rating.toFixed(1).replace('.', ',')}`);
+  if (typeof reviews === 'number' && reviews < 15) add(4, 'local', 'Poucas avaliações no Google', `Há poucas avaliações no Google (${reviews})`);
+  if (typeof rating === 'number' && rating < 4 && (reviews ?? 0) >= 5) add(4, 'local', 'Nota baixa no Google', `A nota no Google é ${rating.toFixed(1).replace('.', ',')}`);
 
   score = Math.min(score, 100); const need0 = score;
   const adj = contact ? contactAdjustment(site, contact) : { points: 0, reasons: [] as string[] };
   score = Math.max(0, Math.min(100, score + adj.points));
   const top = (Object.entries(need).sort((a, b) => b[1] - a[1])[0] ?? ['site', 0]) as [keyof typeof need, number];
-  const service: ServiceKey = top[1] === 0 ? 'branding' : ({ site: hasWebsite ? 'site_institucional' : 'site_institucional', social: 'redes_sociais', ads: 'trafego_pago', brand: 'branding', convert: 'landing_page' } as const)[top[0]];
+  const service: ServiceKey = top[1] === 0 ? 'branding' : ({ site: hasWebsite ? 'site_institucional' : 'site_institucional', social: 'redes_sociais', ads: 'trafego_pago', brand: 'branding', convert: 'landing_page', local: 'google_meu_negocio' } as const)[top[0]];
   return { score, service, reasons, observations: obs, need: need0, buckets: { ...need }, contactBonus: adj.points, contactReasons: adj.reasons };
 }

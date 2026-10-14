@@ -36,5 +36,6 @@ describe('foco de oportunidade', () => {
     expect(matchesFocus({}, null)).toBe(true);
   });
   it('análise antiga usa o serviço sugerido', () => { expect(matchesFocus({ recommended_service: 'landing_page' }, 'sites')).toBe(true); expect(matchesFocus({ recommended_service: 'redes_sociais' }, 'recorrentes')).toBe(true); expect(matchesFocus({ recommended_service: 'branding' }, 'recorrentes')).toBe(false); });
-  it('parseFocus', () => { expect(parseFocus('sites')).toBe('sites'); expect(parseFocus('x')).toBeNull(); });
+  it('foco local: precisa de avaliações/nota a melhorar', () => { expect(matchesFocus({ needs: { local: 4 } }, 'local')).toBe(true); expect(matchesFocus({ needs: { local: 0 } }, 'local')).toBe(false); expect(matchesFocus({ recommended_service: 'google_meu_negocio' }, 'local')).toBe(true); });
+  it('parseFocus', () => { expect(parseFocus('local')).toBe('local'); expect(parseFocus('sites')).toBe('sites'); expect(parseFocus('x')).toBeNull(); });
 });

@@ -215,3 +215,13 @@ set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000
 select pg_temp.expect_error($$select public.system_health()$$, '42501');
 do $$ begin assert (select count(*) from worker_runs) = 0, 'comercial não lê o registro do agendador'; end $$;
 reset role;
+
+-- 0023: Google Meu Negócio
+reset role;
+do $$ declare t text; r jsonb; begin
+  assert exists (select 1 from contract_templates where service_template = 'google_meu_negocio'), 'modelo de contrato do Google Meu Negócio';
+  select report_token into t from prospects where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  update prospects set status = 'analisado', analyzed_at = now(), analysis = '{"site":null,"observations":[]}'::jsonb where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+  r := public.public_prospect_report(t);
+  assert r ? 'from_google' and r ? 'has_phone' and not (r ? 'phone'), 'diagnóstico público informa origem e se há telefone, sem expor o número';
+end $$;

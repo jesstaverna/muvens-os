@@ -88,6 +88,13 @@ export const TEMPLATES: ProposalTemplate[] = [
       objetivos: ['Ganhar produtividade com apoio de IA', 'Padronizar e acelerar rotinas de atendimento e conteúdo'], escopo: ['Levantamento de oportunidades de uso', 'Configuração e testes das soluções', 'Treinamento da equipe', 'Regras de uso e supervisão humana', 'Licenças e custos de plataformas de terceiros não estão incluídos, salvo indicação na proposta'],
       entregaveis: ['Soluções configuradas', 'Guia de uso', 'Equipe treinada'], etapas: [{ title: 'Levantamento', description: '' }, { title: 'Configuração e testes', description: '' }, { title: 'Treinamento', description: '' }] },
     items: [{ description: 'IA aplicada ao negócio', billing: 'pontual' }] },
+  { key: 'google_meu_negocio', label: 'Google Meu Negócio (perfil da empresa no Google)', title: 'Otimização e gestão do Google Meu Negócio', contractMonths: 6, installments: 1,
+    content: { ...blank, solucao: 'Criação, verificação e otimização do perfil da empresa no Google (Maps e Pesquisa), com gestão contínua de avaliações, fotos e publicações.',
+      objetivos: ['Aparecer melhor quando clientes da região procuram o seu serviço', 'Passar confiança com informações completas, fotos e avaliações', 'Facilitar o contato por ligação, rota e WhatsApp'],
+      escopo: ['Auditoria do perfil atual (dados, categorias, fotos, avaliações e concorrentes locais)', 'Criação ou recuperação do perfil e apoio na verificação junto ao Google', 'Otimização: categorias, descrição, serviços/produtos, horários, atributos e links', 'Seleção e organização de fotos e vídeos', 'Estratégia para pedir e responder avaliações (sem compra de avaliações)', 'Publicações periódicas (novidades, ofertas, eventos)', 'Acompanhamento e relatório mensal de buscas, ligações, rotas e cliques', 'Acesso ao perfil concedido pelo cliente; o Google define regras e posições, sem garantia de ranking'],
+      entregaveis: ['Perfil completo e otimizado', 'Plano de avaliações e modelos de resposta', 'Calendário de publicações', 'Relatório mensal'],
+      etapas: [{ title: 'Auditoria e acessos', description: '' }, { title: 'Otimização do perfil', description: '' }, { title: 'Gestão e relatórios', description: '' }] },
+    items: [{ description: 'Implantação e otimização do perfil no Google', billing: 'pontual' }, { description: 'Gestão mensal do perfil (publicações, avaliações e relatório)', billing: 'mensal' }] },
   { key: 'personalizado', label: 'Projeto personalizado', title: 'Proposta comercial', contractMonths: 1, installments: 1, content: blank, items: [{ description: 'Serviço', billing: 'pontual' }] },
 ];
 

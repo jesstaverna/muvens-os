@@ -46,15 +46,16 @@ export function whatsappNumber(r: Pick<FilterRow, 'phone' | 'site_numbers'>): st
   return null;
 }
 
-export type Focus = 'sites' | 'recorrentes';
-export const FOCUS_LABEL: Record<Focus, string> = { sites: 'Sites e landing pages', recorrentes: 'Serviços recorrentes (redes, tráfego, automação)' };
-export const parseFocus = (v: string | undefined): Focus | null => (v === 'sites' || v === 'recorrentes' ? v : null);
+export type Focus = 'sites' | 'recorrentes' | 'local';
+export const FOCUS_LABEL: Record<Focus, string> = { sites: 'Sites e landing pages', recorrentes: 'Serviços recorrentes (redes, tráfego, automação)', local: 'Negócios locais (Google Meu Negócio)' };
+export const parseFocus = (v: string | undefined): Focus | null => (v === 'sites' || v === 'recorrentes' || v === 'local' ? v : null);
 
-type NeedsRow = { needs?: { site?: number; social?: number; ads?: number } | null; recommended_service?: string | null; website?: string | null };
+type NeedsRow = { needs?: { site?: number; social?: number; ads?: number; local?: number } | null; recommended_service?: string | null; website?: string | null };
 /** Oportunidade de site (sem site, site ruim) ou de serviço recorrente (redes sociais, anúncios). Análises antigas, sem o detalhamento, usam o serviço sugerido. */
 export function matchesFocus(r: NeedsRow, focus: Focus | null): boolean {
   if (!focus) return true;
   const n = r.needs;
+  if (focus === 'local') return n ? (n.local ?? 0) > 0 : r.recommended_service === 'google_meu_negocio';
   if (focus === 'sites') return n ? (n.site ?? 0) >= 12 : ['site_institucional', 'landing_page'].includes(r.recommended_service ?? '');
   return n ? (n.social ?? 0) > 0 || (n.ads ?? 0) > 0 : ['redes_sociais', 'trafego_pago', 'design_recorrente', 'design_posts'].includes(r.recommended_service ?? '');
 }

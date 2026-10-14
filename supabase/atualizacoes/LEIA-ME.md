@@ -57,3 +57,7 @@ Rode `M_resumo_por_email.sql` **uma vez** (pode ser repetido). Depois, em Prospe
 ## N — Alerta por e-mail de lead quente (migração 22)
 
 Rode `N_alerta_lead_quente.sql` **uma vez** (pode ser repetido). Depois, em Prospecção > Configurações de envio, marque "Avisar por e-mail quando um lead quente responder" e informe o destinatário. O alerta traz as respostas, o telefone e um link para abrir o WhatsApp do lead.
+
+## O — Google Meu Negócio como serviço (migração 23)
+
+Rode `O_google_meu_negocio.sql` **uma vez** (pode ser repetido). Libera o serviço "Google Meu Negócio" em propostas e contratos e inclui, no diagnóstico público, se o prospecto veio do Google Maps e se há telefone no perfil. Depois, em Prospecção > Configurações > Preços de referência, preencha o valor do serviço.
