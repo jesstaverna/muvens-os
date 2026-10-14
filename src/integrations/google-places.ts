@@ -1,8 +1,10 @@
 import 'server-only';
 
-import { FIELDS, mapPlaces, type PlaceResult } from '@/lib/prospecting/places-map';
+import { FIELDS, FIELDS_EXTENDED, mapPlaces, type PlaceResult } from '@/lib/prospecting/places-map';
 export type { PlaceResult };
 
+/** Com GOOGLE_PLACES_EXTENDED=1 a busca pede também fotos, horários e situação do negócio (confira o custo dessas informações no Google Cloud). */
+export const placesExtended = () => process.env.GOOGLE_PLACES_EXTENDED === '1';
 export const placesConfigured = () => !!process.env.GOOGLE_PLACES_API_KEY;
 
 /**
@@ -16,12 +18,12 @@ export async function searchPlaces(niche: string, city: string, max = 20, pages 
   for (let i = 0; i < Math.max(1, Math.min(pages, 3)); i++) {
     const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST', signal: AbortSignal.timeout(20_000),
-      headers: { 'content-type': 'application/json', 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': `${FIELDS},nextPageToken` },
+      headers: { 'content-type': 'application/json', 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': `${placesExtended() ? FIELDS_EXTENDED : FIELDS},nextPageToken` },
       body: JSON.stringify({ textQuery: `${niche} em ${city}`, languageCode: 'pt-BR', regionCode: 'BR', pageSize: Math.min(Math.max(max, 1), 20), ...(token ? { pageToken: token } : {}) }),
     });
     if (!res.ok) throw new Error(`Google Places respondeu ${res.status}`);
     const json = (await res.json()) as { nextPageToken?: string };
-    out.push(...mapPlaces(json));
+    out.push(...mapPlaces(json, placesExtended()));
     token = json.nextPageToken; if (!token) break;
   }
   return out;

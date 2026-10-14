@@ -11,7 +11,7 @@ export interface Report {
 export interface ReportInput {
   name: string; category?: string | null; website?: string | null; rating?: number | null; reviews?: number | null; score?: number | null;
   service?: string | null; site: SiteFindings | null; observations: string[]; analyzed: boolean;
-  hasPhone?: boolean; fromGoogle?: boolean;      // dados do perfil no Google Maps (quando o prospecto veio de lá)
+  hasPhone?: boolean; fromGoogle?: boolean; googleDetails?: { photos_count?: number; has_hours?: boolean } | null;      // dados do perfil no Google Maps (quando o prospecto veio de lá)
 }
 
 const worst = (items: { ok: boolean | null }[]): Status => {
@@ -36,7 +36,8 @@ export function buildReport(i: ReportInput): Report {
         { label: 'Perfil encontrado no Google Maps', ok: i.fromGoogle === undefined ? null : i.fromGoogle },
         { label: i.reviews != null ? `Avaliações no Google (${i.reviews}${i.rating ? ` · nota ${String(i.rating).replace('.', ',')}` : ''})` : 'Avaliações no Google', ok: i.reviews == null ? null : i.reviews >= 15 && (i.rating ?? 5) >= 4 },
         { label: 'Telefone no perfil', ok: i.fromGoogle ? !!i.hasPhone : null }, { label: 'Site no perfil', ok: i.fromGoogle ? hasSite : null },
-        { label: 'Fotos, horários, publicações e respostas às avaliações (vemos na auditoria)', ok: null }] },
+        ...(i.fromGoogle && i.googleDetails ? [{ label: `Fotos no perfil (${i.googleDetails.photos_count ?? 0}${(i.googleDetails.photos_count ?? 0) >= 10 ? '+' : ''})`, ok: (i.googleDetails.photos_count ?? 0) >= 5 }, { label: 'Horário de funcionamento cadastrado', ok: !!i.googleDetails.has_hours }] : []),
+        { label: i.fromGoogle && i.googleDetails ? 'Publicações e respostas às avaliações (vemos na auditoria)' : 'Fotos, horários, publicações e respostas às avaliações (vemos na auditoria)', ok: null }] },
     { key: 'marca', title: 'Marca', items: [{ label: 'Ícone da aba (favicon)', ok: k(s?.hasFavicon) }, { label: 'Imagem de compartilhamento', ok: k(s?.hasShareImage) }] },
   ].map((p) => {
     const st = worst(p.items);

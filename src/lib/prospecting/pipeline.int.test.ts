@@ -12,6 +12,7 @@ import { analyzeNextBatch, analyzeProspect, ANALYSIS_VERSION, countStale, reanal
 import { autoApproveReady, createFollowups, createNurtureDrafts, processOutbox } from './outbox';
 import { sendWeeklyDigest } from './digest';
 import { loadFunnel } from './funnel';
+import { insertPlaces } from './recurring';
 
 // Integração com PostgREST local (ver supabase/tests/). Ignorado sem PGRST_URL.
 const URL = process.env.PGRST_URL;
@@ -245,6 +246,15 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     const mine = sent.find((m) => m.text.includes(`/auditoria-google/${p!.report_token}`));
     expect(mine).toBeTruthy(); expect(mine!.text).toContain('Auditoria gratuita do seu perfil no Google'); expect(mine!.text).not.toContain('/diagnostico/');
     await db.from('outreach_settings').update({ sending_enabled: false }).eq('id', 1);
+  });
+
+  it('busca estendida: grava fotos/horários e atualiza empresas já existentes sem duplicar', async () => {
+    const { data: c } = await db.from('prospect_campaigns').insert({ name: `Ext ${RUN}`, niche: 'padaria', city: 'Curitiba' }).select('id').single();
+    const place = { place_id: `ext${RUN}`, name: `Padaria Ext ${RUN}`, category: 'Padaria', address: null, phone: '(41) 3000-1111', website: null, rating: 4.2, reviews_count: 10, maps_url: null };
+    const a = await insertPlaces(db, c!.id, [{ ...place, details: { photos_count: 3, has_hours: false, business_status: 'OPERATIONAL' } }]); expect(a.created).toBe(1);
+    const b = await insertPlaces(db, c!.id, [{ ...place, rating: 4.6, reviews_count: 25, details: { photos_count: 10, has_hours: true, business_status: 'OPERATIONAL' } }]); expect(b.created).toBe(0); expect(b.dup).toBe(1);
+    const row = (await db.from('prospects').select('rating, reviews_count, google_details').eq('place_id', `ext${RUN}`).single()).data!;
+    expect(Number(row.rating)).toBe(4.6); expect(row.reviews_count).toBe(25); expect((row.google_details as any).photos_count).toBe(10); expect((row.google_details as any).has_hours).toBe(true);
   });
 });
 

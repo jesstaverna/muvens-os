@@ -225,3 +225,22 @@ do $$ declare t text; r jsonb; begin
   r := public.public_prospect_report(t);
   assert r ? 'from_google' and r ? 'has_phone' and not (r ? 'phone'), 'diagnóstico público informa origem e se há telefone, sem expor o número';
 end $$;
+
+-- 0024: relatório do Google Meu Negócio (público por token) e detalhes do perfil
+reset role;
+insert into clients (id, name) values ('eeeeeeee-0000-0000-0000-000000000001', 'Cliente GMN');
+insert into gmn_reports (client_id, period, metrics, highlights) values
+  ('eeeeeeee-0000-0000-0000-000000000001', '2026-09-01', '{"calls": 10, "rating": 4.5}', 'mês anterior'),
+  ('eeeeeeee-0000-0000-0000-000000000001', '2026-10-01', '{"calls": 15, "rating": 4.7}', 'destaque do mês');
+do $$ declare t text; r jsonb; begin
+  select token into t from gmn_reports where period = '2026-10-01';
+  set local role anon;
+  r := public.public_gmn_report(t);
+  assert r->>'client' = 'Cliente GMN' and (r->'metrics'->>'calls')::int = 15 and (r->'previous'->>'calls')::int = 10, 'relatório público traz o mês e o anterior';
+  assert not (r ? 'email') and not (r ? 'phone'), 'relatório não expõe contatos';
+  assert public.public_gmn_report('nao-existe') is null, 'token inválido não devolve nada';
+  begin perform 1 from public.gmn_reports; assert false, 'anon não lê a tabela'; exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+select pg_temp.expect_error($$insert into gmn_reports (client_id, period) values ('eeeeeeee-0000-0000-0000-000000000001', '2026-10-15')$$, '23514');   -- período precisa ser o 1º dia do mês
+select pg_temp.expect_error($$insert into gmn_reports (client_id, period) values ('eeeeeeee-0000-0000-0000-000000000001', '2026-10-01')$$, '23505');   -- 1 relatório por mês

@@ -38,7 +38,7 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <PageHeader title={client.name} subtitle={[client.segment, client.email, client.phone].filter(Boolean).join(' · ') || undefined} actions={<LinkButton href="/clientes" className="btn">← Clientes</LinkButton>} />
+      <PageHeader title={client.name} subtitle={[client.segment, client.email, client.phone].filter(Boolean).join(' · ') || undefined} actions={<><LinkButton href={`/clientes/${id}/google`} className="btn">Relatórios do Google</LinkButton><LinkButton href="/clientes" className="btn">← Clientes</LinkButton></>} />
 
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Situação do cliente">
         <Stat label="Comercial" value={<span className="text-lg">{client.status === 'ativo' ? 'Cliente ativo' : client.status}</span>} hint={seeSales ? `${(proposals ?? []).length} proposta(s) · ${(services ?? []).filter((s) => s.status === 'ativo').length} serviço(s) ativo(s)` : undefined} />

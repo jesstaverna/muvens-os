@@ -61,3 +61,7 @@ Rode `N_alerta_lead_quente.sql` **uma vez** (pode ser repetido). Depois, em Pros
 ## O — Google Meu Negócio como serviço (migração 23)
 
 Rode `O_google_meu_negocio.sql` **uma vez** (pode ser repetido). Libera o serviço "Google Meu Negócio" em propostas e contratos e inclui, no diagnóstico público, se o prospecto veio do Google Maps e se há telefone no perfil. Depois, em Prospecção > Configurações > Preços de referência, preencha o valor do serviço.
+
+## P — Detalhes do perfil do Google e relatório mensal do Google Meu Negócio (migração 24)
+
+Rode `P_relatorio_google.sql` **uma vez** (pode ser repetido). Cria a página de relatórios por cliente (Clientes > cliente > Relatórios do Google) e o campo de detalhes do perfil (fotos e horários). Para o sistema ler fotos e horários na busca do Google Maps, cadastre `GOOGLE_PLACES_EXTENDED=1` na Vercel (confira antes o custo dessas informações no Google Cloud).

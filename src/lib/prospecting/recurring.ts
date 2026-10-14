@@ -6,8 +6,11 @@ import type { PlaceResult } from './places-map';
 export async function insertPlaces(db: SupabaseClient, campaignId: string, places: PlaceResult[]) {
   let created = 0, dup = 0; const ids: string[] = [];
   for (const p of places) {
-    const { data, error } = await db.from('prospects').insert({ campaign_id: campaignId, source: 'google_maps', place_id: p.place_id, name: p.name, category: p.category, address: p.address, phone: p.phone, website: p.website, rating: p.rating, reviews_count: p.reviews_count, maps_url: p.maps_url, google_fetched_at: new Date().toISOString() }).select('id').single();
-    if (error) { if (error.code === '23505') dup++; continue; }
+    const { data, error } = await db.from('prospects').insert({ campaign_id: campaignId, source: 'google_maps', place_id: p.place_id, name: p.name, category: p.category, address: p.address, phone: p.phone, website: p.website, rating: p.rating, reviews_count: p.reviews_count, maps_url: p.maps_url, google_fetched_at: new Date().toISOString(), ...(p.details ? { google_details: p.details } : {}) }).select('id').single();
+    if (error) {
+      if (error.code === '23505') { dup++; if (p.details) await db.from('prospects').update({ google_details: p.details, rating: p.rating, reviews_count: p.reviews_count }).eq('place_id', p.place_id); }   // reaproveita a busca para atualizar fotos, horários e avaliações
+      continue;
+    }
     created++; ids.push(data!.id);
   }
   return { created, dup, ids };
