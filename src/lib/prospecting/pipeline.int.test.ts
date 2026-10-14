@@ -235,5 +235,16 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     expect(all.total).toBeGreaterThan(0); expect(ads.total).toBeGreaterThan(0); expect(ads.total + pro.total).toBe(all.total);
     expect(all.stages.find((x) => x.key === 'leads')!.count).toBeGreaterThan(0);
   });
+
+  it('e-mail de negócio local: o link anexado é o da auditoria do Google', async () => {
+    const sent: { text: string }[] = []; const provider = { send: async (m: { text: string }) => { sent.push(m); return { id: 'x' }; } };
+    const { data: p } = await db.from('prospects').insert({ name: `Local ${RUN}`, email: `local${RUN}@gmn.com`, phone: '(41) 99222-1111', source: 'manual', status: 'analisado', analyzed_at: new Date().toISOString(), analysis: { site: null, observations: [] }, recommended_service: 'google_meu_negocio', score: 60 }).select('id, report_token').single();
+    await db.from('outreach_messages').insert({ prospect_id: p!.id, channel: 'email', step: 1, subject: 's', body: 'corpo', status: 'aprovada', approved_at: new Date().toISOString() });
+    await db.from('outreach_settings').update({ sending_enabled: true, window_start_hour: 0, window_end_hour: 24, weekdays_only: false, daily_email_limit: 500, sender_name: 'Ana', sender_email: 'ana@updates.muvens.test', company_legal_name: 'Muvens', company_address: 'Rua X' }).eq('id', 1);
+    await processOutbox(db, provider as never, 'https://app.test');
+    const mine = sent.find((m) => m.text.includes(`/auditoria-google/${p!.report_token}`));
+    expect(mine).toBeTruthy(); expect(mine!.text).toContain('Auditoria gratuita do seu perfil no Google'); expect(mine!.text).not.toContain('/diagnostico/');
+    await db.from('outreach_settings').update({ sending_enabled: false }).eq('id', 1);
+  });
 });
 

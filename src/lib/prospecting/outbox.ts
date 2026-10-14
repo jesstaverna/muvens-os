@@ -21,8 +21,10 @@ export async function processOutbox(db: SupabaseClient, provider: EmailProvider 
     const foot = emailFooter(sender, unsub);
     let body = m.body;
     if (m.step === 1) {
-      const { data: pr } = await db.from('prospects').select('report_token').eq('id', m.prospect_id).not('analyzed_at', 'is', null).maybeSingle();
-      if (pr?.report_token) body += `\n\nDiagnóstico completo, com os detalhes da análise: ${appUrl.replace(/\/$/, '')}/diagnostico/${pr.report_token}`;
+      const { data: pr } = await db.from('prospects').select('report_token, recommended_service').eq('id', m.prospect_id).not('analyzed_at', 'is', null).maybeSingle();
+      if (pr?.report_token) body += pr.recommended_service === 'google_meu_negocio'
+        ? `\n\nAuditoria gratuita do seu perfil no Google: ${appUrl.replace(/\/$/, '')}/auditoria-google/${pr.report_token}`
+        : `\n\nDiagnóstico completo, com os detalhes da análise: ${appUrl.replace(/\/$/, '')}/diagnostico/${pr.report_token}`;
     }
     try {
       const r = await provider.send({ from: `"${String(s.sender_name).replace(/["\\<>\r\n]/g, '').trim()}" <${String(s.sender_email).trim()}>`, to: m.to_email, replyTo: s.reply_to ?? undefined, subject: m.subject, text: body + foot.text, html: bodyToHtml(body) + foot.html, unsubscribeUrl: unsub });

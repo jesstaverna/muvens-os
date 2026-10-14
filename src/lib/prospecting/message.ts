@@ -16,6 +16,7 @@ const SERVICE_PITCH: Record<string, string> = {
  * sem preço, prazo, resultado garantido ou elogio falso. Uma pessoa pode editar/aprovar antes do envio.
  */
 export function draftFirstEmail(p: ProspectForMessage, scored: Scored, s: Sender) {
+  if (scored.service === 'google_meu_negocio') return draftGmnEmail(p, scored, s);
   const obs = scored.observations.slice(0, 3);
   const where = [p.category, p.city].filter(Boolean).join(' em ');
   const lines = [
@@ -99,3 +100,20 @@ export function draftNurture(step: 2 | 3 | 4, p: { name: string; services?: stri
   return { subject: `${first}, encerrando por aqui (a porta continua aberta)`, body: [`Olá, ${first}!`, '', 'Não quero ser inconveniente, então vou encerrar os nossos contatos por aqui. Se no futuro quiser retomar a conversa sobre site, redes sociais, anúncios ou automação, é só responder este e-mail.', '', 'Desejo muito sucesso à sua empresa!', s.name].join('\n') };
 }
 export const NURTURE_AFTER_DAYS: Record<2 | 3 | 4, number> = { 2: 15, 3: 45, 4: 90 };
+
+/** 1º e-mail para negócio LOCAL com oportunidade no perfil do Google: oferece a auditoria gratuita (o link da auditoria é anexado no envio). */
+export function draftGmnEmail(p: ProspectForMessage, scored: Scored, s: Sender) {
+  const obs = scored.observations.filter((o) => /Google/i.test(o)).slice(0, 2);
+  const where = [p.category, p.city].filter(Boolean).join(' em ');
+  return {
+    subject: `${p.name}: uma análise rápida do seu perfil no Google`,
+    body: [
+      'Olá, tudo bem?', '',
+      `Meu nome é ${s.name}, da Muvens Agência (design, marketing digital e IA aplicada a negócios). Encontrei a ${p.name}${where ? ` ao pesquisar ${where}` : ''} no Google e olhei o perfil de vocês com informações públicas.`,
+      ...(obs.length ? ['', 'O que observamos:', ...obs.map((o) => `• ${o}`)] : []),
+      '', 'Hoje, muita gente escolhe onde ir pelo perfil no Google: nota, avaliações, fotos e informações completas pesam bastante na decisão.',
+      '', 'Preparamos uma auditoria gratuita do perfil, com o que já conseguimos ver e o que revisaríamos para ajudar vocês a aparecer melhor e receber mais contatos. Sem compromisso: basta abrir o link abaixo ou responder este e-mail.',
+      '', 'Obrigado pela atenção!', s.name,
+    ].join('\n'),
+  };
+}

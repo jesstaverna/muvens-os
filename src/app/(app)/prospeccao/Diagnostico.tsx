@@ -18,7 +18,7 @@ export function Diagnostico(props: ReportInput & { generatedAt?: string; share?:
       <div className="bg-black px-6 py-8 text-white sm:px-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-lime px-3 py-1 text-xs font-semibold text-black"><Sparkles className="h-3.5 w-3.5" strokeWidth={2} />Diagnóstico de presença digital</span>
-          <div className="flex flex-wrap items-center gap-2"><PrintButton />{props.share && <SendProposal token={props.share.token} name={props.name} phone={props.share.phone} email={props.share.email} />}</div>
+          <div className="flex flex-wrap items-center gap-2"><PrintButton />{props.share && <SendProposal google={props.fromGoogle} token={props.share.token} name={props.name} phone={props.share.phone} email={props.share.email} />}</div>
         </div>
         <h2 className="mt-4 max-w-2xl text-2xl font-semibold leading-tight sm:text-3xl">{r.headline}</h2>
         <p className="mt-2 text-sm text-white/70">{[props.category, props.website].filter(Boolean).join(' · ')}</p>
@@ -44,6 +44,7 @@ export function Diagnostico(props: ReportInput & { generatedAt?: string; share?:
       <div className="border-t border-line bg-subtle px-6 py-5 text-sm sm:px-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="font-medium">Próximo passo: uma conversa rápida para transformar estes pontos em um plano de ação.</p>
+          {props.share && props.fromGoogle && <a href={`/auditoria-google/${props.share.token}?p=1`} target="_blank" rel="noreferrer noopener" className="no-print inline-flex items-center gap-2 rounded-full border border-line px-5 py-2.5 text-sm font-medium hover:bg-card">Auditoria gratuita do Google<ArrowUpRight className="h-4 w-4" strokeWidth={2} /></a>}
           {props.share && <a href={`/diagnostico/${props.share.token}?p=1`} target="_blank" rel="noreferrer noopener" className="no-print inline-flex items-center gap-2 rounded-full bg-lime px-5 py-2.5 text-sm font-semibold text-black hover:opacity-90">Acessar Diagnóstico Gratuito (Landing Page)<ArrowUpRight className="h-4 w-4" strokeWidth={2} /></a>}
         </div>
         <p className="mt-1 text-xs text-muted">Baseado somente em informações públicas (site, Google). Não substitui uma auditoria completa.{props.generatedAt && ` Gerado em ${props.generatedAt}.`}</p>

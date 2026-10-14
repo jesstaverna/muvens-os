@@ -135,3 +135,12 @@ describe('telefone x WhatsApp são sinais diferentes', () => {
     expect(contactAdjustment(site, { phone: '(41) 3027-2736' }).points).toBe(7);
   });
 });
+
+describe('1º e-mail para negócio local (Google Meu Negócio)', () => {
+  it('oferece a auditoria gratuita quando o serviço sugerido é o perfil no Google', () => {
+    const sc = scoreProspect({ hasWebsite: true, site: analyzeHtml('<meta name="viewport" content="x"><a href="https://wa.me/5541999998888">w</a><form><input type="email"></form><script>fbq(1)</script><link rel="icon" href="/f.ico"><meta property="og:image" content="x"><meta name="description" content="uma descrição longa o bastante"><a href="https://instagram.com/x">i</a>', 'https://a.com'), rating: 4.8, reviews: 3 });
+    expect(sc.service).toBe('google_meu_negocio');
+    const m = draftFirstEmail({ name: 'Clínica X', category: 'Clínica odontológica', city: 'Curitiba' }, sc, { name: 'Ana', companyLegalName: 'M', companyAddress: 'R' });
+    expect(m.subject).toContain('perfil no Google'); expect(m.body).toContain('auditoria gratuita'); expect(m.body).toContain('poucas avaliações');
+  });
+});

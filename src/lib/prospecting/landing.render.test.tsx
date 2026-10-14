@@ -15,3 +15,9 @@ it('sem preços cadastrados: não mostra valores', () => {
   const h = renderToString(<Landing name="Loja X" category="Loja" website={null} score={80} service="site_institucional" site={null} observations={[]} analyzed />);
   expect(h).not.toContain('A partir de'); expect(h).not.toContain('Sob consulta');
 });
+
+import { Audit } from '@/app/auditoria-google/[token]/Audit';
+it('auditoria do Google: dados observados, o que vemos na auditoria, preço e contato', () => {
+  const h = renderToString(<Audit name="Clínica Sorriso" category="Clínica odontológica" website="https://x.com" rating={4.8} reviews={4} hasPhone fromGoogle site={null} observations={[]} analyzed email="a@b.com" price={{ from: 700, unit: 'unico' }} />);
+  for (const t of ['Como está o perfil de', 'Clínica Sorriso', '4,8', 'Avaliações no Google (4', 'Fotos e vídeos', 'O que analisamos no seu perfil', 'a partir de', 'sem garantia de posição', 'mailto:a@b.com']) expect(h).toContain(t);
+});
