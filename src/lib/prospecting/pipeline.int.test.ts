@@ -7,6 +7,7 @@ import { runRecurringCampaigns } from './recurring';
 import { periods, summarize } from './summary';
 import { createInboundDrafts, ingestLead, submitQualification } from '@/lib/leads/ingest';
 import { sendDiagnosisRequestAlert } from '@/lib/leads/alert';
+import { intakeLead } from '@/lib/leads/intake';
 import { normalizeLead } from '@/lib/leads/normalize';
 import { parseAnswers } from '@/lib/leads/qualify';
 import { analyzeNextBatch, analyzeProspect, ANALYSIS_VERSION, countStale, reanalyzeNextBatch } from './pipeline';
@@ -245,6 +246,17 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     await sendDiagnosisRequestAlert(db, provider as never, 'https://app.test', r.leadId!, ctx);
     expect(sent.length).toBe(1); expect(sent[0].subject).toContain('Diagnóstico gratuito'); expect(sent[0].text).toContain('/crm/'); expect(sent[0].text).toContain('wa.me/');
     await db.from('outreach_settings').update({ alert_hot_enabled: false, alert_to: null }).eq('id', 1);
+  });
+
+  it('formulário do site com perguntas: qualifica antes do 1º contato, mantém a etiqueta e não manda convite', async () => {
+    const pa = parseAnswers({ dificuldade: 'Não recebo contatos pelo site', precisa: 'Site novo e anúncios', areas: ['site_institucional', 'trafego_pago'], prazo: 'agora', invest: '1a5k', decisor: 'sim', contato: 'whatsapp' }); if (!pa.ok) throw new Error(pa.error);
+    const r = await intakeLead(db, { nome: `Qual ${RUN}`, email: `qual${RUN}@a.com`, telefone: '(41) 99666-8888', empresa: 'Loja Qual', servico: 'Diagnóstico gratuito', source: 'Instagram Ads' }, 'https://app.test', pa.answers);
+    expect(r.ok).toBe(true);
+    const q = (await db.from('lead_qualifications').select('status, fit, score').eq('lead_id', r.leadId!).single()).data!;
+    expect(q.status).toBe('respondido'); expect(q.fit).toBe('quente');
+    const lead = (await db.from('leads').select('service_interest, next_action').eq('id', r.leadId!).single()).data!;
+    expect(lead.service_interest).toContain('Diagnóstico gratuito'); expect(lead.next_action).toContain('qualificado');
+    const drafts = await db.from('outreach_messages').select('id').eq('prospect_id', r.prospectId!); expect(drafts.data?.length ?? 0).toBe(0);
   });
 
   it('funil: carrega do banco e separa as origens', async () => {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { appUrl } from '@/lib/app-url';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { AREAS, parseAnswers, type Answers } from '@/lib/leads/qualify';
 import { intakeLead } from '@/lib/leads/intake';
 import { allowedOrigin, rateLimited, sourceFromUtm } from '@/lib/leads/public-form';
 
@@ -34,10 +35,19 @@ export async function POST(req: NextRequest) {
   if (nome.length < 2) return json(origin, { ok: false, error: 'informe o nome' }, 400);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(origin, { ok: false, error: 'informe um e-mail válido' }, 400);
   if (tel.replace(/\D/g, '').length < 10) return json(origin, { ok: false, error: 'informe o WhatsApp com DDD' }, 400);
+  // perguntas de qualificação (opcionais): desafio, areas[], prazo, invest, decisor, contato — pontuadas antes do 1º contato
+  let answers: Answers | undefined;
+  if (b.qualificacao && typeof b.qualificacao === 'object') {
+    const qa = b.qualificacao as Record<string, unknown>; const desafio = String(qa.desafio ?? qa.dificuldade ?? '').trim();
+    const areasIn = (Array.isArray(qa.areas) ? qa.areas : []).map(String); const areasTxt = areasIn.map((k) => AREAS.find((x) => x.key === k)?.label).filter(Boolean).join(', ');
+    const pa = parseAnswers({ ...qa, dificuldade: desafio, precisa: String(qa.precisa ?? '').trim() || areasTxt || desafio, areas: areasIn });
+    if (!pa.ok) return json(origin, { ok: false, error: pa.error }, 400);
+    answers = pa.answers;
+  }
   const s = (k: string) => { const v = String(b[k] ?? '').trim().slice(0, 200); return v || null; };
   const db = createAdminClient();
   try {
-    const r = await intakeLead(db, { nome, email, telefone: tel, empresa: s('empresa'), servico: 'Diagnóstico gratuito', site: s('site'), instagram: s('instagram'), source: sourceFromUtm(s('utm_source'), s('utm_medium')), campaign_name: s('utm_campaign'), ad_name: s('utm_content'), utm_medium: s('utm_medium'), utm_term: s('utm_term'), pagina: s('page_url') }, appUrl());
+    const r = await intakeLead(db, { nome, email, telefone: tel, empresa: s('empresa'), servico: 'Diagnóstico gratuito', site: s('site'), instagram: s('instagram'), source: sourceFromUtm(s('utm_source'), s('utm_medium')), campaign_name: s('utm_campaign'), ad_name: s('utm_content'), utm_medium: s('utm_medium'), utm_term: s('utm_term'), pagina: s('page_url') }, appUrl(), answers);
     if (!r.ok) return json(origin, { ok: false, error: 'não foi possível registrar agora' }, 500);
     let prospectId = r.prospectId ?? null;
     if (!prospectId && r.leadId) prospectId = (await db.from('prospects').select('id').eq('lead_id', r.leadId).limit(1).maybeSingle()).data?.id ?? null;

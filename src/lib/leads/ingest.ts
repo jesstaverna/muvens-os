@@ -11,8 +11,8 @@ const noteOf = (l: InboundLead) => [l.interest && `Interesse: ${l.interest}`, `O
 /** Cria rascunhos de relacionamento (e-mail + WhatsApp assistido) para um prospecto de anúncio. Nada é enviado: o e-mail espera aprovação. */
 export async function createInboundDrafts(db: SupabaseClient, prospectId: string, appUrl: string) {
   const { data: p } = await db.from('prospects').select('id, name, email, phone, status').eq('id', prospectId).maybeSingle();
-  const { data: q } = await db.from('lead_qualifications').select('token, lead_id').eq('prospect_id', prospectId).maybeSingle();
-  if (!p || !q) return 0;
+  const { data: q } = await db.from('lead_qualifications').select('token, lead_id, status').eq('prospect_id', prospectId).maybeSingle();
+  if (!p || !q || q.status === 'respondido') return 0;   // já respondeu no formulário do site: não precisa do convite
   const { data: lead } = await db.from('leads').select('name, company').eq('id', q.lead_id).maybeSingle();
   const { data: s } = await db.from('outreach_settings').select('sender_name, company_legal_name, company_document, company_address').eq('id', 1).maybeSingle();
   const sender = { name: s?.sender_name ?? 'Equipe Muvens', companyLegalName: s?.company_legal_name ?? '', companyDocument: s?.company_document, companyAddress: s?.company_address ?? '' };
@@ -31,7 +31,7 @@ export async function createInboundDrafts(db: SupabaseClient, prospectId: string
 export interface IngestResult { ok: boolean; duplicate?: boolean; leadId?: string; prospectId?: string | null; needsAnalysis?: boolean; error?: string }
 
 /** Lead de anúncio/formulário → CRM (+ prospecto para análise do site, qualificação e rascunhos). Duplicado por e-mail/telefone só registra a nova interação. */
-export async function ingestLead(db: SupabaseClient, l: InboundLead, appUrl: string): Promise<IngestResult> {
+export async function ingestLead(db: SupabaseClient, l: InboundLead, appUrl: string, opts: { willQualify?: boolean } = {}): Promise<IngestResult> {
   const { data: stage } = await db.from('pipeline_stages').select('id').eq('active', true).order('position').limit(1).single();
   if (!stage) return { ok: false, error: 'Funil sem etapas ativas' };
   const { data: lead, error } = await db.from('leads').insert({ name: l.name, company: l.company, email: l.email, phone: l.phone, whatsapp: l.phone, source: l.source, service_interest: l.interest, stage_id: stage.id, notes: noteOf(l), next_action: l.interest ? `Pedido: ${l.interest} — enviar o diagnóstico e entrar em contato` : 'Revisar rascunho de contato e qualificar o lead' }).select('id').single();
@@ -49,7 +49,7 @@ export async function ingestLead(db: SupabaseClient, l: InboundLead, appUrl: str
   if (pErr) { prospectId = null; await db.from('lead_interactions').insert({ lead_id: lead!.id, kind: 'sistema', content: 'Não foi criado o prospecto para análise (e-mail ou site já cadastrado na Prospecção).' }); }
   await db.from('lead_qualifications').insert({ lead_id: lead!.id, prospect_id: prospectId });
   let needsAnalysis = false;
-  if (prospectId) { if (l.website) needsAnalysis = true; else await createInboundDrafts(db, prospectId, appUrl); }
+  if (prospectId) { if (l.website) needsAnalysis = true; else if (!opts.willQualify) await createInboundDrafts(db, prospectId, appUrl); }   // quem responde as perguntas no formulário não recebe o convite
   return { ok: true, leadId: lead!.id, prospectId, needsAnalysis };
 }
 
@@ -62,7 +62,9 @@ export async function submitQualification(db: SupabaseClient, token: string, ans
   const { error } = await db.from('lead_qualifications').update({ status: 'respondido', answers, score: sc.score, fit: sc.fit, services: sc.services, answered_at: new Date().toISOString() }).eq('id', q.id).eq('status', 'pendente');
   if (error) return { ok: false, error: error.message };
   const first = sc.services[0];
-  await db.from('leads').update({ next_action: sc.fit === 'frio' ? 'Nutrir com conteúdo (lead frio)' : 'Revisar respostas e enviar proposta', ...(first ? { service_interest: first } : {}), last_contact_at: new Date().toISOString() }).eq('id', q.lead_id);
+  const { data: cur } = await db.from('leads').select('service_interest').eq('id', q.lead_id).maybeSingle();
+  const diag = /diagnóstico gratuito/i.test(cur?.service_interest ?? '');   // mantém a etiqueta do diagnóstico
+  await db.from('leads').update({ next_action: sc.fit === 'frio' ? 'Nutrir com conteúdo (lead frio)' : diag ? 'Enviar o diagnóstico e a proposta (lead qualificado)' : 'Revisar respostas e enviar proposta', ...(first ? { service_interest: diag ? `Diagnóstico gratuito · ${first}` : first } : {}), last_contact_at: new Date().toISOString() }).eq('id', q.lead_id);
   await db.from('lead_interactions').insert({ lead_id: q.lead_id, kind: 'sistema', content: `Qualificação respondida: ${sc.fit.toUpperCase()} (${sc.score}/100).\nDificuldade: ${answers.dificuldade}\nPrecisa: ${answers.precisa}\n${sc.reasons.join(' · ')}` });
   const { data: lead } = await db.from('leads').select('name, owner_id').eq('id', q.lead_id).maybeSingle();
   await db.from('notifications').insert({ title: `Lead ${sc.fit}: ${lead?.name ?? 'novo lead'} respondeu a qualificação`, body: `Pontuação ${sc.score}/100. ${answers.dificuldade.slice(0, 160)}`, link: `/crm/${q.lead_id}`, severity: sc.fit === 'quente' ? 'warning' : 'info', audience: 'comercial', user_id: lead?.owner_id ?? null, dedupe_key: `qualif:${q.id}` });
