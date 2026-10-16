@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!b || typeof b !== 'object') return json(origin, { ok: false, error: 'corpo inválido' }, 400);
   if (b.hp) return json(origin, { ok: true });                                           // campo-armadilha preenchido: finge sucesso
-  const t = Number(b.t ?? 0); const age = Date.now() - t;
+  const t = Number(b.t ?? 0); const age = t > 1e12 ? Date.now() - t : t;   // t = ms desde que a página abriu (aceita também o instante de abertura)
   if (!t || age < 2500 || age > 86_400_000) return json(origin, { ok: false, error: 'preencha com calma e envie novamente' }, 400);
   if (b.aceite !== true) return json(origin, { ok: false, error: 'é preciso autorizar o contato' }, 400);
   const nome = String(b.nome ?? '').trim(), email = String(b.email ?? '').trim(), tel = String(b.telefone ?? '').trim();
