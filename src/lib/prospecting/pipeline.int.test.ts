@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { runRecurringCampaigns } from './recurring';
 import { periods, summarize } from './summary';
 import { createInboundDrafts, ingestLead, submitQualification } from '@/lib/leads/ingest';
+import { sendDiagnosisRequestAlert } from '@/lib/leads/alert';
 import { normalizeLead } from '@/lib/leads/normalize';
 import { parseAnswers } from '@/lib/leads/qualify';
 import { analyzeNextBatch, analyzeProspect, ANALYSIS_VERSION, countStale, reanalyzeNextBatch } from './pipeline';
@@ -228,6 +229,21 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     const t2 = await mk('2', '(41) 99333-2222'); await submitQualification(db, t2, ans('agora', 'sim', '1a5k'), provider as never);
     expect(sent.length).toBe(1); expect(sent[0].to).toBe('alerta@muvens.test'); expect(sent[0].subject).toContain('Lead quente'); expect(sent[0].text).toContain('wa.me/55419933322'); expect(sent[0].text).toContain('/crm/');
     const t3 = await mk('3', '(41) 99333-3333'); await submitQualification(db, t3, ans('pesquisando', 'nao', 'nenhum'), provider as never); expect(sent.length).toBe(1);   // frio não avisa
+    await db.from('outreach_settings').update({ alert_hot_enabled: false, alert_to: null }).eq('id', 1);
+  });
+
+  it('pedido de diagnóstico gratuito: lead marcado e alerta por e-mail só se ligado', async () => {
+    const sent: { to: string; subject: string; text: string }[] = []; const provider = { send: async (m: { to: string; subject: string; text: string }) => { sent.push(m); return { id: 'x' }; } };
+    const r = await ingestLead(db, normalizeLead({ nome: `Diag ${RUN}`, email: `diag${RUN}@a.com`, telefone: '(41) 99555-7777', empresa: 'Loja Diag', servico: 'Diagnóstico gratuito', source: 'Instagram Ads', campaign_name: 'C1', ad_name: 'A1' })!, 'https://app.test');
+    if (!r.ok) throw new Error(JSON.stringify(r));
+    const q = await db.from('leads').select('service_interest, next_action').eq('id', r.leadId!).single(); if (q.error) throw new Error(JSON.stringify([r, q.error])); const lead = q.data!;
+    expect(lead.service_interest).toBe('Diagnóstico gratuito'); expect(lead.next_action).toContain('Diagnóstico gratuito');
+    const ctx = { site: null, instagram: '@loja', source: 'Instagram Ads', campaign: 'C1', ad: 'A1' };
+    await db.from('outreach_settings').update({ alert_hot_enabled: false, alert_to: 'alerta@muvens.test', sender_name: 'Ana', sender_email: 'ana@updates.muvens.test' }).eq('id', 1);
+    await sendDiagnosisRequestAlert(db, provider as never, 'https://app.test', r.leadId!, ctx); expect(sent.length).toBe(0);
+    await db.from('outreach_settings').update({ alert_hot_enabled: true }).eq('id', 1);
+    await sendDiagnosisRequestAlert(db, provider as never, 'https://app.test', r.leadId!, ctx);
+    expect(sent.length).toBe(1); expect(sent[0].subject).toContain('Diagnóstico gratuito'); expect(sent[0].text).toContain('/crm/'); expect(sent[0].text).toContain('wa.me/');
     await db.from('outreach_settings').update({ alert_hot_enabled: false, alert_to: null }).eq('id', 1);
   });
 

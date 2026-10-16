@@ -1,10 +1,11 @@
 'use client';
+import { DiagTag } from '@/components/DiagTag';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { moveLead } from './actions';
 
-export interface KLead { id: string; name: string; company: string | null; potential_value: number; owner: string | null; stage_id: string; daysSinceContact: number; stale: boolean }
+export interface KLead { id: string; name: string; company: string | null; potential_value: number; owner: string | null; stage_id: string; daysSinceContact: number; stale: boolean; diag?: boolean }
 export interface KStage { id: string; name: string; kind: 'open' | 'won' | 'lost' }
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -52,7 +53,7 @@ export function KanbanBoard({ stages, leads }: { stages: KStage[]; leads: KLead[
                 {items.map((l) => (
                   <article key={l.id} draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', l.id)}
                     className="cursor-grab rounded-xl border border-line bg-surface p-3.5 active:cursor-grabbing">
-                    <Link href={`/crm/${l.id}`} className="text-sm font-medium hover:underline">{l.name}</Link>
+                    <Link href={`/crm/${l.id}`} className="text-sm font-medium hover:underline">{l.name}</Link>{l.diag && <DiagTag />}
                     {l.company && <div className="text-xs text-muted">{l.company}</div>}
                     <div className="mt-2 flex items-center justify-between text-xs">
                       <span className="font-medium">{brl(Number(l.potential_value))}</span>

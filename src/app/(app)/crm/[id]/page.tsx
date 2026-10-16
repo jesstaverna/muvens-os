@@ -11,6 +11,7 @@ import { PROPOSAL_STATUS } from '@/lib/domain';
 import { AREAS, CONTATO, DECISOR, INVEST, PRAZO } from '@/lib/leads/qualify';
 import { CopyButton } from '@/components/ClientButtons';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
+import { DiagTag, isDiag } from '@/components/DiagTag';
 import { LinkButton } from '@/components/LinkButton';
 
 const KIND: Record<string, string> = { nota: 'Nota', ligacao: 'Ligação', whatsapp: 'WhatsApp', email: 'E-mail', reuniao: 'Reunião', sistema: 'Sistema' };
@@ -35,6 +36,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     <>
       <PageHeader title={lead.name} subtitle={`${lead.company ?? 'Sem empresa'} · etapa: ${st?.name}${lead.lost_reason ? ` · motivo da perda: ${lead.lost_reason}` : ''}`}
         actions={<>
+          {isDiag(lead.service_interest) && <DiagTag />}
           <LinkButton href="/crm" className="btn">← Funil</LinkButton>
           {lead.client_id && <LinkButton href={`/clientes/${lead.client_id}`} className="btn">Ver cliente</LinkButton>}
           <LinkButton href={`/propostas/nova?lead=${lead.id}`} className="btn btn-primary">Criar proposta</LinkButton>

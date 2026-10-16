@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DiagTag, isDiag } from '@/components/DiagTag';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Empty, Tabs } from '@/components/ui';
 import { KanbanBoard, type KLead } from './KanbanBoard';
@@ -33,7 +34,7 @@ export default async function CRM({ searchParams }: { searchParams: Promise<SP> 
   const k: KLead[] = (leads ?? []).map((l) => {
     const d = relativeDays(l.last_contact_at ?? l.created_at, now) ?? 0;
     const owner = Array.isArray(l.owner) ? l.owner[0] : l.owner;
-    return { id: l.id, name: l.name, company: l.company, potential_value: Number(l.potential_value), owner: owner?.full_name ?? null, stage_id: l.stage_id, daysSinceContact: d, stale: d >= 3 };
+    return { id: l.id, name: l.name, company: l.company, potential_value: Number(l.potential_value), owner: owner?.full_name ?? null, stage_id: l.stage_id, daysSinceContact: d, stale: d >= 3, diag: isDiag(l.service_interest) };
   });
   const c = (conv ?? {}) as Record<string, number>;
   const stale = k.filter((l) => l.stale && stages?.find((s) => s.id === l.stage_id)?.kind === 'open').length;
@@ -79,7 +80,7 @@ export default async function CRM({ searchParams }: { searchParams: Promise<SP> 
             <tbody>{(leads ?? []).map((l) => {
               const st = Array.isArray(l.pipeline_stages) ? l.pipeline_stages[0] : l.pipeline_stages; const ow = Array.isArray(l.owner) ? l.owner[0] : l.owner;
               return (<tr key={l.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
-                <td className="td"><Link href={`/crm/${l.id}`} className="font-medium hover:underline">{l.name}</Link><div className="text-xs text-muted">{l.company}</div></td>
+                <td className="td"><Link href={`/crm/${l.id}`} className="font-medium hover:underline">{l.name}</Link>{isDiag(l.service_interest) && <DiagTag />}<div className="text-xs text-muted">{l.company}</div></td>
                 <td className="td"><span className="badge">{st?.name}</span></td><td className="td">{l.service_interest ?? '—'}</td><td className="td">{l.source ?? '—'}</td>
                 <td className="td">{money(l.potential_value)}</td><td className="td">{ow?.full_name ?? '—'}</td><td className="td whitespace-nowrap">{l.last_contact_at ? dateBR(l.last_contact_at) : 'Nunca'}</td></tr>);
             })}</tbody></table>
