@@ -1,5 +1,5 @@
 // Normaliza o lead recebido por webhook (Meta Lead Ads via Make/Zapier/n8n, formulário próprio…) num formato único.
-export interface InboundLead { name: string; email: string | null; phone: string | null; company: string | null; website: string | null; instagram: string | null; source: string; campaign: string | null; ad: string | null; message: string | null; extra: Record<string, string> }
+export interface InboundLead { name: string; email: string | null; phone: string | null; company: string | null; website: string | null; instagram: string | null; source: string; campaign: string | null; ad: string | null; message: string | null; interest: string | null; extra: Record<string, string> }
 
 const KEYS: Record<string, string[]> = {
   name: ['name', 'nome', 'full_name', 'fullname', 'nome_completo', 'first_name'],
@@ -8,6 +8,7 @@ const KEYS: Record<string, string[]> = {
   company: ['company', 'company_name', 'empresa', 'nome_da_empresa', 'razao_social'],
   website: ['website', 'site', 'url', 'site_da_empresa', 'link_do_site', 'web_site'],
   instagram: ['instagram', 'instagram_handle', 'perfil_instagram', 'arroba'],
+  interest: ['service_interest','servico_de_interesse','servico','interesse'],
   message: ['message', 'mensagem', 'comments', 'observacao', 'observacoes'],
 };
 const norm = (k: string) => k.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -25,7 +26,7 @@ export function normalizeLead(raw: unknown): InboundLead | null {
   if (o.fields && typeof o.fields === 'object') for (const [k, v] of Object.entries(o.fields as Record<string, unknown>)) put(k, v);
   const take = (field: keyof typeof KEYS) => { for (const k of KEYS[field]) if (flat[k]) { const v = flat[k]; delete flat[k]; return v; } return null; };
   let name = take('name'); const email = take('email'); const phone = take('phone'); const company = take('company');
-  let website = take('website'); const instagram = take('instagram'); const message = take('message');
+  let website = take('website'); const instagram = take('instagram'); const message = take('message'); const interest = take('interest');
   const first = flat.first_name, last = flat.last_name; if (!name && (first || last)) name = [first, last].filter(Boolean).join(' ');
   const campaign = flat.campaign_name ?? flat.campanha ?? flat.campaign ?? null; const ad = flat.ad_name ?? flat.anuncio ?? flat.ad ?? null;
   const source = flat.source ?? flat.origem ?? flat.platform ?? 'Anúncio';
@@ -35,5 +36,5 @@ export function normalizeLead(raw: unknown): InboundLead | null {
   const digits = phone ? phone.replace(/\D/g, '') : '';
   const ph = digits.length >= 8 ? phone : null;
   if (!name && !mail && !ph) return null;
-  return { name: name || mail?.split('@')[0] || 'Lead sem nome', email: mail, phone: ph, company, website, instagram, source: /^(instagram|ig)$/i.test(source) ? 'Instagram Ads' : /^(facebook|meta|fb)$/i.test(source) ? 'Facebook Ads' : source, campaign, ad, message, extra: flat };
+  return { name: name || mail?.split('@')[0] || 'Lead sem nome', email: mail, phone: ph, company, website, instagram, source: /^(instagram|ig)$/i.test(source) ? 'Instagram Ads' : /^(facebook|meta|fb)$/i.test(source) ? 'Facebook Ads' : source, campaign, ad, message, interest, extra: flat };
 }

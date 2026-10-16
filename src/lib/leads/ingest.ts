@@ -6,7 +6,7 @@ import { sendHotLeadAlert } from './alert';
 import { type Answers, scoreAnswers } from './qualify';
 import type { InboundLead } from './normalize';
 
-const noteOf = (l: InboundLead) => [`Origem: ${l.source}`, l.campaign && `Campanha: ${l.campaign}`, l.ad && `Anúncio: ${l.ad}`, l.website && `Site: ${l.website}`, l.instagram && `Instagram: ${l.instagram}`, l.message && `Mensagem: ${l.message}`, ...Object.entries(l.extra).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)].filter(Boolean).join('\n');
+const noteOf = (l: InboundLead) => [l.interest && `Interesse: ${l.interest}`, `Origem: ${l.source}`, l.campaign && `Campanha: ${l.campaign}`, l.ad && `Anúncio: ${l.ad}`, l.website && `Site: ${l.website}`, l.instagram && `Instagram: ${l.instagram}`, l.message && `Mensagem: ${l.message}`, ...Object.entries(l.extra).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`)].filter(Boolean).join('\n');
 
 /** Cria rascunhos de relacionamento (e-mail + WhatsApp assistido) para um prospecto de anúncio. Nada é enviado: o e-mail espera aprovação. */
 export async function createInboundDrafts(db: SupabaseClient, prospectId: string, appUrl: string) {
@@ -34,7 +34,7 @@ export interface IngestResult { ok: boolean; duplicate?: boolean; leadId?: strin
 export async function ingestLead(db: SupabaseClient, l: InboundLead, appUrl: string): Promise<IngestResult> {
   const { data: stage } = await db.from('pipeline_stages').select('id').eq('active', true).order('position').limit(1).single();
   if (!stage) return { ok: false, error: 'Funil sem etapas ativas' };
-  const { data: lead, error } = await db.from('leads').insert({ name: l.name, company: l.company, email: l.email, phone: l.phone, whatsapp: l.phone, source: l.source, stage_id: stage.id, notes: noteOf(l), next_action: 'Revisar rascunho de contato e qualificar o lead' }).select('id').single();
+  const { data: lead, error } = await db.from('leads').insert({ name: l.name, company: l.company, email: l.email, phone: l.phone, whatsapp: l.phone, source: l.source, service_interest: l.interest, stage_id: stage.id, notes: noteOf(l), next_action: l.interest ? `Pedido: ${l.interest} — enviar o diagnóstico e entrar em contato` : 'Revisar rascunho de contato e qualificar o lead' }).select('id').single();
   if (error) {
     if (error.code !== '23505') return { ok: false, error: error.message };
     let q = db.from('leads').select('id').limit(1);
@@ -43,7 +43,7 @@ export async function ingestLead(db: SupabaseClient, l: InboundLead, appUrl: str
     if (ex) await db.from('lead_interactions').insert({ lead_id: ex.id, kind: 'sistema', content: `Novo contato via ${l.source}.\n${noteOf(l)}` });
     return { ok: true, duplicate: true, leadId: ex?.id };
   }
-  await db.from('lead_interactions').insert({ lead_id: lead!.id, kind: 'sistema', content: `Lead recebido via ${l.source}.\n${noteOf(l)}` });
+  await db.from('lead_interactions').insert({ lead_id: lead!.id, kind: 'sistema', content: `${l.interest ? `Pedido de ${l.interest.toLowerCase()}` : 'Lead recebido'} via ${l.source}.\n${noteOf(l)}` });
   const { data: pr, error: pErr } = await db.from('prospects').insert({ name: l.company ?? l.name, website: l.website, email: l.email, phone: l.phone, source: 'inbound', lead_id: lead!.id, status: 'novo' }).select('id').single();
   let prospectId: string | null = pr?.id ?? null;
   if (pErr) { prospectId = null; await db.from('lead_interactions').insert({ lead_id: lead!.id, kind: 'sistema', content: 'Não foi criado o prospecto para análise (e-mail ou site já cadastrado na Prospecção).' }); }

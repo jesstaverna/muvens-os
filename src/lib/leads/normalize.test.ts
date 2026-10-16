@@ -15,3 +15,9 @@ describe('normalizeLead', () => {
     const l = normalizeLead({ nome: 'A', email: 'nao-email', phone: '12', site: 'meu site' })!; expect(l.email).toBeNull(); expect(l.phone).toBeNull(); expect(l.website).toBeNull();
   });
 });
+
+import { normalizeLead as _n } from './normalize';
+import { it as _it, expect as _expect } from 'vitest';
+_it('lê o serviço de interesse (diagnóstico gratuito)', () => {
+  _expect(_n({ nome: 'Ana', email: 'a@b.co', servico: 'Diagnóstico gratuito' })?.interest).toBe('Diagnóstico gratuito');
+});

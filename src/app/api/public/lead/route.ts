@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const s = (k: string) => { const v = String(b[k] ?? '').trim().slice(0, 200); return v || null; };
   const db = createAdminClient();
   try {
-    const r = await intakeLead(db, { nome, email, telefone: tel, empresa: s('empresa'), site: s('site'), instagram: s('instagram'), source: sourceFromUtm(s('utm_source'), s('utm_medium')), campaign_name: s('utm_campaign'), ad_name: s('utm_content'), utm_medium: s('utm_medium'), utm_term: s('utm_term'), pagina: s('page_url') }, appUrl());
+    const r = await intakeLead(db, { nome, email, telefone: tel, empresa: s('empresa'), servico: 'Diagnóstico gratuito', site: s('site'), instagram: s('instagram'), source: sourceFromUtm(s('utm_source'), s('utm_medium')), campaign_name: s('utm_campaign'), ad_name: s('utm_content'), utm_medium: s('utm_medium'), utm_term: s('utm_term'), pagina: s('page_url') }, appUrl());
     if (!r.ok) return json(origin, { ok: false, error: 'não foi possível registrar agora' }, 500);
     let prospectId = r.prospectId ?? null;
     if (!prospectId && r.leadId) prospectId = (await db.from('prospects').select('id').eq('lead_id', r.leadId).limit(1).maybeSingle()).data?.id ?? null;
