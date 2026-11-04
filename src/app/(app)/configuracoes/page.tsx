@@ -5,6 +5,7 @@ import { appUrl } from '@/lib/app-url';
 import { requireModule, flash } from '@/lib/session';
 import { PageHeader, Field, Pending, Tabs } from '@/components/ui';
 import { UserRow } from './UserRow';
+import { removeUser } from './remove-user-action';
 import { SubmitButton } from '@/components/SubmitButton';
 import { ROLE_LABEL, type Role } from '@/lib/permissions';
 import { dateTimeBR } from '@/lib/format';
@@ -82,7 +83,7 @@ export default async function Config({ searchParams }: { searchParams: Promise<{
           {profile.role === 'admin' && <AccessForm variant="equipe" loginUrl={`${appUrl().replace(/\/$/, '')}/login`} roles={roleOpts.filter((r) => r.value !== 'cliente')} />}
           <section className="card"><h2 className="mb-1 text-base font-semibold">Equipe Muvens</h2>
             <p className="mb-5 text-sm text-muted">Ajuste nome, perfil e situação de cada pessoa. Quem tem o perfil <b>Cliente</b> aparece na aba <b>Clientes do portal</b>.</p>
-            <div className="space-y-3">{staff.map((u) => <UserRow key={u.id} user={u} clients={clients ?? []} roles={roleOpts} action={updateUser.bind(null, u.id)} tab="equipe" self={u.id === profile.id} />)}</div></section>
+            <div className="space-y-3">{staff.map((u) => <UserRow key={u.id} user={u} clients={clients ?? []} roles={roleOpts} action={updateUser.bind(null, u.id)} removeAction={profile.role === 'admin' ? removeUser.bind(null, u.id) : undefined} tab="equipe" self={u.id === profile.id} />)}</div></section>
         </div>)}
 
       {tab === 'clientes' && (
@@ -90,7 +91,7 @@ export default async function Config({ searchParams }: { searchParams: Promise<{
           <p className="mb-5 text-sm text-muted">Pessoas de empresas clientes. Elas só enxergam o portal (projetos liberados). Para criar um novo acesso, use <b>Portal do Cliente › Acessos</b>. <b>Atenção:</b> o perfil Administrador dá acesso a tudo; pessoas de clientes devem ter o perfil <b>Cliente</b> com a empresa escolhida.</p>
           {!people.length ? <p className="text-sm text-muted">Nenhum usuário de cliente ainda.</p> : (
             <div className="space-y-6">{byCompany.map((g) => (<div key={g.cid || 'sem'}><h3 className="mb-2 text-sm font-semibold">{g.name} <span className="font-normal text-muted">· {g.list.length} {g.list.length === 1 ? 'usuário' : 'usuários'}</span></h3>
-              <div className="space-y-3">{g.list.map((u) => <UserRow key={u.id} user={u} clients={clients ?? []} roles={roleOpts} action={updateUser.bind(null, u.id)} tab="clientes" self={false} />)}</div></div>))}</div>)}
+              <div className="space-y-3">{g.list.map((u) => <UserRow key={u.id} user={u} clients={clients ?? []} roles={roleOpts} action={updateUser.bind(null, u.id)} removeAction={profile.role === 'admin' ? removeUser.bind(null, u.id) : undefined} tab="clientes" self={false} />)}</div></div>))}</div>)}
         </section>)}
 
       {tab === 'funil' && (

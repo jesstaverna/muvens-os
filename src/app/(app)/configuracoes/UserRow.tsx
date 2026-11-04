@@ -5,7 +5,7 @@ import { SubmitButton } from '@/components/SubmitButton';
 type U = { id: string; email: string | null; full_name: string | null; role: string; active: boolean; client_id: string | null };
 
 /** Linha de usuário: a empresa só aparece quando o perfil é "Cliente" (nos outros perfis ela é ignorada). */
-export function UserRow({ user, clients, roles, action, tab, self }: { user: U; clients: { id: string; name: string }[]; roles: { value: string; label: string }[]; action: (fd: FormData) => Promise<void>; tab: string; self: boolean }) {
+export function UserRow({ user, clients, roles, action, removeAction, tab, self }: { user: U; clients: { id: string; name: string }[]; roles: { value: string; label: string }[]; action: (fd: FormData) => Promise<void>; removeAction?: (fd: FormData) => Promise<void>; tab: string; self: boolean }) {
   const [role, setRole] = useState(user.role);
   return (
     <form action={action} className={`rounded-xl border border-line p-3 ${user.active ? '' : 'opacity-60'}`}>
@@ -16,7 +16,7 @@ export function UserRow({ user, clients, roles, action, tab, self }: { user: U; 
         <label className="block"><span className="label">Nome</span><input name="full_name" defaultValue={user.full_name ?? ''} className="input" /></label>
         <label className="block"><span className="label">Perfil</span><select name="role" value={role} onChange={(e) => setRole(e.target.value)} className="input">{roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></label>
         {role === 'cliente' ? <label className="block"><span className="label">Empresa do cliente</span><select name="client_id" defaultValue={user.client_id ?? ''} required className="input"><option value="" disabled>Escolha…</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label> : <div className="hidden lg:block" />}
-        <SubmitButton className="btn btn-sm btn-dark" pendingText="…">Salvar</SubmitButton>
+        <div className="flex gap-2"><SubmitButton className="btn btn-sm btn-dark" pendingText="…">Salvar</SubmitButton>{removeAction && !self && <button type="submit" formAction={removeAction} formNoValidate className="btn btn-sm text-danger" onClick={(e) => { if (!window.confirm(`Remover ${user.email}? O acesso dessa pessoa será encerrado.`)) e.preventDefault(); }}>Remover</button>}</div>
       </div>
       {role === 'administrador' || role === 'admin' ? <p className="mt-2 text-xs text-warn">Administrador vê tudo: financeiro, propostas e todos os clientes.</p> : null}
     </form>

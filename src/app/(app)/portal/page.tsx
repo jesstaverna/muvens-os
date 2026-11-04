@@ -5,6 +5,7 @@ import { LinkButton } from '@/components/LinkButton';
 import { SubmitButton } from '@/components/SubmitButton';
 import { DocUploader } from './DocUploader';
 import { AccessForm } from './AccessForm';
+import { removeUser } from '../configuracoes/remove-user-action';
 import { appUrl } from '@/lib/app-url';
 import { deleteClientDoc, respondRequest } from './actions';
 import { REQUEST_KIND, REQUEST_STATUS } from '@/lib/domain';
@@ -17,11 +18,12 @@ export default async function PortalGestao({ searchParams }: { searchParams: Pro
   const { supabase, profile } = await requireModule('portal');
   const sp = await searchParams;
   const tab = ['solicitacoes', 'documentos', 'acessos'].includes(sp.tab ?? '') ? sp.tab! : 'solicitacoes';
-  const [{ data: reqs }, { data: clients }, { data: docs }, { data: users }] = await Promise.all([
+  const [{ data: reqs }, { data: clients }, { data: docs }, { data: users }, { data: contacts }] = await Promise.all([
     supabase.from('client_requests').select('id, kind, subject, body, status, response, created_at, clients(name)').order('created_at', { ascending: false }).limit(200),
     supabase.from('clients').select('id, name').order('name'),
     supabase.from('client_documents').select('id, name, category, created_at, clients(name)').order('created_at', { ascending: false }).limit(200),
     supabase.from('profiles').select('id, full_name, email, active, client_id, clients!profiles_client_fk(name)').eq('role', 'cliente').order('created_at'),
+    supabase.from('client_contacts').select('id, client_id, name, email, role_title').order('is_primary', { ascending: false }).order('name'),
   ]);
   const open = reqs?.filter((r) => r.status !== 'resolvida').length ?? 0;
   return (
@@ -46,14 +48,14 @@ export default async function PortalGestao({ searchParams }: { searchParams: Pro
 
       {tab === 'acessos' && (
         <div className="space-y-6">
-          {profile.role === 'admin' ? <AccessForm clients={clients ?? []} loginUrl={`${appUrl().replace(/\/$/, '')}/login`} defaults={{ email: sp.email, name: sp.name, client: sp.c, mode: sp.mode }} /> : <div className="card text-sm text-muted">Somente administradores geram links de acesso. Peça a um administrador.</div>}
+          {profile.role === 'admin' ? <AccessForm clients={clients ?? []} contacts={contacts ?? []} loginUrl={`${appUrl().replace(/\/$/, '')}/login`} defaults={{ email: sp.email, name: sp.name, client: sp.c, mode: sp.mode }} /> : <div className="card text-sm text-muted">Somente administradores geram links de acesso. Peça a um administrador.</div>}
           <div className="card text-sm"><h2 className="mb-2 text-base font-semibold">Como funciona o acesso do cliente</h2><ol className="list-decimal space-y-1.5 pl-5 text-muted">
             <li>Preencha o formulário acima: o sistema cria o login, vincula à empresa e entrega um <b>link</b> (a pessoa cria a senha) ou <b>login e senha</b>. Repita para cada usuário da empresa.</li>
             <li>O cliente abre o link, clica em <b>Entrar</b> e define a senha. Nas próximas vezes entra em <code>/login</code> com e-mail e senha.</li>
             <li>Ele cai direto no <b>Quadro</b> e vê somente o que você liberar.</li></ol>
             <h3 className="mb-1 mt-5 font-medium">O que o cliente enxerga</h3><ul className="list-disc space-y-1 pl-5 text-muted"><li><b>Projetos</b> marcados como “Visível no Portal” e, neles, as tarefas que <b>não</b> são internas (nunca o briefing interno).</li><li><b>Aprovações</b>: tarefas no status “Enviado ao cliente”, com os arquivos marcados como visíveis.</li><li>Arquivos finais só depois de aprovados; documentos que você publica aqui; propostas liberadas; contratos enviados/assinados.</li></ul></div>
           <section className="card"><h2 className="mb-4 text-base font-semibold">Usuários de clientes</h2>
-            {!users?.length ? <p className="text-sm text-muted">Nenhum usuário com perfil Cliente ainda.</p> : <table className="w-full text-sm"><tbody>{users.map((u) => (<tr key={u.id} className="border-b border-line last:border-0"><td className="py-2.5">{u.full_name || u.email}<div className="text-xs text-muted">{u.email}</div></td><td className="py-2.5">{one(u.clients)?.name ?? <span className="text-danger">sem empresa vinculada</span>}</td><td className="py-2.5 text-right"><span className="badge">{u.active ? 'ativo' : 'inativo'}</span>{profile.role === 'admin' && u.client_id && <Link href={`/portal?tab=acessos&email=${encodeURIComponent(u.email ?? '')}&name=${encodeURIComponent(u.full_name ?? '')}&c=${u.client_id}`} className="ml-3 text-xs underline">Novo link</Link>}{profile.role === 'admin' && u.client_id && <Link href={`/portal?tab=acessos&mode=senha&email=${encodeURIComponent(u.email ?? '')}&name=${encodeURIComponent(u.full_name ?? '')}&c=${u.client_id}`} className="ml-3 text-xs underline">Nova senha</Link>}</td></tr>))}</tbody></table>}
+            {!users?.length ? <p className="text-sm text-muted">Nenhum usuário com perfil Cliente ainda.</p> : <table className="w-full text-sm"><tbody>{users.map((u) => (<tr key={u.id} className="border-b border-line last:border-0"><td className="py-2.5">{u.full_name || u.email}<div className="text-xs text-muted">{u.email}</div></td><td className="py-2.5">{one(u.clients)?.name ?? <span className="text-danger">sem empresa vinculada</span>}</td><td className="py-2.5 text-right"><span className="badge">{u.active ? 'ativo' : 'inativo'}</span>{profile.role === 'admin' && u.client_id && <Link href={`/portal?tab=acessos&email=${encodeURIComponent(u.email ?? '')}&name=${encodeURIComponent(u.full_name ?? '')}&c=${u.client_id}`} className="ml-3 text-xs underline">Novo link</Link>}{profile.role === 'admin' && u.client_id && <Link href={`/portal?tab=acessos&mode=senha&email=${encodeURIComponent(u.email ?? '')}&name=${encodeURIComponent(u.full_name ?? '')}&c=${u.client_id}`} className="ml-3 text-xs underline">Nova senha</Link>}{profile.role === 'admin' && <form action={removeUser.bind(null, u.id)} className="ml-3 inline"><input type="hidden" name="tab" value="portal" /><SubmitButton className="text-xs text-danger underline" pendingText="…" confirm={`Remover ${u.email}? O acesso dessa pessoa ao portal será encerrado.`}>Remover</SubmitButton></form>}</td></tr>))}</tbody></table>}
             {profile.role === 'admin' && <p className="mt-3 text-xs text-muted">Para alterar vínculo ou desativar, use Configurações.</p>}</section>
         </div>)}
     </>

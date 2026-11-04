@@ -3,11 +3,15 @@ import { useActionState, useState } from 'react';
 import { generateAccess, type AccessState } from './access-action';
 import { generateStaffAccess } from '../configuracoes/staff-access-action';
 
-export function AccessForm({ clients = [], defaults = {}, loginUrl, variant = 'cliente', roles = [] }: { clients?: { id: string; name: string }[]; defaults?: { email?: string; name?: string; client?: string; mode?: string }; loginUrl: string; variant?: 'cliente' | 'equipe'; roles?: { value: string; label: string }[] }) {
+export function AccessForm({ clients = [], contacts = [], defaults = {}, loginUrl, variant = 'cliente', roles = [] }: { clients?: { id: string; name: string }[]; contacts?: { id: string; client_id: string; name: string; email: string | null; role_title: string | null }[]; defaults?: { email?: string; name?: string; client?: string; mode?: string }; loginUrl: string; variant?: 'cliente' | 'equipe'; roles?: { value: string; label: string }[] }) {
   const equipe = variant === 'equipe';
   const [state, action, pending] = useActionState<AccessState, FormData>(equipe ? generateStaffAccess : generateAccess, {});
   const [mode, setMode] = useState<'link' | 'senha'>(defaults.mode === 'senha' ? 'senha' : 'link');
   const [copied, setCopied] = useState<string | null>(null);
+  const [company, setCompany] = useState(defaults.client ?? '');
+  const [name, setName] = useState(defaults.name ?? '');
+  const [email, setEmail] = useState(defaults.email ?? '');
+  const pickable = contacts.filter((c) => c.client_id === company);
   const first = (state.name ?? '').split(' ')[0];
   const linkMsg = state.link ? `Olá${first ? `, ${first}` : ''}! Este é o seu acesso ${equipe ? 'ao sistema MUVENS OS' : 'ao Portal do Cliente'} da Muvens. Clique para entrar e criar a sua senha: ${state.link}` : '';
   const passMsg = state.password ? `Olá${first ? `, ${first}` : ''}! Seu acesso ${equipe ? 'ao sistema MUVENS OS' : 'ao Portal do Cliente'} da Muvens:\nEndereço: ${state.loginUrl}\nLogin: ${state.email}\nSenha: ${state.password}\n(Você pode trocar a senha depois, em /definir-senha.)` : '';
@@ -19,9 +23,14 @@ export function AccessForm({ clients = [], defaults = {}, loginUrl, variant = 'c
       <p className="mb-4 mt-1 text-sm text-muted">{equipe ? 'Cada pessoa da equipe tem o próprio login e perfil. Repita para cada pessoa. Endereço de login:' : 'Cada pessoa da empresa tem o seu próprio login. Repita o formulário para cada usuário. Endereço de login do portal:'} <button type="button" onClick={() => copy('login', loginUrl)} className="font-mono underline">{loginUrl}</button>{copied === 'login' && ' — copiado!'}</p>
       <form action={action} className="grid gap-4 sm:grid-cols-2">
         {equipe ? <label className="block"><span className="label">Perfil na equipe</span><select name="role" required defaultValue="" className="input"><option value="" disabled>Escolha…</option>{roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select></label>
-          : <label className="block"><span className="label">Empresa do cliente</span><select name="client_id" required defaultValue={defaults.client ?? ''} className="input"><option value="" disabled>Escolha…</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
-        <label className="block"><span className="label">Nome da pessoa</span><input name="name" required minLength={2} maxLength={120} defaultValue={defaults.name ?? ''} className="input" placeholder={equipe ? 'Ex.: Dani Designer' : 'Ex.: Diego Vogt'} /></label>
-        <label className="block sm:col-span-2"><span className="label">E-mail de acesso (será o login)</span><input name="email" type="email" required defaultValue={defaults.email ?? ''} className="input" placeholder={equipe ? 'pessoa@muvens.com.br' : 'pessoa@empresa.com.br'} /></label>
+          : <label className="block"><span className="label">Empresa do cliente</span><select name="client_id" required value={company} onChange={(e) => setCompany(e.target.value)} className="input"><option value="" disabled>Escolha…</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+        {!equipe && company && (
+          <div className="sm:col-span-2 rounded-xl border border-line p-3"><span className="label">Escolher entre os contatos cadastrados desta empresa</span>
+            {pickable.length ? <div className="mt-2 flex flex-wrap gap-2">{pickable.map((c) => <button key={c.id} type="button" onClick={() => { setName(c.name); setEmail(c.email ?? ''); }} className="badge hover:bg-lime/40" title={c.email ?? 'Sem e-mail cadastrado'}>{c.name}{c.role_title ? ` · ${c.role_title}` : ''}</button>)}</div>
+              : <p className="mt-1 text-xs text-muted">Nenhum contato cadastrado nesta empresa. Digite o nome e o e-mail abaixo, ou cadastre contatos em Clientes › contatos.</p>}
+            {pickable.length > 0 && <p className="mt-2 text-xs text-muted">Clique em um nome para preencher nome e e-mail. Se o contato não tem e-mail, digite abaixo.</p>}</div>)}
+        <label className="block"><span className="label">Nome da pessoa</span><input name="name" required minLength={2} maxLength={120} value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder={equipe ? 'Ex.: Dani Designer' : 'Ex.: Diego Vogt'} /></label>
+        <label className="block sm:col-span-2"><span className="label">E-mail de acesso (será o login)</span><input name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder={equipe ? 'pessoa@muvens.com.br' : 'pessoa@empresa.com.br'} /></label>
         <fieldset className="sm:col-span-2"><legend className="label">Como entregar o acesso</legend>
           <label className="mt-1 flex items-start gap-2 text-sm"><input type="radio" name="mode" value="link" checked={mode === 'link'} onChange={() => setMode('link')} className="mt-1" /><span><b>Link de acesso</b> — a pessoa abre o link e cria a própria senha (recomendado).</span></label>
           <label className="mt-2 flex items-start gap-2 text-sm"><input type="radio" name="mode" value="senha" checked={mode === 'senha'} onChange={() => setMode('senha')} className="mt-1" /><span><b>Login e senha</b> — o sistema gera uma senha forte agora. Ela aparece uma única vez; se a pessoa já tem acesso, a senha atual é substituída.</span></label></fieldset>

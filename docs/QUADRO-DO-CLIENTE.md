@@ -74,3 +74,7 @@ Em **Clientes > cliente**: (1) **Responsável pela conta (Muvens)** — quem da 
 
 ## Criar usuários da equipe
 Em **Configurações > Criar usuário da equipe** (administrador): informe nome, e-mail e **perfil** (Administrador, Comercial, Financeiro, Designer ou Tráfego) e escolha **link de acesso** ou **login e senha gerados na hora** (mostrados uma única vez, com mensagem pronta para WhatsApp). A pessoa já aparece na lista de **Responsáveis** das tarefas. Quem já tem acesso só é reativado/recebe nova senha — o perfil dele nunca é alterado por este formulário; clientes do portal não podem ser convertidos em equipe.
+
+## Remover usuários
+Em **Configurações > Equipe** ou **Clientes do portal** (e na lista de **Portal do Cliente > Acessos**), cada usuário tem **Remover** (somente administrador, com confirmação). O sistema apaga o login; se a pessoa tem histórico (comentários, tarefas, horas), ela é **desativada e bloqueada** (não entra mais) e o histórico é preservado. Não é possível remover a si mesmo nem o último administrador ativo. Para só suspender por um tempo, desmarque **Ativo** e salve.
+**Adicionar pessoas ao portal:** em **Portal do Cliente > Acessos**, escolha a empresa e clique no nome de um **contato já cadastrado** para preencher nome e e-mail (ou use **Dar acesso ao portal** ao lado do contato em Clientes).
