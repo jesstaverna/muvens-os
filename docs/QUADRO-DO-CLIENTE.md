@@ -44,7 +44,7 @@ Projetos separados por frente (ex.: "Livro — Título X", "Redes sociais — No
 Se o cliente tem projetos ainda não liberados, aparece um aviso com o link para liberar. Para ver as demais telas (Aprovações, Documentos…) como o cliente, entre com um usuário de teste do tipo cliente.
 
 ## Pessoas envolvidas
-Cada tarefa tem um **responsável principal** e **outros responsáveis**. Os nomes aparecem nos cartões, na linha do tempo, no calendário, na lista e na página da tarefa (que também mostra as pessoas do cliente que comentaram). Quem é incluído recebe um aviso.
+No campo **Responsáveis** da tarefa você marca **todas as pessoas envolvidas** e indica o **principal** (o que conta nas métricas e nos avisos de atraso). Os nomes aparecem nos cartões, na linha do tempo, no calendário, na lista e na página da tarefa (que também mostra as pessoas do cliente que comentaram). Quem é incluído recebe um aviso.
 
 ## Entrada do cliente
 O cliente entra em `/login` e **cai direto no Quadro** (`/cliente/quadro`). O menu continua com Início, Serviços, Projetos, Aprovações etc.

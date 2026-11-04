@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { personName } from '@/lib/people';
+import { AssigneePicker } from '@/components/AssigneePicker';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { FileUploader } from '../../FileUploader';
-import { addChecklistItem, addComment, addTaskLink, removeTaskLink, setCoAssignees, setTaskContacts, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
+import { addChecklistItem, addComment, addTaskLink, removeTaskLink, setTaskContacts, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
 import { PRIORITY, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateTimeBR } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
@@ -68,7 +69,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
         <div className="space-y-6 xl:col-span-2">
           <form action={updateTask.bind(null, id)} className="card space-y-5"><h2 className="text-base font-semibold">Detalhes e briefing</h2><fieldset disabled={!canWrite} className="space-y-5">
             <div className="grid gap-5 sm:grid-cols-2"><Field label="Título"><input name="title" defaultValue={t.title} required className="input" /></Field>
-              <Field label="Responsável"><select name="assignee_id" defaultValue={t.assignee_id ?? ''} className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{personName(p)}</option>)}</select></Field>
+              <div className="sm:col-span-2"><AssigneePicker people={people ?? []} selected={(coRows ?? []).map((c) => c.user_id as string)} primary={t.assignee_id} disabled={!canWrite} /></div>
               <Field label="Início"><input type="date" name="starts_on" defaultValue={t.starts_on ?? ''} className="input" /></Field>
               <Field label="Entrega"><input type="date" name="due_on" defaultValue={t.due_on ?? ''} className={`input ${late ? 'border-danger' : ''}`} /></Field>
               <Field label="Devolução da revisão (cliente)" hint="Até quando o cliente deve aprovar ou pedir ajustes. Sugerida ao enviar para aprovação."><input type="date" name="review_due_on" defaultValue={t.review_due_on ?? ''} className="input" /></Field>
@@ -81,10 +82,6 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
               <Field label="Descrição para o cliente" hint="Texto mostrado ao cliente na aprovação. O briefing interno nunca aparece no portal."><textarea name="briefing_public" rows={2} defaultValue={t.briefing_public ?? ''} className="input" /></Field></div>
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-end"><label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" name="out_of_scope" defaultChecked={t.out_of_scope} /> Fora do escopo</label><Field label="Observação sobre o escopo"><input name="out_of_scope_note" defaultValue={t.out_of_scope_note ?? ''} className="input" /></Field></div></fieldset>
             {canWrite && <SubmitButton>Salvar</SubmitButton>}</form>
-
-          <form action={setCoAssignees.bind(null, id)} className="card"><h2 className="mb-1 text-base font-semibold">Outros responsáveis</h2><p className="mb-3 text-xs text-muted">Além do responsável principal ({(people?.find((p) => p.id === t.assignee_id) ? personName(people.find((p) => p.id === t.assignee_id)) : 'nenhum')}). Quem for incluído recebe um aviso; o cliente vê todos os nomes no portal.</p>
-            <fieldset disabled={!canWrite} className="flex flex-wrap gap-x-5 gap-y-2">{people?.filter((p) => p.id !== t.assignee_id).map((p) => <label key={p.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name="co" value={p.id} defaultChecked={(coRows ?? []).some((c) => c.user_id === p.id)} /> {personName(p)}</label>)}</fieldset>
-            {canWrite && <div className="mt-4"><SubmitButton className="btn btn-sm" pendingText="…">Salvar responsáveis</SubmitButton></div>}</form>
 
           <section className="card"><h2 className="mb-1 text-base font-semibold">Links</h2><p className="mb-4 text-xs text-muted">Onde estão os conteúdos (do cliente) e as entregas (da Muvens). Links marcados como visíveis aparecem no portal.</p>
             <ul className="mb-4 space-y-2 text-sm">{links?.map((l) => (<li key={l.id} className="flex items-center justify-between gap-2"><span className="min-w-0"><span className="block text-xs text-muted">{{ conteudo: 'Conteúdo do cliente', referencia: 'Referência', entrega: 'Entrega' }[l.kind as string]}{l.from_client ? ' · enviado pelo cliente' : ''}{l.client_visible ? '' : ' · oculto ao cliente'}</span><a href={l.url} target="_blank" rel="noopener noreferrer" className="block truncate underline">{l.label || l.url}</a></span>{canWrite && <form action={removeTaskLink.bind(null, id, l.id)}><button className="text-xs text-muted hover:text-danger" aria-label="Remover link">remover</button></form>}</li>))}{!links?.length && <li className="text-muted">Nenhum link.</li>}</ul>

@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { parseDuration } from '@/lib/domain';
+import { resolveAssignees } from '@/lib/projects/assignees';
 
 const optId = z.preprocess((v) => v || null, z.string().uuid().nullable());
 const optDate = z.preprocess((v) => v || null, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida').nullable());
@@ -51,21 +52,23 @@ export async function createTask(fd: FormData) {
   const r = taskSchema.safeParse(Object.fromEntries(fd));
   if (!r.success) flash(back, 'err', r.error.issues[0].message);
   const plan = String(fd.get('deliverable_plan_id') ?? '') || null;
-  const { data, error } = await supabase.from('tasks').insert({ ...r.data, project_id: projectId, deliverable_plan_id: plan, created_by: profile.id }).select('id, out_of_scope').single();
+  const who = resolveAssignees(fd);
+  const { data, error } = await supabase.from('tasks').insert({ ...r.data, assignee_id: who.principal, project_id: projectId, deliverable_plan_id: plan, created_by: profile.id }).select('id, out_of_scope').single();
   if (error) dbErr(back, error);
-  const co = [...new Set(fd.getAll('co').map(String))].filter((u) => /^[0-9a-f-]{36}$/.test(u) && u !== r.data.assignee_id);
-  if (co.length) await supabase.from('task_assignees').insert(co.map((user_id) => ({ task_id: data!.id, user_id, added_by: profile.id })));
+  if (who.others.length) await supabase.from('task_assignees').insert(who.others.map((user_id) => ({ task_id: data!.id, user_id, added_by: profile.id })));
   revalidatePath('/projetos');
   flash(`/projetos/tarefas/${data!.id}`, data!.out_of_scope ? 'err' : 'ok', data!.out_of_scope ? 'Tarefa criada, mas EXCEDE a quantidade contratada: marcada como fora do escopo (orçar à parte).' : 'Tarefa criada.');
 }
 
 export async function updateTask(id: string, fd: FormData) {
-  const { supabase } = await requireModule('projetos');
+  const { supabase, profile } = await requireModule('projetos');
   const back = `/projetos/tarefas/${id}`;
   const r = taskSchema.safeParse(Object.fromEntries(fd));
   if (!r.success) flash(back, 'err', r.error.issues[0].message);
-  const { error } = await supabase.from('tasks').update({ ...r.data, internal: fd.get('internal') === 'on', briefing_public: String(fd.get('briefing_public') ?? '').trim() || null, out_of_scope: fd.get('out_of_scope') === 'on', out_of_scope_note: String(fd.get('out_of_scope_note') ?? '').trim() || null }).eq('id', id);
+  const who = resolveAssignees(fd);
+  const { error } = await supabase.from('tasks').update({ ...r.data, assignee_id: who.principal, internal: fd.get('internal') === 'on', briefing_public: String(fd.get('briefing_public') ?? '').trim() || null, out_of_scope: fd.get('out_of_scope') === 'on', out_of_scope_note: String(fd.get('out_of_scope_note') ?? '').trim() || null }).eq('id', id);
   if (error) dbErr(back, error);
+  await syncOtherAssignees(supabase, id, who.others, profile.id);
   revalidatePath(back);
   flash(back, 'ok', 'Tarefa atualizada.');
 }
@@ -224,22 +227,15 @@ export async function saveBoardSettings(fd: FormData) {
   flash(back, 'ok', 'Configurações salvas.');
 }
 
-/** Define os demais responsáveis (além do principal): inclui os marcados e remove os desmarcados. */
-export async function setCoAssignees(taskId: string, fd: FormData) {
-  const { supabase, profile } = await requireModule('projetos');
-  const back = `/projetos/tarefas/${taskId}`;
-  const { data: t } = await supabase.from('tasks').select('assignee_id').eq('id', taskId).maybeSingle();
-  const want = new Set(fd.getAll('co').map(String).filter((u) => /^[0-9a-f-]{36}$/.test(u) && u !== t?.assignee_id));
+/** Deixa task_assignees exatamente com as pessoas indicadas (inclui as novas, que são avisadas, e remove as desmarcadas). */
+async function syncOtherAssignees(supabase: Awaited<ReturnType<typeof requireModule>>['supabase'], taskId: string, others: string[], by: string) {
   const { data: cur } = await supabase.from('task_assignees').select('user_id').eq('task_id', taskId);
-  const have = new Set((cur ?? []).map((c) => c.user_id as string));
+  const have = new Set((cur ?? []).map((c) => c.user_id as string)); const want = new Set(others);
   const add = [...want].filter((u) => !have.has(u)), del = [...have].filter((u) => !want.has(u));
-  if (del.length) { const { error } = await supabase.from('task_assignees').delete().eq('task_id', taskId).in('user_id', del); if (error) dbErr(back, error); }
-  if (add.length) { const { error } = await supabase.from('task_assignees').insert(add.map((user_id) => ({ task_id: taskId, user_id, added_by: profile.id }))); if (error) dbErr(back, error); }
-  revalidatePath(back); revalidatePath('/projetos');
-  flash(back, 'ok', 'Responsáveis atualizados.');
+  if (del.length) await supabase.from('task_assignees').delete().eq('task_id', taskId).in('user_id', del);
+  if (add.length) await supabase.from('task_assignees').insert(add.map((user_id) => ({ task_id: taskId, user_id, added_by: by })));
 }
 
-/** Define quais contatos cadastrados no cliente estão envolvidos na tarefa. */
 export async function setTaskContacts(taskId: string, fd: FormData) {
   const { supabase, profile } = await requireModule('projetos');
   const back = `/projetos/tarefas/${taskId}`;
