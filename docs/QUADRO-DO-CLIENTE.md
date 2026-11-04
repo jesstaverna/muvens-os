@@ -78,3 +78,6 @@ Em **Configurações > Criar usuário da equipe** (administrador): informe nome,
 ## Remover usuários
 Em **Configurações > Equipe** ou **Clientes do portal** (e na lista de **Portal do Cliente > Acessos**), cada usuário tem **Remover** (somente administrador, com confirmação). O sistema apaga o login; se a pessoa tem histórico (comentários, tarefas, horas), ela é **desativada e bloqueada** (não entra mais) e o histórico é preservado. Não é possível remover a si mesmo nem o último administrador ativo. Para só suspender por um tempo, desmarque **Ativo** e salve.
 **Adicionar pessoas ao portal:** em **Portal do Cliente > Acessos**, escolha a empresa e clique no nome de um **contato já cadastrado** para preencher nome e e-mail (ou use **Dar acesso ao portal** ao lado do contato em Clientes).
+
+## Pessoas por projeto
+Em **Projetos e Tarefas > Pessoas por projeto** você vê, para cada projeto: a **equipe Muvens** (responsável do projeto, responsáveis e colaboradores, com quantas tarefas abertas cada um tem), os **contatos do cliente** marcados nas tarefas e os **usuários do portal** com acesso (quando o projeto está liberado). O botão **Por pessoa da equipe** inverte a visão: cada pessoa com os projetos em que está. Dá para filtrar por cliente. A mesma caixa aparece dentro de cada projeto, na coluna da direita.

@@ -6,19 +6,22 @@ import { SubmitButton } from '@/components/SubmitButton';
 import { TaskBoard, type KTask } from './TaskBoard';
 import { CalendarView, TimelineView } from '@/components/BoardViews';
 import { AREAS, lateness, type BoardTask } from '@/lib/projects/board';
+import { ProjectPeopleCard } from '@/components/ProjectPeopleCard';
+import { loadProjectPeople } from '@/lib/projects/people-data';
+import { projectsByPerson } from '@/lib/projects/people';
 import { createPlan, saveBoardSettings, saveRate } from './actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateBR, money } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Projetos e Tarefas' };
-type SP = { d?: string; view?: string; client?: string; project?: string; me?: string; m?: string };
+type SP = { by?: string; d?: string; view?: string; client?: string; project?: string; me?: string; m?: string };
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
 export default async function Projetos({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('projetos');
   const sp = await searchParams;
-  const views = ['kanban', 'timeline', 'calendario', 'lista', 'metricas', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
+  const views = ['kanban', 'timeline', 'calendario', 'lista', 'metricas', 'pessoas', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
   const view = views.includes(sp.view ?? '') ? sp.view! : 'kanban';
   const today = todayBR();
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
@@ -33,7 +36,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
   if (sp.project && /^[0-9a-f-]{36}$/.test(sp.project)) tq = tq.eq('project_id', sp.project);
   if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) tq = tq.eq('projects.client_id', sp.client);
   if (sp.me) { const { data: co } = await supabase.from('task_assignees').select('task_id').eq('user_id', profile.id); const ids = (co ?? []).map((c) => c.task_id); tq = ids.length ? tq.or(`assignee_id.eq.${profile.id},id.in.(${ids.join(',')})`) : tq.eq('assignee_id', profile.id); }
-  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' || view === 'metricas' ? { data: [] as never[] } : await tq;
+  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' || view === 'metricas' || view === 'pessoas' ? { data: [] as never[] } : await tq;
 
   const { data: waits } = (tasksRaw ?? []).length ? await supabase.from('task_client_wait').select('task_id, client_wait_days').in('task_id', (tasksRaw ?? []).map((t: any) => t.id)) : { data: [] as { task_id: string; client_wait_days: number }[] };
   const waitOf = new Map((waits ?? []).map((w) => [w.task_id, Number(w.client_wait_days)]));
@@ -45,7 +48,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
 
   const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, assignees: t.assignees, contacts: t.contacts, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
   const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
-  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'metricas', label: 'Métricas' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
+  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'metricas', label: 'Métricas' }, { key: 'pessoas', label: 'Pessoas por projeto' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
   const late = tasks.filter((t) => t.late).length;
 
   return (
@@ -80,6 +83,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
       {view === 'entregaveis' && <Entregaveis supabase={supabase} clients={clients ?? []} projects={projects ?? []} canPlan={canPlan} />}
       {view === 'rentabilidade' && <Rentabilidade supabase={supabase} />}
       {view === 'avisos' && <Avisos supabase={supabase} />}
+      {view === 'pessoas' && <Pessoas supabase={supabase} clients={clients ?? []} clientId={sp.client && /^[0-9a-f-]{36}$/.test(sp.client) ? sp.client : null} by={sp.by === 'pessoa' ? 'pessoa' : 'projeto'} />}
       {view === 'metricas' && <Metricas supabase={supabase} clients={clients ?? []} clientId={sp.client && /^[0-9a-f-]{36}$/.test(sp.client) ? sp.client : null} days={['7', '30', '90', '365'].includes(sp.d ?? '') ? Number(sp.d) : 30} />}
     </>
   );
@@ -198,6 +202,28 @@ async function Metricas({ supabase, clients, clientId, days }: { supabase: Await
           {!clientId && <section><h2 className="mb-3 text-base font-semibold">Por cliente</h2><div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Cliente</th><th className="th">Entregas</th><th className="th">No prazo</th><th className="th">Espera média do cliente</th><th className="th">Atrasadas (equipe)</th><th className="th">Atrasadas (cliente)</th></tr></thead>
             <tbody>{m.by_client.map((r) => (<tr key={r.client} className="border-b border-line last:border-0"><td className="td">{r.client}</td><td className="td">{r.completed}</td><td className="td">{P(r.on_time_pct)}</td><td className="td">{D(r.avg_client_days)}</td><td className={`td ${r.late_team ? 'font-medium text-danger' : ''}`}>{r.late_team}</td><td className={`td ${r.late_client ? 'font-medium text-warn' : ''}`}>{r.late_client}</td></tr>))}{!m.by_client.length && <tr><td className="td text-muted" colSpan={6}>Sem dados no período.</td></tr>}</tbody></table></div></section>}
         </div>)}
+    </>
+  );
+}
+
+async function Pessoas({ supabase, clients, clientId, by }: { supabase: Awaited<ReturnType<typeof requireModule>>['supabase']; clients: { id: string; name: string }[]; clientId: string | null; by: 'projeto' | 'pessoa' }) {
+  const rows = await loadProjectPeople(supabase, { clientId: clientId ?? undefined });
+  const people = projectsByPerson(rows);
+  const q = (b: string) => `/projetos?view=pessoas&by=${b}${clientId ? `&client=${clientId}` : ''}`;
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <nav aria-label="Agrupar por" className="flex gap-1 rounded-xl bg-subtle p-1"><Link href={q('projeto')} className={`rounded-lg px-3 py-1.5 text-sm ${by === 'projeto' ? 'bg-surface font-medium shadow-sm' : 'text-muted hover:text-fg'}`}>Por projeto</Link><Link href={q('pessoa')} className={`rounded-lg px-3 py-1.5 text-sm ${by === 'pessoa' ? 'bg-surface font-medium shadow-sm' : 'text-muted hover:text-fg'}`}>Por pessoa da equipe</Link></nav>
+        <form method="get" className="flex items-end gap-2"><input type="hidden" name="view" value="pessoas" /><input type="hidden" name="by" value={by} />
+          <select name="client" defaultValue={clientId ?? ''} className="input w-56" aria-label="Cliente"><option value="">Todos os clientes</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select><button className="btn btn-dark">Filtrar</button></form>
+      </div>
+      {!rows.length ? <Empty title="Nenhum projeto" text="Crie um projeto para ver quem participa dele." /> : by === 'projeto' ? (
+        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">{rows.map((r) => <ProjectPeopleCard key={r.project.id} data={r} showTitle />)}</div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">{people.map((p) => (
+          <section key={p.id} className="card"><h2 className="mb-1 text-base font-semibold">{p.name}</h2><p className="mb-4 text-xs text-muted">{p.projects.length} {p.projects.length === 1 ? 'projeto' : 'projetos'} · {p.projects.reduce((a, x) => a + x.open, 0)} tarefas abertas</p>
+            <ul className="space-y-2 text-sm">{p.projects.map((x) => (<li key={x.id} className="flex items-start justify-between gap-2"><span className="min-w-0"><Link href={`/projetos/${x.id}`} className="block truncate hover:underline">{x.name}</Link><span className="block truncate text-xs text-muted">{x.client}</span></span><span className="shrink-0 text-right text-xs text-muted">{x.role}{x.tasks > 0 ? ` · ${x.open}/${x.tasks}` : ''}</span></li>))}</ul></section>))}
+          {!people.length && <Empty title="Ninguém atribuído ainda" text="Defina responsáveis nas tarefas para ver a distribuição." />}</div>)}
     </>
   );
 }

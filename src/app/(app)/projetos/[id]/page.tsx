@@ -8,6 +8,8 @@ import { updateProject } from '../actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, todayBR } from '@/lib/domain';
 import { dateBR } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
+import { ProjectPeopleCard } from '@/components/ProjectPeopleCard';
+import { loadProjectPeople } from '@/lib/projects/people-data';
 
 export default async function ProjetoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +23,7 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
   ]);
   if (!p) notFound();
   const cl = Array.isArray(p.clients) ? p.clients[0] : p.clients; const today = todayBR();
+  const peopleData = (await loadProjectPeople(supabase, { projectId: id }))[0];
   return (
     <>
       <PageHeader title={p.name} subtitle={`${cl?.name} · ${PROJECT_STATUS[p.status]}`} actions={<><LinkButton href="/projetos?view=projetos" className="btn btn-sm">← Projetos</LinkButton>{canWrite && <LinkButton href={`/projetos/tarefas/nova?project=${id}`} className="btn btn-primary btn-sm">Nova tarefa</LinkButton>}</>} />
@@ -38,6 +41,7 @@ export default async function ProjetoPage({ params }: { params: Promise<{ id: st
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="client_visible" defaultChecked={p.client_visible} /> Visível no Portal do Cliente</label>
           <Field label="Observações"><textarea name="notes" rows={3} defaultValue={p.notes ?? ''} className="input" /></Field></fieldset>
           {canWrite && <SubmitButton>Salvar</SubmitButton>}{p.contract_id && <Link href={`/contratos/${p.contract_id}`} className="block text-sm underline">Ver contrato</Link>}</form>
+        {peopleData && <div className="xl:col-start-3"><ProjectPeopleCard data={peopleData} /></div>}
       </div>
     </>
   );
