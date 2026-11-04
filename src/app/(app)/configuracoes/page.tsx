@@ -18,6 +18,7 @@ async function updateUser(id: string, fd: FormData) {
   if (id === profile.id && (role !== 'admin' || !active)) flash('/configuracoes', 'err', 'Você não pode remover seu próprio acesso de administrador.');
   const patch: Record<string, unknown> = { role, active, full_name: String(fd.get('full_name') ?? '').trim() };
   patch.client_id = role === 'cliente' ? String(fd.get('client_id') ?? '') || null : null;
+  if (role === 'cliente' && !patch.client_id) flash('/configuracoes', 'err', 'Para o perfil Cliente, escolha também a empresa em “Cliente (portal)”.');
   const { error } = await supabase.from('profiles').update(patch).eq('id', id);
   if (error) flash('/configuracoes', 'err', 'Não foi possível atualizar o usuário.');
   revalidatePath('/configuracoes');
@@ -63,13 +64,13 @@ export default async function Config() {
 
       {profile.role === 'admin' && <div className="mb-8"><AccessForm variant="equipe" loginUrl={`${appUrl().replace(/\/$/, '')}/login`} roles={(Object.keys(ROLE_LABEL) as Role[]).filter((r) => r !== 'cliente').map((r) => ({ value: r, label: ROLE_LABEL[r] }))} /></div>}
       <section className="card mb-8"><h2 className="mb-1 text-base font-semibold">Usuários e perfis</h2>
-        <p className="mb-5 text-sm text-muted">Crie novos usuários da equipe no formulário acima (link ou login e senha). Aqui você ajusta nome, perfil e situação de cada um. Para clientes do portal, use Portal do Cliente › Acessos.</p>
+        <p className="mb-5 text-sm text-muted">Crie novos usuários da equipe no formulário acima (link ou login e senha). Aqui você ajusta nome, perfil e situação de cada um. Para clientes do portal, use Portal do Cliente › Acessos. <b>Atenção:</b> pessoas de empresas clientes precisam ter o perfil <b>Cliente</b> + a empresa escolhida; o perfil Administrador dá acesso a tudo (financeiro, outros clientes).</p>
         <div className="space-y-3">{users?.map((u) => (
           <form key={u.id} action={updateUser.bind(null, u.id)} className="grid items-end gap-3 rounded-xl border border-line p-3 md:grid-cols-[1.2fr_1.2fr_11rem_1fr_auto_auto]">
             <div><span className="label">E-mail</span><div className="truncate text-sm">{u.email}</div></div>
             <Field label="Nome"><input name="full_name" defaultValue={u.full_name} className="input" /></Field>
             <Field label="Perfil"><select name="role" defaultValue={u.role} className="input">{(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></Field>
-            <Field label="Cliente (portal)"><select name="client_id" defaultValue={u.client_id ?? ''} className="input"><option value="">—</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+            <Field label="Cliente (portal) — só vale para o perfil Cliente"><select name="client_id" defaultValue={u.client_id ?? ''} className="input"><option value="">—</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
             <label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" name="active" defaultChecked={u.active} /> Ativo</label>
             <SubmitButton className="btn btn-sm btn-dark" pendingText="…">Salvar</SubmitButton>
           </form>))}</div></section>
