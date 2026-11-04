@@ -37,7 +37,8 @@ export async function updateProject(id: string, fd: FormData) {
 }
 
 const taskSchema = z.object({
-  title: z.string().trim().min(2, 'Informe o título da tarefa'), briefing: optText, assignee_id: optId, due_on: optDate,
+  title: z.string().trim().min(2, 'Informe o título da tarefa'), briefing: optText, assignee_id: optId, due_on: optDate, starts_on: optDate, review_due_on: optDate, changes_due_on: optDate,
+  area: z.preprocess((v) => v || null, z.enum(['diagramacao', 'social_media', 'outro']).nullable()),
   priority: z.enum(['baixa', 'media', 'alta', 'urgente']).default('media'),
 });
 
@@ -109,10 +110,10 @@ export async function addComment(taskId: string, fd: FormData) {
   const { supabase, profile } = await requireModule('projetos');
   const body = String(fd.get('body') ?? '').trim();
   if (!body) flash(`/projetos/tarefas/${taskId}`, 'err', 'Escreva o comentário.');
-  const { error } = await supabase.from('task_comments').insert({ task_id: taskId, author_id: profile.id, body });
+  const { error } = await supabase.from('task_comments').insert({ task_id: taskId, author_id: profile.id, body, client_visible: fd.get('client_visible') === 'on' });
   if (error) dbErr(`/projetos/tarefas/${taskId}`, error);
   revalidatePath(`/projetos/tarefas/${taskId}`);
-  flash(`/projetos/tarefas/${taskId}`, 'ok', 'Comentário publicado.');
+  flash(`/projetos/tarefas/${taskId}`, 'ok', fd.get('client_visible') === 'on' ? 'Mensagem enviada ao cliente (visível no portal).' : 'Comentário interno publicado.');
 }
 
 export async function logTime(taskId: string, fd: FormData) {
@@ -186,4 +187,36 @@ export async function toggleFileVisible(taskId: string, fileId: string, visible:
   await supabase.from('task_files').update({ client_visible: visible }).eq('id', fileId);
   revalidatePath(`/projetos/tarefas/${taskId}`);
   flash(`/projetos/tarefas/${taskId}`, 'ok', visible ? 'Arquivo visível ao cliente (aparece na aprovação e, depois de aprovado, nos documentos).' : 'Arquivo oculto do cliente.');
+}
+
+export async function addTaskLink(taskId: string, fd: FormData) {
+  const { supabase, profile } = await requireModule('projetos');
+  const back = `/projetos/tarefas/${taskId}`;
+  const url = String(fd.get('url') ?? '').trim();
+  if (!/^https?:\/\//i.test(url) || url.length > 1000) flash(back, 'err', 'O link precisa começar com http:// ou https://');
+  const kind = ['conteudo', 'referencia', 'entrega'].includes(String(fd.get('kind'))) ? String(fd.get('kind')) : 'entrega';
+  const { error } = await supabase.from('task_links').insert({ task_id: taskId, kind, label: String(fd.get('label') ?? '').trim().slice(0, 120) || null, url, client_visible: fd.get('client_visible') === 'on', added_by: profile.id });
+  if (error) dbErr(back, error);
+  revalidatePath(back);
+  flash(back, 'ok', 'Link adicionado.');
+}
+
+export async function removeTaskLink(taskId: string, linkId: string) {
+  const { supabase } = await requireModule('projetos');
+  const back = `/projetos/tarefas/${taskId}`;
+  const { error } = await supabase.from('task_links').delete().eq('id', linkId).eq('task_id', taskId);
+  if (error) dbErr(back, error);
+  revalidatePath(back);
+  flash(back, 'ok', 'Link removido.');
+}
+
+export async function saveBoardSettings(fd: FormData) {
+  const { supabase, profile } = await requireModule('projetos');
+  const back = '/projetos?view=avisos';
+  if (profile.role !== 'admin') flash(back, 'err', 'Somente administradores alteram estas configurações.');
+  const n = (k: string, d: number) => Math.min(30, Math.max(1, Math.round(Number(fd.get(k))) || d));
+  const { error } = await supabase.from('board_settings').update({ review_days: n('review_days', 3), changes_days: n('changes_days', 2), late_email_team: fd.get('late_email_team') === 'on', late_email_client: fd.get('late_email_client') === 'on' }).eq('id', 1);
+  if (error) dbErr(back, error);
+  revalidatePath('/projetos');
+  flash(back, 'ok', 'Configurações salvas.');
 }

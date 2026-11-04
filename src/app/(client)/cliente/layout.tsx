@@ -20,7 +20,7 @@ export default async function ClientLayout({ children }: { children: React.React
         <div className="flex items-center gap-2"><span className="hidden text-xs text-muted sm:inline">{profile.full_name || profile.email}</span><ThemeToggle /><form action={signOut}><button className="btn btn-sm">Sair</button></form></div>
       </header>
       <ClientNav pending={ov.awaiting_approval ?? 0} />
-      <main className="mx-auto max-w-5xl px-4 pb-20 pt-8 sm:px-8">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-8">{children}</main>
     </div>
   );
 }

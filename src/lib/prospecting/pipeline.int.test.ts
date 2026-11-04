@@ -8,6 +8,7 @@ import { periods, summarize } from './summary';
 import { createInboundDrafts, ingestLead, submitQualification } from '@/lib/leads/ingest';
 import { sendDiagnosisRequestAlert } from '@/lib/leads/alert';
 import { intakeLead } from '@/lib/leads/intake';
+import { sendLateTaskEmails } from '@/lib/projects/late';
 import { normalizeLead } from '@/lib/leads/normalize';
 import { parseAnswers } from '@/lib/leads/qualify';
 import { analyzeNextBatch, analyzeProspect, ANALYSIS_VERSION, countStale, reanalyzeNextBatch } from './pipeline';
@@ -257,6 +258,33 @@ describe.skipIf(!URL)('prospecção (integração)', () => {
     const lead = (await db.from('leads').select('service_interest, next_action').eq('id', r.leadId!).single()).data!;
     expect(lead.service_interest).toContain('Diagnóstico gratuito'); expect(lead.next_action).toContain('qualificado');
     const drafts = await db.from('outreach_messages').select('id').eq('prospect_id', r.prospectId!); expect(drafts.data?.length ?? 0).toBe(0);
+  });
+
+  it('avisos de atraso por e-mail: só ligados, equipe e responsável, sem repetir antes de 3 dias', async () => {
+    const sent: { to: string; subject: string; text: string }[] = []; const provider = { send: async (m: { to: string; subject: string; text: string }) => { sent.push(m); return { id: 'x' }; } };
+    const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    const ADMIN = '00000000-0000-0000-0000-0000000000a1';
+    await db.from('profiles').update({ email: 'resp@muvens.test', full_name: 'Ana Responsável' }).eq('id', ADMIN);
+    await db.from('outreach_settings').update({ sender_name: 'Ana', sender_email: 'ana@updates.muvens.test', alert_to: 'alerta@muvens.test' }).eq('id', 1);
+    const { data: c } = await db.from('clients').insert({ name: `Editora Atraso ${RUN}` }).select('id').single();
+    const { data: p } = await db.from('projects').insert({ client_id: c!.id, name: 'Livros', status: 'em_andamento', client_visible: true }).select('id').single();
+    const mk = async (title: string, row: Record<string, unknown>) => (await db.from('tasks').insert({ project_id: p!.id, title: `${title} ${RUN}`, ...row }).select('id').single()).data!.id as string;
+    const A = await mk('Diagramar livro A', { status: 'em_andamento', due_on: day(-1), assignee_id: ADMIN });
+    await mk('Revisão B', { status: 'enviado', due_on: day(-8), review_due_on: day(-4) });
+    await mk('Em dia C', { status: 'em_andamento', due_on: day(2) });
+    await mk('Entregue D', { status: 'entregue', due_on: day(-9) });
+    await db.from('board_settings').update({ late_email_team: false, late_email_client: false }).eq('id', 1);
+    expect(await sendLateTaskEmails(db, provider as never, 'https://app.test')).toMatchObject({ skipped: 'avisos desligados' }); expect(sent.length).toBe(0);
+    await db.from('board_settings').update({ late_email_team: true }).eq('id', 1);
+    const r = await sendLateTaskEmails(db, provider as never, 'https://app.test'); expect(r).toMatchObject({ errors: 0 });
+    const digest = sent.find((m) => m.to === 'alerta@muvens.test')!; expect(digest.text).toContain(`Diagramar livro A ${RUN}`); expect(digest.text).toContain(`Revisão B ${RUN}`);
+    expect(digest.text).toContain('AGUARDANDO O CLIENTE'); expect(digest.text).not.toContain(`Em dia C ${RUN}`); expect(digest.text).not.toContain(`Entregue D ${RUN}`);
+    const own = sent.find((m) => m.to === 'resp@muvens.test')!; expect(own.text).toContain(`Diagramar livro A ${RUN}`); expect(own.text).not.toContain(`Revisão B ${RUN}`); expect(own.text).toContain(`/projetos/tarefas/${A}`);
+    const n = sent.length; await sendLateTaskEmails(db, provider as never, 'https://app.test'); expect(sent.length).toBe(n);   // já avisado hoje
+    await db.from('tasks').update({ late_team_notified_on: day(-5) }).eq('project_id', p!.id);
+    await sendLateTaskEmails(db, provider as never, 'https://app.test'); expect(sent.length).toBeGreaterThan(n);   // passou o intervalo: avisa de novo
+    await db.from('board_settings').update({ late_email_team: false }).eq('id', 1);
+    await db.from('outreach_settings').update({ alert_to: null }).eq('id', 1);
   });
 
   it('funil: carrega do banco e separa as origens', async () => {

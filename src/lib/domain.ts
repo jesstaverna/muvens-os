@@ -86,6 +86,8 @@ export const CONTRACT_STATUS: Record<string, { label: string; tone: string }> = 
 };
 
 export const TASK_STATUS: Record<string, { label: string; tone: string }> = {
+  solicitada: { label: 'Solicitada pelo cliente', tone: 'bg-lime/40' },
+  aguardando_cliente: { label: 'Aguardando conteúdo do cliente', tone: 'bg-amber-500/15 text-warn' },
   a_fazer: { label: 'A fazer', tone: 'bg-subtle text-muted' },
   em_andamento: { label: 'Em andamento', tone: 'bg-blue-500/10 text-blue-600' },
   produzido: { label: 'Produzido (revisão interna)', tone: 'bg-violet-500/10 text-violet-600' },
@@ -95,7 +97,7 @@ export const TASK_STATUS: Record<string, { label: string; tone: string }> = {
   entregue: { label: 'Entregue', tone: 'bg-lime/60' },
   cancelada: { label: 'Cancelada', tone: 'bg-subtle text-muted' },
 };
-export const TASK_FLOW = ['a_fazer', 'em_andamento', 'produzido', 'enviado', 'ajustes', 'aprovado', 'entregue'] as const;
+export const TASK_FLOW = ['solicitada', 'aguardando_cliente', 'a_fazer', 'em_andamento', 'produzido', 'enviado', 'ajustes', 'aprovado', 'entregue'] as const;
 export const PRIORITY: Record<string, { label: string; tone: string }> = {
   baixa: { label: 'Baixa', tone: 'text-muted' }, media: { label: 'Média', tone: '' }, alta: { label: 'Alta', tone: 'text-warn' }, urgente: { label: 'Urgente', tone: 'text-danger font-medium' },
 };
@@ -113,6 +115,7 @@ export const fmtMinutes = (m: number) => `${Math.floor(m / 60)}h${String(m % 60)
 
 /** Rótulos de status mostrados ao cliente (sem jargão interno). */
 export const CLIENT_TASK_STATUS: Record<string, { label: string; tone: string }> = {
+  solicitada: { label: 'Solicitada — em análise', tone: 'bg-subtle text-muted' }, aguardando_cliente: { label: 'Aguardando seu conteúdo', tone: 'bg-amber-500/15 text-warn' },
   a_fazer: { label: 'Na fila', tone: 'bg-subtle text-muted' }, em_andamento: { label: 'Em produção', tone: 'bg-blue-500/10 text-blue-600' },
   produzido: { label: 'Em produção', tone: 'bg-blue-500/10 text-blue-600' }, enviado: { label: 'Aguardando sua aprovação', tone: 'bg-amber-500/15 text-warn' },
   ajustes: { label: 'Ajustes em andamento', tone: 'bg-violet-500/10 text-violet-600' }, aprovado: { label: 'Aprovado', tone: 'bg-lime/40' }, entregue: { label: 'Entregue', tone: 'bg-lime/60' },

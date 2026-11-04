@@ -40,3 +40,5 @@ npm run dev
 **Não testado:** fluxo completo no navegador contra um Supabase hospedado (Auth/GoTrue, Storage e Cron reais). O ambiente de desenvolvimento não tinha um projeto Supabase; valide em homologação seguindo `docs/DEPLOY.md`.
 
 > Banco: as migrações em `supabase/migrations/` são aplicadas pela integração GitHub↔Supabase (Working directory `.`, branch `main`). Não execute `supabase/setup.sql` junto com a integração.
+
+- Quadro de demandas do cliente (portal): `docs/QUADRO-DO-CLIENTE.md`.

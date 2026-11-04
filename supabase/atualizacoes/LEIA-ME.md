@@ -65,3 +65,7 @@ Rode `O_google_meu_negocio.sql` **uma vez** (pode ser repetido). Libera o servi�
 ## P — Detalhes do perfil do Google e relatório mensal do Google Meu Negócio (migração 24)
 
 Rode `P_relatorio_google.sql` **uma vez** (pode ser repetido). Cria a página de relatórios por cliente (Clientes > cliente > Relatórios do Google) e o campo de detalhes do perfil (fotos e horários). Para o sistema ler fotos e horários na busca do Google Maps, cadastre `GOOGLE_PLACES_EXTENDED=1` na Vercel (confira antes o custo dessas informações no Google Cloud).
+
+## Q — Quadro de demandas do cliente (migração 25)
+
+Rode `Q_quadro_do_cliente.sql` **uma vez** (pode ser repetido). Cria as áreas (Diagramação / Social Media), os novos status "Solicitada" e "Aguardando conteúdo do cliente", os links de conteúdo e entrega, as datas (início, entrega, devolução da revisão, entrega das alterações) e as configurações de avisos. Depois: (1) em **Projetos**, marque o projeto do cliente como "visível no portal"; (2) crie o acesso do cliente em **Portal do Cliente**; (3) em **Projetos > Prazos e avisos**, ajuste os prazos padrão e ligue os e-mails de atraso. Guia em `docs/QUADRO-DO-CLIENTE.md`. Conferência: `select to_regclass('public.task_links') is not null;` → `true`.

@@ -37,9 +37,9 @@ for (let i = 0; i < 40; i++) { try { if ((await fetch(`http://127.0.0.1:${APP}/a
 
 const cookie = (sub) => { const s = { access_token: jwt(sub), refresh_token: 'r', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: sub, email: `${sub}@test.local`, aud: 'authenticated', role: 'authenticated' } }; return `sb-127-auth-token=base64-${b64u(s)}`; };
 const STAFF_PAGES = ['/dashboard', '/alertas', '/crm', '/crm/novo', '/clientes', '/clientes/novo', '/propostas', '/propostas/nova', '/financeiro', '/financeiro?tab=receber', '/financeiro?tab=recorrentes', '/financeiro?tab=novo', '/metas', '/automacoes', '/configuracoes',
-  '/contratos', '/contratos/modelos', '/projetos', '/projetos?view=lista', '/projetos?view=projetos', '/projetos?view=entregaveis', '/projetos?view=rentabilidade', '/projetos/novo', '/projetos/tarefas/nova', '/calendario', '/brand', '/portal', '/portal?tab=documentos', '/portal?tab=acessos',
+  '/contratos', '/contratos/modelos', '/projetos', '/projetos?view=lista', '/projetos?view=timeline', '/projetos?view=calendario', '/projetos?view=avisos', '/projetos?view=projetos', '/projetos?view=entregaveis', '/projetos?view=rentabilidade', '/projetos/novo', '/projetos/tarefas/nova', '/calendario', '/brand', '/portal', '/portal?tab=documentos', '/portal?tab=acessos',
   '/prospeccao', '/prospeccao?tab=campanhas', '/prospeccao?tab=fila', '/prospeccao?tab=novo', '/prospeccao?tab=bloqueios', '/prospeccao?tab=config', '/prospeccao?tab=prospectos&grp=todos', '/prospeccao?tab=prospectos&grp=manual', '/prospeccao?tab=prospectos&grp=clinica-de-estetica--campinas'];
-const CLIENT_PAGES = ['/cliente', '/cliente/projetos', '/cliente/aprovacoes', '/cliente/calendario', '/cliente/solicitacoes', '/cliente/documentos', '/cliente/contratos'];
+const CLIENT_PAGES = ['/cliente', '/cliente/quadro', '/cliente/quadro?v=timeline', '/cliente/quadro?v=lista', '/cliente/quadro?v=calendario', '/cliente/quadro/nova', '/cliente/projetos', '/cliente/aprovacoes', '/cliente/calendario', '/cliente/solicitacoes', '/cliente/documentos', '/cliente/contratos'];
 
 let fails = 0;
 const hit = async (who, path) => {
@@ -60,6 +60,8 @@ const cl = await (await fetch(`http://127.0.0.1:${PGRST.port}/clients?select=id&
 if (cl[0]) { await hit('admin', `/brand/${cl[0].id}`); for (const t of ['arquivos', 'regras', 'conhecimento']) await hit('admin', `/brand/${cl[0].id}?tab=${t}`); await hit('admin', `/clientes/${cl[0].id}?tab=financeiro`); }
 for (const who of ['comercial', 'financeiro', 'designer']) for (const p of ['/dashboard', '/crm', '/financeiro', '/projetos', '/brand', '/prospeccao']) await hit(who, p);
 for (const p of CLIENT_PAGES) await hit('cliente', p);
+const board = await (await fetch(`http://127.0.0.1:${PGRST.port}/rpc/portal_board`, { method: 'POST', headers: { authorization: `Bearer ${jwt(U.cliente)}`, 'content-type': 'application/json' }, body: '{}' })).json();
+for (const t of (board.tasks ?? []).slice(0, 3)) await hit('cliente', `/cliente/quadro/${t.id}`);
 // cliente não acessa área da equipe (redireciona ao portal)
 const x = await hit('cliente', '/financeiro'); if (!String(x.r.headers.get('location')).includes('/cliente')) { fails++; console.error('✗ cliente deveria ser redirecionado de /financeiro ao portal'); }
 

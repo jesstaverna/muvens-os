@@ -2,6 +2,7 @@ import { appUrl } from '@/lib/app-url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resendProvider, type EmailProvider } from '@/integrations/email';
 import { analyzePending } from '@/lib/prospecting/pipeline';
+import { sendLateTaskEmails } from '@/lib/projects/late';
 import { sendWeeklyDigest } from '@/lib/prospecting/digest';
 import { runRecurringCampaigns } from '@/lib/prospecting/recurring';
 import { autoApproveReady, createFollowups, createNurtureDrafts, processOutbox } from '@/lib/prospecting/outbox';
@@ -68,7 +69,7 @@ export async function runWorker(db: SupabaseClient, batch = 20, email: EmailProv
   }
   // Prospecção: análise de novos prospectos, follow-ups e envio de e-mails (salvaguardas aplicadas no banco)
   const prospecting: Record<string, unknown> = {};
-  for (const [name, fn] of [['recurring', () => runRecurringCampaigns(db)], ['analysis', () => analyzePending(db)], ['autoApprove', () => autoApproveReady(db)], ['followups', () => createFollowups(db)], ['nurture', () => createNurtureDrafts(db)], ['digest', () => sendWeeklyDigest(db, email, appUrl())], ['outbox', () => processOutbox(db, email, appUrl())]] as const) {
+  for (const [name, fn] of [['recurring', () => runRecurringCampaigns(db)], ['analysis', () => analyzePending(db)], ['autoApprove', () => autoApproveReady(db)], ['followups', () => createFollowups(db)], ['nurture', () => createNurtureDrafts(db)], ['digest', () => sendWeeklyDigest(db, email, appUrl())], ['outbox', () => processOutbox(db, email, appUrl())], ['lateTasks', () => sendLateTaskEmails(db, email, appUrl())]] as const) {
     try { prospecting[name] = await fn(); } catch (e) { prospecting[name] = { error: e instanceof Error ? e.message : String(e) }; }
   }
   const result = { claimed: jobs?.length ?? 0, done, failed, prospecting };

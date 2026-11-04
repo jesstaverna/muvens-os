@@ -19,7 +19,9 @@ export default async function NovaTarefa({ searchParams }: { searchParams: Promi
         <Field label="Projeto *"><select name="project_id" required defaultValue={project ?? ''} className="input"><option value="">Selecione…</option>{projects?.map((p: any) => <option key={p.id} value={p.id}>{(Array.isArray(p.clients) ? p.clients[0] : p.clients)?.name} — {p.name}</option>)}</select></Field>
         <Field label="Título *"><input name="title" required className="input" /></Field>
         <Field label="Responsável"><select name="assignee_id" className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-        <Field label="Prazo"><input type="date" name="due_on" className="input" /></Field>
+        <Field label="Área"><select name="area" className="input" defaultValue=""><option value="">—</option><option value="diagramacao">Diagramação</option><option value="social_media">Social Media</option><option value="outro">Outra</option></select></Field>
+        <Field label="Início"><input type="date" name="starts_on" className="input" /></Field>
+        <Field label="Entrega"><input type="date" name="due_on" className="input" /></Field>
         <Field label="Prioridade"><select name="priority" defaultValue="media" className="input">{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field>
         <Field label="Entregável contratado" hint="Se passar da quantidade contratada, a tarefa é marcada como fora do escopo."><select name="deliverable_plan_id" className="input"><option value="">— nenhum —</option>{plans?.map((d) => <option key={d.id} value={d.id}>{d.name} · {String(d.period_month).slice(5, 7)}/{String(d.period_month).slice(0, 4)}</option>)}</select></Field></div>
         <Field label="Briefing"><textarea name="briefing" rows={6} className="input" placeholder="Objetivo, formato, referências, textos, restrições da marca…" /></Field><SubmitButton>Criar tarefa</SubmitButton></form></>

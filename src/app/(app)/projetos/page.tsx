@@ -3,7 +3,9 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { TaskBoard, type KTask } from './TaskBoard';
-import { createPlan, saveRate } from './actions';
+import { CalendarView, TimelineView } from '@/components/BoardViews';
+import type { BoardTask } from '@/lib/projects/board';
+import { createPlan, saveBoardSettings, saveRate } from './actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateBR, money } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
@@ -15,7 +17,7 @@ const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v)
 export default async function Projetos({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('projetos');
   const sp = await searchParams;
-  const views = ['kanban', 'lista', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : [])];
+  const views = ['kanban', 'timeline', 'calendario', 'lista', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
   const view = views.includes(sp.view ?? '') ? sp.view! : 'kanban';
   const today = todayBR();
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
@@ -26,20 +28,21 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
     supabase.from('projects').select('id, name, status, due_on, client_id, clients(name), owner:profiles!projects_owner_id_fkey(full_name)').order('created_at', { ascending: false }),
   ]);
 
-  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
+  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
   if (sp.project && /^[0-9a-f-]{36}$/.test(sp.project)) tq = tq.eq('project_id', sp.project);
   if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) tq = tq.eq('projects.client_id', sp.client);
   if (sp.me) tq = tq.eq('assignee_id', profile.id);
-  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' ? { data: [] as never[] } : await tq;
+  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' ? { data: [] as never[] } : await tq;
 
   const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => ({
-    id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, assignee: one(t.assignee)?.full_name ?? null,
+    id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: one(t.assignee)?.full_name ?? null,
     client: one(one(t.projects)?.clients)?.name ?? null, project: one(t.projects)?.name ?? null, out_of_scope: t.out_of_scope,
     late: !!t.due_on && t.due_on < today && !['entregue', 'aprovado'].includes(t.status),
   }));
 
+  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, links: 0, comments: 0 }));
   const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
-  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'lista', label: 'Lista' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : [])];
+  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
   const late = tasks.filter((t) => t.late).length;
 
   return (
@@ -48,7 +51,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
         actions={canWrite ? <><LinkButton href="/projetos/novo" className="btn">Novo projeto</LinkButton><LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton></> : undefined} />
       <Tabs current={view} items={TABS.map((t) => ({ ...t, href: `/projetos?view=${t.key}` }))} />
 
-      {(view === 'kanban' || view === 'lista') && (
+      {(view === 'kanban' || view === 'lista' || view === 'timeline' || view === 'calendario') && (
         <>
           <form method="get" className="mb-5 flex flex-wrap items-end gap-2"><input type="hidden" name="view" value={view} />
             <select name="client" defaultValue={sp.client ?? ''} className="input w-52" aria-label="Cliente"><option value="">Todos os clientes</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
@@ -56,7 +59,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
             <label className="flex items-center gap-2 px-2 pb-2.5 text-sm"><input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} /> Só minhas</label>
             <button className="btn btn-dark">Filtrar</button>{late > 0 && <span className="pb-2.5 text-sm text-danger">{late} atrasada(s)</span>}</form>
           {!tasks.length ? <Empty title="Nenhuma tarefa" text="Crie um projeto para o cliente e adicione tarefas. Ao assinar um contrato, o projeto de onboarding é criado automaticamente." action={canWrite ? <LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton> : undefined} />
-            : view === 'kanban' ? <TaskBoard tasks={tasks} /> : (
+            : view === 'kanban' ? <TaskBoard tasks={tasks} /> : view === 'timeline' ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : view === 'calendario' ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : (
               <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th><th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th></tr></thead>
                 <tbody>{tasks.map((t) => (<tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td"><Link className="font-medium hover:underline" href={`/projetos/tarefas/${t.id}`}>{t.title}</Link>{t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">fora do escopo</span>}</td>
                   <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td><td className="td">{t.assignee ?? '—'}</td><td className={`td whitespace-nowrap ${t.late ? 'font-medium text-danger' : ''}`}>{dateBR(t.due_on)}</td>
@@ -73,6 +76,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
 
       {view === 'entregaveis' && <Entregaveis supabase={supabase} clients={clients ?? []} projects={projects ?? []} canPlan={canPlan} />}
       {view === 'rentabilidade' && <Rentabilidade supabase={supabase} />}
+      {view === 'avisos' && <Avisos supabase={supabase} />}
     </>
   );
 }
@@ -121,4 +125,21 @@ async function Rentabilidade({ supabase }: { supabase: Awaited<ReturnType<typeof
       <div className="card h-fit"><h2 className="mb-4 text-base font-semibold">Custo por hora da equipe</h2>
         <div className="space-y-3">{people?.map((p) => (<form key={p.id} action={saveRate} className="flex items-end gap-2"><input type="hidden" name="user_id" value={p.id} /><div className="flex-1"><span className="label">{p.full_name}</span><input name="hourly_cost" inputMode="decimal" defaultValue={rate.has(p.id) ? String(rate.get(p.id)).replace('.', ',') : ''} placeholder="R$/hora" className="input" aria-label={`Custo por hora de ${p.full_name}`} /></div><SubmitButton className="btn btn-sm" pendingText="…">Salvar</SubmitButton></form>))}</div></div>
     </div>);
+}
+
+async function Avisos({ supabase }: { supabase: Awaited<ReturnType<typeof requireModule>>['supabase'] }) {
+  const [{ data: b }, { data: o }] = await Promise.all([supabase.from('board_settings').select('*').eq('id', 1).maybeSingle(), supabase.from('outreach_settings').select('sender_name, sender_email, alert_to, weekly_digest_to').eq('id', 1).maybeSingle()]);
+  const ready = !!(o?.sender_name && o?.sender_email); const to = o?.alert_to || o?.weekly_digest_to;
+  return (
+    <form action={saveBoardSettings} className="card max-w-2xl space-y-6">
+      <div><h2 className="text-base font-semibold">Prazos padrão</h2><p className="mt-1 text-sm text-muted">Sugeridos automaticamente (e editáveis em cada tarefa):</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2"><Field label="Dias para o cliente devolver a revisão" hint="Contados a partir do envio para aprovação."><input type="number" name="review_days" min={1} max={30} defaultValue={b?.review_days ?? 3} className="input" /></Field>
+          <Field label="Dias para a equipe entregar as alterações" hint="Contados a partir do pedido de ajustes."><input type="number" name="changes_days" min={1} max={30} defaultValue={b?.changes_days ?? 2} className="input" /></Field></div></div>
+      <div><h2 className="text-base font-semibold">Avisos de atraso por e-mail</h2><p className="mt-1 text-sm text-muted">Enviados uma vez por dia (11h), no máximo a cada 3 dias por tarefa. Só avisam tarefas com data vencida.</p>
+        {!ready && <p className="mt-3 rounded-xl bg-amber-500/10 p-3 text-sm text-warn">Configure o remetente em Prospecção › Configurações de envio para os e-mails saírem.</p>}
+        <label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" name="late_email_team" defaultChecked={!!b?.late_email_team} className="mt-1" /><span><b>Avisar a equipe</b> — resumo para {to ? <b>{to}</b> : 'o destinatário dos alertas (defina em Prospecção › Configurações de envio)'} e um e-mail para cada responsável com as tarefas dele.</span></label>
+        <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" name="late_email_client" defaultChecked={!!b?.late_email_client} className="mt-1" /><span><b>Lembrar o cliente</b> — e-mail aos usuários do portal quando uma aprovação ou o envio de conteúdo passou do prazo combinado.</span></label></div>
+      <SubmitButton>Salvar</SubmitButton>
+    </form>
+  );
 }

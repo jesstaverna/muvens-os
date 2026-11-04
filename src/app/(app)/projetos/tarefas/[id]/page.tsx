@@ -4,7 +4,7 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { FileUploader } from '../../FileUploader';
-import { addChecklistItem, addComment, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
+import { addChecklistItem, addComment, addTaskLink, removeTaskLink, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
 import { PRIORITY, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateTimeBR } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
@@ -19,13 +19,14 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
   const { data: t } = await supabase.from('tasks').select('*, projects(id, name, client_id, clients(name))').eq('id', id).maybeSingle();
   if (!t) notFound();
-  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }] = await Promise.all([
+  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }, { data: links }] = await Promise.all([
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
     supabase.from('task_checklist_items').select('*').eq('task_id', id).order('position'),
-    supabase.from('task_comments').select('id, body, created_at, author:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }),
+    supabase.from('task_comments').select('id, body, created_at, from_client, client_visible, author:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }),
     supabase.from('task_events').select('id, kind, detail, created_at, actor:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }).limit(60),
     supabase.from('task_files').select('id, name, size, created_at, client_visible').eq('task_id', id).order('created_at', { ascending: false }),
     supabase.from('time_entries').select('id, minutes, worked_on, note, user_id, who:profiles(full_name)').eq('task_id', id).order('worked_on', { ascending: false }),
+    supabase.from('task_links').select('id, kind, label, url, from_client, client_visible, created_at').eq('task_id', id).order('created_at'),
   ]);
   const proj = one(t.projects) as { id: string; name: string; clients: { name: string } | { name: string }[] | null } | null;
   const st = TASK_STATUS[t.status];
@@ -35,7 +36,9 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
     <form action={setTaskStatus.bind(null, id, status)} className="flex items-center gap-2">{opts.ask && <input name="note" placeholder="Observação (opcional)" className="input !w-52 !py-1.5 text-xs" aria-label="Observação" />}
       <SubmitButton className={opts.primary ? 'btn btn-sm btn-primary' : 'btn btn-sm'} pendingText="…" confirm={opts.confirm}>{label}</SubmitButton></form>);
   const next: Record<string, React.ReactNode> = {
-    a_fazer: btn('em_andamento', 'Iniciar', { primary: true }),
+    solicitada: <>{btn('a_fazer', 'Aceitar e colocar na fila', { primary: true })}{btn('aguardando_cliente', 'Pedir conteúdo ao cliente')}</>,
+    aguardando_cliente: btn('a_fazer', 'Conteúdo recebido — colocar na fila', { primary: true }),
+    a_fazer: <>{btn('em_andamento', 'Iniciar', { primary: true })}{btn('aguardando_cliente', 'Pedir conteúdo ao cliente')}</>,
     em_andamento: btn('produzido', 'Marcar como produzido', { primary: true }),
     produzido: <>{btn('enviado', 'Enviar ao cliente para aprovação', { primary: true })}{btn('em_andamento', 'Voltar para andamento')}</>,
     enviado: <>{btn('aprovado', 'Registrar aprovação do cliente', { primary: true, ask: true, confirm: 'O cliente aprovou esta peça?' })}{btn('ajustes', 'Cliente pediu ajustes', { ask: true })}</>,
@@ -55,7 +58,11 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
           <form action={updateTask.bind(null, id)} className="card space-y-5"><h2 className="text-base font-semibold">Detalhes e briefing</h2><fieldset disabled={!canWrite} className="space-y-5">
             <div className="grid gap-5 sm:grid-cols-2"><Field label="Título"><input name="title" defaultValue={t.title} required className="input" /></Field>
               <Field label="Responsável"><select name="assignee_id" defaultValue={t.assignee_id ?? ''} className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
-              <Field label="Prazo"><input type="date" name="due_on" defaultValue={t.due_on ?? ''} className={`input ${late ? 'border-danger' : ''}`} /></Field>
+              <Field label="Início"><input type="date" name="starts_on" defaultValue={t.starts_on ?? ''} className="input" /></Field>
+              <Field label="Entrega"><input type="date" name="due_on" defaultValue={t.due_on ?? ''} className={`input ${late ? 'border-danger' : ''}`} /></Field>
+              <Field label="Devolução da revisão (cliente)" hint="Até quando o cliente deve aprovar ou pedir ajustes. Sugerida ao enviar para aprovação."><input type="date" name="review_due_on" defaultValue={t.review_due_on ?? ''} className="input" /></Field>
+              <Field label="Entrega das alterações (equipe)" hint="Até quando a equipe refaz os ajustes. Sugerida ao registrar ajustes."><input type="date" name="changes_due_on" defaultValue={t.changes_due_on ?? ''} className="input" /></Field>
+              <Field label="Área"><select name="area" defaultValue={t.area ?? ''} className="input"><option value="">—</option><option value="diagramacao">Diagramação</option><option value="social_media">Social Media</option><option value="outro">Outra</option></select></Field>
               <Field label="Prioridade"><select name="priority" defaultValue={t.priority} className="input">{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field></div>
             <Field label="Briefing (interno)"><textarea name="briefing" rows={6} defaultValue={t.briefing ?? ''} className="input" /></Field>
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-start"><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" name="internal" defaultChecked={t.internal} /> Interna (oculta no portal)</label>
@@ -63,14 +70,19 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-end"><label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" name="out_of_scope" defaultChecked={t.out_of_scope} /> Fora do escopo</label><Field label="Observação sobre o escopo"><input name="out_of_scope_note" defaultValue={t.out_of_scope_note ?? ''} className="input" /></Field></div></fieldset>
             {canWrite && <SubmitButton>Salvar</SubmitButton>}</form>
 
+          <section className="card"><h2 className="mb-1 text-base font-semibold">Links</h2><p className="mb-4 text-xs text-muted">Onde estão os conteúdos (do cliente) e as entregas (da Muvens). Links marcados como visíveis aparecem no portal.</p>
+            <ul className="mb-4 space-y-2 text-sm">{links?.map((l) => (<li key={l.id} className="flex items-center justify-between gap-2"><span className="min-w-0"><span className="block text-xs text-muted">{{ conteudo: 'Conteúdo do cliente', referencia: 'Referência', entrega: 'Entrega' }[l.kind as string]}{l.from_client ? ' · enviado pelo cliente' : ''}{l.client_visible ? '' : ' · oculto ao cliente'}</span><a href={l.url} target="_blank" rel="noopener noreferrer" className="block truncate underline">{l.label || l.url}</a></span>{canWrite && <form action={removeTaskLink.bind(null, id, l.id)}><button className="text-xs text-muted hover:text-danger" aria-label="Remover link">remover</button></form>}</li>))}{!links?.length && <li className="text-muted">Nenhum link.</li>}</ul>
+            {canWrite && <form action={addTaskLink.bind(null, id)} className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr]"><Field label="Link"><input type="url" name="url" required placeholder="https://…" className="input" /></Field><Field label="Tipo"><select name="kind" defaultValue="entrega" className="input"><option value="entrega">Entrega (arquivos finais)</option><option value="conteudo">Conteúdo do cliente</option><option value="referencia">Referência</option></select></Field><Field label="Nome"><input name="label" maxLength={120} className="input" placeholder="Pasta final" /></Field>
+              <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" name="client_visible" defaultChecked /> Visível ao cliente no portal</label><SubmitButton className="btn btn-sm" pendingText="…">Adicionar link</SubmitButton></form>}</section>
+
           <section className="card"><h2 className="mb-4 text-base font-semibold">Checklist</h2>
             <ul className="mb-4 space-y-2">{items?.map((i) => (<li key={i.id} className="flex items-center justify-between gap-2 text-sm"><form action={toggleChecklistItem.bind(null, id, i.id, !i.done)} className="flex items-center gap-2"><button className="grid h-5 w-5 place-items-center rounded border border-line text-xs" aria-label={i.done ? 'Desmarcar' : 'Marcar'} disabled={!canWrite}>{i.done ? '✓' : ''}</button><span className={i.done ? 'text-muted line-through' : ''}>{i.text}</span></form>
               {canWrite && <form action={removeChecklistItem.bind(null, id, i.id)}><button className="text-xs text-muted hover:text-danger" aria-label="Remover">remover</button></form>}</li>))}{!items?.length && <li className="text-sm text-muted">Sem itens.</li>}</ul>
             {canWrite && <form action={addChecklistItem.bind(null, id)} className="flex gap-2"><input name="text" required placeholder="Novo item" className="input" aria-label="Novo item" /><SubmitButton className="btn btn-sm" pendingText="…">Adicionar</SubmitButton></form>}</section>
 
           <section className="card"><h2 className="mb-4 text-base font-semibold">Comentários</h2>
-            {canWrite && <form action={addComment.bind(null, id)} className="mb-5 flex gap-2"><input name="body" required placeholder="Escreva um comentário" className="input" aria-label="Comentário" /><SubmitButton pendingText="…">Publicar</SubmitButton></form>}
-            <ul className="space-y-3">{comments?.map((c) => (<li key={c.id} className="text-sm"><div className="text-xs text-muted">{one(c.author)?.full_name ?? 'Usuário'} · {dateTimeBR(c.created_at)}</div>{c.body}</li>))}{!comments?.length && <li className="text-sm text-muted">Sem comentários.</li>}</ul></section>
+            {canWrite && <form action={addComment.bind(null, id)} className="mb-5 space-y-2"><div className="flex gap-2"><input name="body" required placeholder="Escreva um comentário" className="input" aria-label="Comentário" /><SubmitButton pendingText="…">Publicar</SubmitButton></div><label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" name="client_visible" /> Visível ao cliente no portal (desmarcado = comentário interno)</label></form>}
+            <ul className="space-y-3">{comments?.map((c) => (<li key={c.id} className="text-sm"><div className="text-xs text-muted">{one(c.author)?.full_name ?? 'Usuário'} · {dateTimeBR(c.created_at)}{c.from_client ? ' · do cliente' : c.client_visible ? ' · visível ao cliente' : ' · interno'}</div>{c.body}</li>))}{!comments?.length && <li className="text-sm text-muted">Sem comentários.</li>}</ul></section>
         </div>
 
         <aside className="space-y-6">

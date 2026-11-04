@@ -122,3 +122,90 @@ set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000
 select pg_temp.expect_error($$select public.portal_overview()$$, '42501');
 reset role;
 update profiles set active = true where id = '00000000-0000-0000-0000-0000000000b1';
+
+-- ===== quadro do cliente (0025) =====
+insert into task_comments (task_id, author_id, body, client_visible) values ('55555555-5555-5555-5555-555555555552', '00000000-0000-0000-0000-0000000000a1', 'comentário interno da equipe', false), ('55555555-5555-5555-5555-555555555552', '00000000-0000-0000-0000-0000000000a1', 'resposta aberta ao cliente', true);
+insert into task_links (task_id, kind, label, url, client_visible) values ('55555555-5555-5555-5555-555555555552', 'entrega', 'Pasta final', 'https://drive.example/final', true), ('55555555-5555-5555-5555-555555555552', 'entrega', 'Pasta interna', 'https://drive.example/interna', false);
+update tasks set status = 'em_andamento' where id = '55555555-5555-5555-5555-555555555552';
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+do $$ declare b jsonb; d jsonb; nid uuid; begin
+  b := public.portal_board();
+  assert exists (select 1 from jsonb_array_elements(b->'tasks') t where t->>'id' = '55555555-5555-5555-5555-555555555552'), 'quadro mostra a tarefa do cliente';
+  assert not exists (select 1 from jsonb_array_elements(b->'tasks') t where t->>'id' in ('55555555-5555-5555-5555-555555555553', '77777777-7777-7777-7777-777777777771')), 'quadro não mostra tarefa interna nem de outro cliente';
+  assert jsonb_array_length(b->'projects') = 1, 'só o projeto liberado';
+  d := public.portal_task_detail('55555555-5555-5555-5555-555555555552');
+  assert jsonb_array_length(d->'links') = 1 and d->'links'->0->>'label' = 'Pasta final', 'só links visíveis ao cliente';
+  assert exists (select 1 from jsonb_array_elements(d->'comments') c where c->>'body' = 'resposta aberta ao cliente') and not exists (select 1 from jsonb_array_elements(d->'comments') c where c->>'body' like '%interno da equipe%'), 'só comentários abertos ao cliente';
+  nid := public.portal_create_task('33333333-3333-3333-3333-333333333333', 'diagramacao', 'Diagramar livro Aurora', 'Miolo e capa, 220 páginas', current_date + 20, 'https://drive.example/manuscrito');
+end $$;
+select pg_temp.expect_error($$select public.portal_create_task('66666666-6666-6666-6666-666666666666', 'social_media', 'Invasão', 'x')$$, '42501');
+select pg_temp.expect_error($$select public.portal_create_task('33333333-3333-3333-3333-333333333333', 'invalida', 'Título ok', 'x')$$, '22023');
+select pg_temp.expect_error($$select public.portal_create_task('33333333-3333-3333-3333-333333333333', 'social_media', 'Título ok', 'x', null, 'javascript:alert(1)')$$, '22023');
+select pg_temp.expect_error($$select public.portal_add_link('77777777-7777-7777-7777-777777777771', 'https://x.example')$$, '42501');
+select pg_temp.expect_error($$select public.portal_add_link('55555555-5555-5555-5555-555555555553', 'https://x.example')$$, '42501');
+select pg_temp.expect_error($$select public.portal_add_link('55555555-5555-5555-5555-555555555552', 'ftp://x.example')$$, '22023');
+select pg_temp.expect_error($$select public.portal_task_detail('77777777-7777-7777-7777-777777777771')$$, '42501');
+select pg_temp.expect_error($$select public.portal_request_change('55555555-5555-5555-5555-555555555552', 'trocar a capa')$$, '23514');
+select pg_temp.expect_error($$select public.portal_content_sent('55555555-5555-5555-5555-555555555552')$$, '23514');
+select public.portal_add_comment('55555555-5555-5555-5555-555555555552', 'Segue a nova foto da autora');
+reset role;
+do $$ declare nid uuid; begin
+  assert (select count(*) from task_comments where task_id = '55555555-5555-5555-5555-555555555552' and from_client and client_visible and body like 'Segue%') = 1, 'comentário do cliente gravado';
+  select id into nid from tasks where title = 'Diagramar livro Aurora';
+  assert (select status from tasks where id = nid) = 'solicitada' and (select origin from tasks where id = nid) = 'cliente' and (select area from tasks where id = nid) = 'diagramacao', 'demanda nasce solicitada, do cliente, na área';
+  assert (select count(*) from task_links where task_id = nid and from_client and kind = 'conteudo') = 1, 'link do manuscrito gravado';
+end $$;
+-- "aguardando conteúdo": o link de conteúdo devolve a demanda à fila da equipe
+update tasks set status = 'aguardando_cliente' where id = '55555555-5555-5555-5555-555555555552';
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+select public.portal_add_link('55555555-5555-5555-5555-555555555552', 'https://drive.example/textos', 'Textos do livro');
+reset role;
+do $$ begin assert (select status from tasks where id = '55555555-5555-5555-5555-555555555552') = 'a_fazer', 'conteúdo recebido volta para a fila'; end $$;
+update tasks set status = 'aguardando_cliente' where id = '55555555-5555-5555-5555-555555555552';
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+select public.portal_content_sent('55555555-5555-5555-5555-555555555552');
+reset role;
+do $$ begin assert (select status from tasks where id = '55555555-5555-5555-5555-555555555552') = 'a_fazer', '"já enviei" volta para a fila'; end $$;
+-- alteração depois de aprovado: nova demanda, original intacta
+update tasks set status = 'em_andamento' where id = '55555555-5555-5555-5555-555555555552';
+update tasks set status = 'produzido' where id = '55555555-5555-5555-5555-555555555552';
+update tasks set status = 'enviado' where id = '55555555-5555-5555-5555-555555555552';
+update tasks set status = 'aprovado' where id = '55555555-5555-5555-5555-555555555552';
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+select public.portal_request_change('55555555-5555-5555-5555-555555555552', 'Trocar a cor do título para verde');
+reset role;
+do $$ begin
+  assert (select status from tasks where id = '55555555-5555-5555-5555-555555555552') = 'aprovado', 'peça aprovada continua aprovada';
+  assert (select count(*) from tasks where title like 'Alteração:%' and status = 'solicitada' and origin = 'cliente') = 1, 'pedido de alteração vira nova demanda';
+  assert (select count(*) from notifications where title like 'Cliente pediu alteração%') = 1, 'equipe é avisada';
+end $$;
+-- cliente B não enxerga nada do quadro de A
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b2';
+do $$ begin assert not exists (select 1 from jsonb_array_elements(public.portal_board()->'tasks') t where t->>'project' <> 'Projeto da B'), 'quadro de B só tem o projeto de B'; end $$;
+select pg_temp.expect_error($$select public.portal_add_comment('55555555-5555-5555-5555-555555555552', 'tentando')$$, '42501');
+reset role;
+-- staff não usa o portal; sem login não executa
+set role anon;
+select pg_temp.expect_error($$select public.portal_board()$$, '42501');
+reset role;
+
+-- ===== datas e atrasos (0025) =====
+do $$ declare t uuid := '55555555-5555-5555-5555-555555555552'; today date := app.br_date(now()); begin
+  update tasks set status = 'em_andamento' where id = t;     -- estava aprovada: reabre (superusuário)
+  update tasks set status = 'produzido' where id = t;
+  update tasks set status = 'enviado' where id = t;
+  assert (select review_due_on from tasks where id = t) = today + 3, 'enviar para aprovação sugere devolução em 3 dias';
+  update tasks set status = 'ajustes' where id = t;
+  assert (select changes_due_on from tasks where id = t) = today + 2, 'pedir ajustes sugere entrega em 2 dias';
+  -- prazos informados à mão não são sobrescritos
+  update tasks set status = 'produzido' where id = t; update tasks set status = 'enviado', review_due_on = today + 9 where id = t;
+  assert (select review_due_on from tasks where id = t) = today + 9, 'prazo manual respeitado';
+  -- atrasos: equipe (em andamento vencida) e cliente (aprovação vencida)
+  update tasks set review_due_on = today - 2 where id = t;
+  update tasks set status = 'em_andamento', due_on = today - 5 where id = '55555555-5555-5555-5555-555555555553';
+  assert exists (select 1 from public.task_delays() d where d.task_id = t and d.side = 'cliente' and d.days_late = 2), 'aprovação atrasada é do cliente';
+  assert exists (select 1 from public.task_delays() d where d.task_id = '55555555-5555-5555-5555-555555555553' and d.side = 'equipe' and d.days_late = 5), 'tarefa vencida é da equipe';
+end $$;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
+select pg_temp.expect_error($$select * from public.task_delays()$$, '42501');
+reset role;
