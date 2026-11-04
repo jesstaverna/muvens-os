@@ -8,7 +8,7 @@ const optId = z.preprocess((v) => v || null, z.string().uuid().nullable());
 const optDate = z.preprocess((v) => v || null, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida').nullable());
 const optText = z.preprocess((v) => (typeof v === 'string' && v.trim() ? v.trim() : null), z.string().max(5000).nullable());
 const dbErr = (back: string, e: { code?: string; message: string }): never =>
-  flash(back, 'err', e.code === '42501' ? 'Seu perfil não tem permissão para esta ação.' : e.code === '23514' ? e.message : 'Não foi possível concluir a operação.');
+  flash(back, 'err', e.code === '42501' ? 'Seu perfil não tem permissão para esta ação.' : e.code === '23514' ? e.message : e.code === 'PGRST204' || e.code === '42703' || e.code === '42P01' ? 'O banco ainda não tem a atualização do quadro. Rode Q_quadro_do_cliente.sql e R_prazos_e_metricas.sql no Supabase (SQL Editor).' : 'Não foi possível concluir a operação.');
 
 const projectSchema = z.object({
   client_id: z.string().uuid('Escolha o cliente'), name: z.string().trim().min(2, 'Informe o nome do projeto'),
