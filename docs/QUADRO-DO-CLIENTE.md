@@ -35,3 +35,13 @@ Projetos separados por frente (ex.: "Livro — Título X", "Redes sociais — No
 - **De quem é o atraso:** aprovação e conteúdo vencidos são do cliente; entrega e alterações vencidas, da equipe.
 - **Projetos > Métricas** (por período e por cliente): entregas, % no prazo (com e sem o ajuste da espera do cliente), tempo médio até a entrega (equipe × cliente), rodadas de ajuste, tempo de devolução das revisões, atrasos agora (equipe × cliente) e quebra por responsável, área e cliente.
 - As métricas usam o histórico de status que o sistema já grava; tarefas antigas entram com as datas reais de cada mudança de etapa.
+
+## Ver como o cliente + painel estilo Trello (atualização T)
+**Portal do Cliente > Ver como o cliente** (ou o botão em Projetos): escolha o cliente e veja o quadro **exatamente como ele vê** (só projetos liberados e tarefas não internas). Ali você também:
+- cria cartões em **Diagramação**, **Social Media** e **Em andamento** ("+ Adicionar cartão");
+- **arrasta** cartões entre as colunas; o sistema percorre as etapas intermediárias do fluxo (ex.: levar para "Aprovados" registra produzido → enviado → aprovado);
+- abre qualquer cartão para editar a tarefa completa (responsáveis, datas, links).
+Se o cliente tem projetos ainda não liberados, aparece um aviso com o link para liberar. Para ver as demais telas (Aprovações, Documentos…) como o cliente, entre com um usuário de teste do tipo cliente.
+
+## Pessoas envolvidas
+Cada tarefa tem um **responsável principal** e **outros responsáveis**. Os nomes aparecem nos cartões, na linha do tempo, no calendário, na lista e na página da tarefa (que também mostra as pessoas do cliente que comentaram). Quem é incluído recebe um aviso.

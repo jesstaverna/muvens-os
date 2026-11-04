@@ -29,6 +29,10 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
     supabase.from('task_links').select('id, kind, label, url, from_client, client_visible, created_at').eq('task_id', id).order('created_at'),
     supabase.from('task_assignees').select('user_id').eq('task_id', id),
   ]);
+  const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name as string]));
+  const team = [...(t.assignee_id && nameOf.get(t.assignee_id) ? [{ id: t.assignee_id, name: nameOf.get(t.assignee_id)!, role: 'Responsável' }] : []),
+    ...(coRows ?? []).filter((c) => c.user_id !== t.assignee_id && nameOf.get(c.user_id)).map((c) => ({ id: c.user_id as string, name: nameOf.get(c.user_id)!, role: 'Colaborador' }))];
+  const clientPeople = [...new Set((comments ?? []).filter((c) => c.from_client).map((c) => one(c.author)?.full_name).filter((n): n is string => !!n))];
   const proj = one(t.projects) as { id: string; name: string; clients: { name: string } | { name: string }[] | null } | null;
   const st = TASK_STATUS[t.status];
   const totalMin = (time ?? []).reduce((a, e) => a + e.minutes, 0);
@@ -91,6 +95,11 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
         </div>
 
         <aside className="space-y-6">
+          <section className="card"><h2 className="mb-3 text-base font-semibold">Pessoas envolvidas</h2>
+            <ul className="space-y-2 text-sm">{team.map((p) => (<li key={p.id} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-fg text-[11px] font-bold text-lime">{p.name.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 truncate">{p.name}</span><span className="ml-auto shrink-0 text-xs text-muted">{p.role}</span></li>))}
+              {!team.length && <li className="text-muted">Nenhum responsável definido.</li>}
+              {clientPeople.map((n) => (<li key={n} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line text-[11px] font-bold">{n.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 truncate">{n}</span><span className="ml-auto shrink-0 text-xs text-muted">Cliente</span></li>))}</ul></section>
+
           <section className="card"><h2 className="mb-1 text-base font-semibold">Horas</h2><p className="mb-4 text-2xl font-semibold">{fmtMinutes(totalMin)}</p>
             {canWrite && <form action={logTime.bind(null, id)} className="mb-4 space-y-3"><div className="grid grid-cols-2 gap-2"><Field label="Tempo"><input name="duration" required placeholder="1:30 ou 1,5" className="input" /></Field><Field label="Dia"><input type="date" name="worked_on" defaultValue={todayBR()} className="input" /></Field></div><Field label="Nota"><input name="note" className="input" /></Field><SubmitButton className="btn btn-sm" pendingText="…">Apontar horas</SubmitButton></form>}
             <ul className="space-y-2 text-sm">{time?.map((e) => (<li key={e.id} className="flex items-start justify-between gap-2"><span>{fmtMinutes(e.minutes)} · {one(e.who)?.full_name}<span className="block text-xs text-muted">{e.worked_on.split('-').reverse().join('/')}{e.note ? ` — ${e.note}` : ''}</span></span>{(e.user_id === profile.id || profile.role === 'admin') && <form action={deleteTime.bind(null, id, e.id)}><button className="text-xs text-muted hover:text-danger">remover</button></form>}</li>))}</ul></section>

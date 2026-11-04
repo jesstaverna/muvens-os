@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Tabs, Empty, Field, Stat } from '@/components/ui';
+import { LinkButton } from '@/components/LinkButton';
 import { SubmitButton } from '@/components/SubmitButton';
 import { DocUploader } from './DocUploader';
 import { deleteClientDoc, respondRequest } from './actions';
@@ -22,7 +23,7 @@ export default async function PortalGestao({ searchParams }: { searchParams: Pro
   const open = reqs?.filter((r) => r.status !== 'resolvida').length ?? 0;
   return (
     <>
-      <PageHeader title="Portal do Cliente" subtitle="Gestão do que o cliente vê e envia. O cliente acessa em /cliente com o login individual dele." />
+      <PageHeader title="Portal do Cliente" subtitle="Gestão do que o cliente vê e envia. O cliente acessa em /cliente com o login individual dele." actions={<LinkButton href="/portal/visualizar" className="btn btn-primary">Ver como o cliente</LinkButton>} />
       <section className="mb-8 grid gap-4 sm:grid-cols-3"><Stat label="Solicitações abertas" value={open} tone={open ? 'lime' : undefined} /><Stat label="Documentos publicados" value={docs?.length ?? 0} /><Stat label="Acessos de clientes" value={users?.filter((u) => u.active && u.client_id).length ?? 0} /></section>
       <Tabs current={tab} items={[{ key: 'solicitacoes', label: 'Solicitações e briefings', href: '/portal' }, { key: 'documentos', label: 'Documentos publicados', href: '/portal?tab=documentos' }, { key: 'acessos', label: 'Acessos e visibilidade', href: '/portal?tab=acessos' }]} />
 

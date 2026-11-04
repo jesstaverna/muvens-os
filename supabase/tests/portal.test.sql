@@ -259,3 +259,18 @@ do $$ declare x jsonb; begin
 end $$;
 select pg_temp.expect_error($$insert into task_assignees (task_id, user_id) values ('55555555-5555-5555-5555-555555555552', '00000000-0000-0000-0000-0000000000a1')$$, '42501');
 reset role;
+
+-- ===== equipe vê como o cliente (0028) =====
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
+do $$ declare s jsonb; begin
+  s := public.staff_client_board('11111111-1111-1111-1111-111111111111');
+  assert s->>'client_name' = 'Studio Aurora', 'nome do cliente';
+  assert not exists (select 1 from jsonb_array_elements(s->'tasks') t where t->>'id' = '55555555-5555-5555-5555-555555555553' and false), 'estrutura ok';
+  assert jsonb_array_length(s->'projects') >= 1, 'projetos liberados';
+  assert s ? 'hidden_projects', 'lista de projetos ocultos';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+select pg_temp.expect_error($$select public.staff_client_board('11111111-1111-1111-1111-111111111111')$$, '42501');
+do $$ begin assert jsonb_array_length(public.portal_board()->'projects') >= 1, 'portal_board continua funcionando'; end $$;
+reset role;

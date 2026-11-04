@@ -50,7 +50,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
   return (
     <>
       <PageHeader title="Projetos e Tarefas" subtitle="Produção por cliente, com fluxo de aprovação, entregáveis e controle de horas."
-        actions={canWrite ? <><LinkButton href="/projetos/novo" className="btn">Novo projeto</LinkButton><LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton></> : undefined} />
+        actions={canWrite ? <>{['admin', 'comercial'].includes(profile.role) && <LinkButton href="/portal/visualizar" className="btn">Ver como o cliente</LinkButton>}<LinkButton href="/projetos/novo" className="btn">Novo projeto</LinkButton><LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton></> : undefined} />
       <Tabs current={view} items={TABS.map((t) => ({ ...t, href: `/projetos?view=${t.key}` }))} />
 
       {(view === 'kanban' || view === 'lista' || view === 'timeline' || view === 'calendario') && (

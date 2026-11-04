@@ -13,7 +13,7 @@ function LateBadge({ t, today, viewer }: { t: BoardTask; today: string; viewer: 
   return <span className="rounded-md bg-danger/10 px-1.5 py-0.5 text-[11px] font-medium text-danger">{l.what} {mine ? 'atrasada' : 'em atraso'} há {ago(l.days)}</span>;
 }
 
-function Card({ t, href, today, viewer, showProject }: { t: BoardTask; href: string; today: string; viewer: 'cliente' | 'equipe'; showProject: boolean }) {
+export function Card({ t, href, today, viewer, showProject }: { t: BoardTask; href: string; today: string; viewer: 'cliente' | 'equipe'; showProject: boolean }) {
   const st = CLIENT_TASK_STATUS[t.status];
   const waiting = t.status === 'aguardando_cliente' || t.status === 'enviado';
   return (
@@ -68,7 +68,7 @@ export function TimelineView({ tasks, today, hrefFor }: { tasks: BoardTask[]; to
               const b = r.bar(t)!; const col = columnOf(t); const l = lateness(t, today);
               return (
                 <div key={t.id} className="grid grid-cols-[14rem_1fr] items-center border-b border-line last:border-0">
-                  <Link href={hrefFor(t.id)} className="truncate px-4 py-2.5 text-sm hover:underline" title={t.title}>{t.title}</Link>
+                  <div className="min-w-0 px-4 py-2"><Link href={hrefFor(t.id)} className="block truncate text-sm hover:underline" title={t.title}>{t.title}</Link>{peopleOf(t).length > 0 && <div className="truncate text-xs text-muted" title={peopleOf(t).join(', ')}>{peopleOf(t).join(', ')}</div>}</div>
                   <div className="relative h-9">
                     {r.ticks.map((k) => <span key={k.label + k.left} className="absolute top-0 h-full w-px bg-line/60" style={{ left: `${k.left}%` }} />)}
                     <span className="absolute top-0 h-full w-0.5 bg-danger/70" style={{ left: `${r.todayLeft}%` }} title="Hoje" />
@@ -116,6 +116,6 @@ export function CalendarView({ tasks, today, hrefFor }: { tasks: BoardTask[]; to
   return (
     <div className="space-y-4">{days.map((d) => (
       <section key={d} className="card !p-5"><h2 className={`mb-3 text-sm font-semibold ${d < today ? 'text-danger' : ''}`}>{dateBR(d)}{d === today ? ' · hoje' : d < today ? ' · atrasado' : ''}</h2>
-        <ul className="space-y-2 text-sm">{ev.filter((e) => e.date === d).map((e, i) => (<li key={e.t.id + i} className="flex items-center justify-between gap-3"><span><Link href={hrefFor(e.t.id)} className="hover:underline">{e.t.title}</Link> <span className="text-xs text-muted">· {e.t.project}</span></span><span className={`badge ${e.tone}`}>{e.label}</span></li>))}</ul></section>))}</div>
+        <ul className="space-y-2 text-sm">{ev.filter((e) => e.date === d).map((e, i) => (<li key={e.t.id + i} className="flex items-center justify-between gap-3"><span><Link href={hrefFor(e.t.id)} className="hover:underline">{e.t.title}</Link> <span className="text-xs text-muted">· {e.t.project}{peopleOf(e.t).length ? ` · ${peopleOf(e.t).join(', ')}` : ''}</span></span><span className={`badge ${e.tone}`}>{e.label}</span></li>))}</ul></section>))}</div>
   );
 }
