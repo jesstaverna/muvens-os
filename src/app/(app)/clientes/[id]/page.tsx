@@ -4,7 +4,8 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Pending, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { ClientForm } from '../ClientForm';
-import { addContact, addService, removeContact, saveClient, updateService } from '../actions';
+import { addContact, addService, removeContact, saveClient, updateContact, updateService } from '../actions';
+import { personName } from '@/lib/people';
 import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateBR, money } from '@/lib/format';
 import { PROPOSAL_STATUS, TX_STATUS_LABEL, todayBR } from '@/lib/domain';
@@ -24,11 +25,12 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
   if (!client) notFound();
   const today = todayBR();
 
-  const [{ data: contacts }, { data: services }, { data: proposals }, { data: tx }] = await Promise.all([
-    supabase.from('client_contacts').select('*').eq('client_id', id).order('created_at'),
+  const [{ data: contacts }, { data: services }, { data: proposals }, { data: tx }, { data: people }] = await Promise.all([
+    supabase.from('client_contacts').select('*').eq('client_id', id).order('is_primary', { ascending: false }).order('created_at'),
     seeSales ? supabase.from('client_services').select('*').eq('client_id', id).order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
     seeSales ? supabase.from('proposals').select('id, number, title, status, total_value, created_at').eq('client_id', id).order('number', { ascending: false }) : Promise.resolve({ data: [] }),
     seeFin ? supabase.from('fin_transactions').select('id, description, amount, status, due_date, paid_at, direction').eq('client_id', id).order('due_date', { ascending: false }).limit(200) : Promise.resolve({ data: [] }),
+    supabase.from('profiles').select('id, full_name, email').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name')
   ]);
 
   const mrr = (services ?? []).filter((s) => s.billing === 'mensal' && s.status === 'ativo').reduce((a, s) => a + Number(s.value), 0);
@@ -36,10 +38,11 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
   const overdue = open.filter((t) => t.due_date < today);
   const received = (tx ?? []).filter((t) => t.direction === 'in' && t.status === 'liquidado').reduce((a, t) => a + Number(t.amount), 0);
   const base = `/clientes/${id}`;
+  const ownerName = client.owner_id ? ((people ?? []).find((p) => p.id === client.owner_id) ? personName((people ?? []).find((p) => p.id === client.owner_id)) : null) : null;
 
   return (
     <>
-      <PageHeader title={client.name} subtitle={[client.segment, client.email, client.phone].filter(Boolean).join(' · ') || undefined} actions={<><LinkButton href={`/clientes/${id}/google`} className="btn">Relatórios do Google</LinkButton><LinkButton href="/clientes" className="btn">← Clientes</LinkButton></>} />
+      <PageHeader title={client.name} subtitle={[client.segment, client.email, client.phone, ownerName ? `Responsável: ${ownerName}` : null].filter(Boolean).join(' · ') || undefined} actions={<><LinkButton href={`/clientes/${id}/google`} className="btn">Relatórios do Google</LinkButton><LinkButton href="/clientes" className="btn">← Clientes</LinkButton></>} />
 
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Situação do cliente">
         <Stat label="Comercial" value={<span className="text-lg">{client.status === 'ativo' ? 'Cliente ativo' : client.status}</span>} hint={seeSales ? `${(proposals ?? []).length} proposta(s) · ${(services ?? []).filter((s) => s.status === 'ativo').length} serviço(s) ativo(s)` : undefined} />
@@ -57,14 +60,18 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
 
       {tab === 'geral' && (
         <div className="grid gap-6 xl:grid-cols-3">
-          <div className="card xl:col-span-2">{canEdit ? <ClientForm action={saveClient.bind(null, id)} client={client} /> : <p className="text-sm text-muted">Seu perfil tem acesso somente leitura aos dados cadastrais.</p>}</div>
+          <div className="card xl:col-span-2">{canEdit ? <ClientForm action={saveClient.bind(null, id)} client={client} people={people ?? []} /> : <p className="text-sm text-muted">Seu perfil tem acesso somente leitura aos dados cadastrais.</p>}</div>
           <section className="card"><h2 className="mb-4 text-base font-semibold">Contatos</h2>
-            <ul className="mb-5 space-y-3">{contacts?.map((c) => (
-              <li key={c.id} className="flex items-start justify-between gap-2 text-sm"><span><span className="font-medium">{c.name}</span>{c.role_title && <span className="text-muted"> · {c.role_title}</span>}<span className="block text-xs text-muted">{[c.email, c.phone].filter(Boolean).join(' · ')}</span></span>
-                {canEdit && <form action={removeContact.bind(null, id, c.id)}><SubmitButton className="btn btn-sm" pendingText="…" confirm="Remover este contato?">Remover</SubmitButton></form>}</li>))}
+            <ul className="mb-5 space-y-4">{contacts?.map((c) => (
+              <li key={c.id} className="text-sm"><div className="flex items-start justify-between gap-2"><span className="min-w-0"><span className="font-medium">{c.name}</span>{c.role_title && <span className="text-muted"> · {c.role_title}</span>}{c.is_primary && <span className="ml-2 rounded-full bg-lime/40 px-2 py-0.5 text-[11px] font-medium">Responsável</span>}<span className="block break-all text-xs text-muted">{[c.email, c.phone].filter(Boolean).join(' · ')}</span></span>
+                {canEdit && <form action={removeContact.bind(null, id, c.id)}><SubmitButton className="btn btn-sm" pendingText="…" confirm="Remover este contato?">Remover</SubmitButton></form>}</div>
+                {canEdit && <details className="mt-1"><summary className="cursor-pointer text-xs underline">Editar</summary>
+                  <form action={updateContact.bind(null, id, c.id)} className="mt-2 space-y-2"><Field label="Nome"><input name="name" required defaultValue={c.name} className="input" /></Field><Field label="Cargo"><input name="role_title" defaultValue={c.role_title ?? ''} className="input" /></Field>
+                    <Field label="E-mail"><input name="email" type="email" defaultValue={c.email ?? ''} className="input" /></Field><Field label="Telefone"><input name="phone" defaultValue={c.phone ?? ''} className="input" /></Field>
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_primary" defaultChecked={c.is_primary} /> Responsável principal do cliente</label><SubmitButton className="btn btn-sm" pendingText="…">Salvar contato</SubmitButton></form></details>}</li>))}
               {!contacts?.length && <li className="text-sm text-muted">Nenhum contato cadastrado.</li>}</ul>
             {canEdit && <form action={addContact.bind(null, id)} className="space-y-3"><Field label="Nome"><input name="name" required className="input" /></Field><Field label="Cargo"><input name="role_title" className="input" /></Field>
-              <Field label="E-mail"><input name="email" type="email" className="input" /></Field><Field label="Telefone"><input name="phone" className="input" /></Field><SubmitButton className="btn btn-sm" pendingText="…">Adicionar contato</SubmitButton></form>}</section>
+              <Field label="E-mail"><input name="email" type="email" className="input" /></Field><Field label="Telefone"><input name="phone" className="input" /></Field><label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_primary" /> Responsável principal do cliente</label><SubmitButton className="btn btn-sm" pendingText="…">Adicionar contato</SubmitButton></form>}</section>
         </div>)}
 
       {tab === 'servicos' && (

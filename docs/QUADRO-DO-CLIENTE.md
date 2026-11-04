@@ -68,3 +68,6 @@ Cada pessoa da empresa do cliente tem o **próprio login**. Em **Portal do Clien
 - **Link de acesso** (recomendado): a pessoa abre o link e cria a senha.
 - **Login e senha**: o sistema cria o usuário com uma **senha forte gerada na hora**, mostrada **uma única vez**, com botões para copiar e uma mensagem pronta (endereço, login e senha) para WhatsApp. Para quem já tem acesso, "Nova senha" substitui a senha atual.
 Na lista de usuários há **Novo link** e **Nova senha** em cada pessoa. O cliente troca a própria senha em **Alterar senha** (cabeçalho do portal). O endereço de login do portal (`/login`) aparece no topo do formulário para copiar.
+
+## Responsáveis dentro do cliente
+Em **Clientes > cliente**: (1) **Responsável pela conta (Muvens)** — quem da equipe cuida do cliente (aparece no cabeçalho e na lista; novos projetos sem responsável herdam esse nome); (2) **Contatos** — cada um tem **Editar** (nome, cargo, e-mail, telefone) e a marca **Responsável principal do cliente** (só um por cliente).

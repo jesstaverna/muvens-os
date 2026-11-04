@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { personName } from '@/lib/people';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Empty } from '@/components/ui';
 import { money } from '@/lib/format';
@@ -11,7 +12,7 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
   const { supabase, profile } = await requireModule('clientes');
   const { q = '', status = '' } = await searchParams;
   const term = q.replace(/[%,()]/g, ' ').trim();
-  let query = supabase.from('clients').select('id, name, segment, status, email, phone').order('name').limit(300);
+  let query = supabase.from('clients').select('id, name, segment, status, email, phone, owner:profiles!clients_owner_id_fkey(full_name, email)').order('name').limit(300);
   if (term) query = query.or(`name.ilike.%${term}%,legal_name.ilike.%${term}%,email.ilike.%${term}%`);
   if (['ativo', 'pausado', 'encerrado'].includes(status)) query = query.eq('status', status);
   const seeMoney = ['admin', 'comercial', 'financeiro'].includes(profile.role);
@@ -33,11 +34,11 @@ export default async function Clientes({ searchParams }: { searchParams: Promise
       </form>
       {!clients?.length ? <Empty title="Nenhum cliente" text="Clientes são criados automaticamente quando uma proposta é aceita, ou manualmente aqui." action={canCreate ? <LinkButton href="/clientes/novo" className="btn btn-primary">Novo cliente</LinkButton> : undefined} /> : (
         <div className="card overflow-x-auto !p-0">
-          <table className="w-full"><thead><tr className="border-b border-line"><th className="th">Cliente</th><th className="th">Segmento</th><th className="th">Contato</th>{seeMoney && <th className="th">Mensalidade</th>}<th className="th">Situação</th></tr></thead>
+          <table className="w-full"><thead><tr className="border-b border-line"><th className="th">Cliente</th><th className="th">Segmento</th><th className="th">Contato</th><th className="th">Responsável</th>{seeMoney && <th className="th">Mensalidade</th>}<th className="th">Situação</th></tr></thead>
             <tbody>{clients.map((c) => (
               <tr key={c.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
                 <td className="td"><Link href={`/clientes/${c.id}`} className="font-medium hover:underline">{c.name}</Link></td><td className="td">{c.segment ?? '—'}</td>
-                <td className="td text-muted">{c.email ?? c.phone ?? '—'}</td>{seeMoney && <td className="td">{mrr.has(c.id) ? money(mrr.get(c.id)) : '—'}</td>}
+                <td className="td text-muted">{c.email ?? c.phone ?? '—'}</td><td className="td">{personName((Array.isArray(c.owner) ? c.owner[0] : c.owner) as { full_name: string | null; email: string | null } | null, '—')}</td>{seeMoney && <td className="td">{mrr.has(c.id) ? money(mrr.get(c.id)) : '—'}</td>}
                 <td className="td"><span className={`badge ${TONE[c.status]}`}>{c.status}</span></td></tr>))}</tbody></table>
         </div>)}
     </>

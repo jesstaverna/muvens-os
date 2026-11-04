@@ -97,3 +97,7 @@ Pré-requisito: Q, R, S e T. Rode `U_servicos_do_cliente.sql` **uma vez** (pode 
 Pré-requisito: Q a U. Rode `V_contatos_nas_tarefas.sql` **uma vez** (pode ser repetido). Na tarefa, **Contatos do cliente nesta tarefa** lista os contatos cadastrados em Clientes > cliente > Contatos (nome, cargo, e-mail e WhatsApp com atalho) e deixa marcar quem participa. O cliente vê nome e cargo no portal (nunca e-mail ou telefone). Também corrige responsáveis com nome em branco: passam a aparecer pelo e-mail. Conferência: `select to_regclass('public.task_contacts') is not null;` → `true`.
 
 > Atalho para Q a V de uma vez: `QRSTUV_quadro_do_cliente_completo.sql`.
+
+## W — Responsável pela conta do cliente (migração 31)
+
+Rode `W_responsavel_da_conta.sql` **uma vez** (pode ser repetido). Em **Clientes > cliente** aparece o campo **Responsável pela conta (Muvens)**; a lista de clientes ganha a coluna Responsável; e novos projetos sem responsável herdam o da conta. Os contatos do cliente também podem ser **editados** e um deles marcado como **Responsável principal** do lado do cliente. Conferência: `select column_name from information_schema.columns where table_name='clients' and column_name='owner_id';` → 1 linha.

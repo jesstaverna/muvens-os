@@ -3101,3 +3101,8 @@ begin
     'comments', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'body', c.body, 'from_client', c.from_client, 'author', case when c.from_client then 'Você' else app.person_label(pr.full_name, pr.email) end, 'created_at', c.created_at) order by c.created_at)
                           from public.task_comments c left join public.profiles pr on pr.id = c.author_id where c.task_id = t.id and (c.from_client or c.client_visible)), '[]'::jsonb));
 end $$;
+
+-- ======== 20261108000031_client_owner.sql ========
+-- MUVENS OS — 0031 Responsável pela conta (quem da Muvens cuida do cliente)
+alter table public.clients add column if not exists owner_id uuid references public.profiles(id) on delete set null;
+create index if not exists clients_owner_idx on public.clients (owner_id) where owner_id is not null;

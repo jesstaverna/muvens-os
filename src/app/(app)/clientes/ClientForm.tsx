@@ -1,8 +1,9 @@
 import { Field } from '@/components/ui';
+import { personName } from '@/lib/people';
 import { SubmitButton } from '@/components/SubmitButton';
 
 const v = (x: unknown) => (x == null ? '' : String(x));
-export function ClientForm({ action, client }: { action: (fd: FormData) => Promise<void>; client?: Record<string, unknown> }) {
+export function ClientForm({ action, client, people = [] }: { action: (fd: FormData) => Promise<void>; client?: Record<string, unknown>; people?: { id: string; full_name: string | null; email: string | null }[] }) {
   return (
     <form action={action} className="space-y-6">
       <div className="grid gap-5 sm:grid-cols-2">
@@ -12,6 +13,7 @@ export function ClientForm({ action, client }: { action: (fd: FormData) => Promi
         <Field label="Segmento"><input name="segment" defaultValue={v(client?.segment)} className="input" /></Field>
         <Field label="E-mail"><input name="email" type="email" defaultValue={v(client?.email)} className="input" /></Field>
         <Field label="Telefone"><input name="phone" defaultValue={v(client?.phone)} className="input" /></Field>
+        <Field label="Responsável pela conta (Muvens)" hint="Quem da equipe cuida deste cliente."><select name="owner_id" defaultValue={v(client?.owner_id)} className="input"><option value="">—</option>{people.map((p) => <option key={p.id} value={p.id}>{personName(p)}</option>)}</select></Field>
         <Field label="Site"><input name="website" defaultValue={v(client?.website)} className="input" /></Field>
         <Field label="Situação"><select name="status" defaultValue={v(client?.status) || 'ativo'} className="input"><option value="ativo">Ativo</option><option value="pausado">Pausado</option><option value="encerrado">Encerrado</option></select></Field>
       </div>

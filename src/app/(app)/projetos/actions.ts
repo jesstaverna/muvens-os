@@ -21,7 +21,9 @@ export async function createProject(fd: FormData) {
   const { supabase, profile } = await requireModule('projetos');
   const r = projectSchema.safeParse(Object.fromEntries(fd));
   if (!r.success) flash('/projetos/novo', 'err', r.error.issues[0].message);
-  const { data, error } = await supabase.from('projects').insert({ ...r.data, created_by: profile.id }).select('id').single();
+  let owner = r.data.owner_id;
+  if (!owner) owner = (await supabase.from('clients').select('owner_id').eq('id', r.data.client_id).maybeSingle()).data?.owner_id ?? null;   // sem responsável escolhido: o da conta do cliente
+  const { data, error } = await supabase.from('projects').insert({ ...r.data, owner_id: owner, created_by: profile.id }).select('id').single();
   if (error) dbErr('/projetos/novo', error);
   revalidatePath('/projetos');
   flash(`/projetos/${data!.id}`, 'ok', 'Projeto criado.');
