@@ -1,6 +1,6 @@
 # Quadro de demandas do cliente
 
-O cliente entra em `/login` (convite criado em **Portal do Cliente**) e vê **só** os projetos liberados para ele, em **Quadro** (menu do portal).
+O cliente entra por um **link de acesso gerado em Portal do Cliente > Acessos e visibilidade** (e depois em `/login`) e vê **só** os projetos liberados para ele, em **Quadro** (menu do portal).
 
 ## Colunas
 Diagramação · Social Media · Em andamento · Aprovação · Solicitação de ajustes · Aprovados · Finalizados (e "Outras demandas" só se existir alguma).
@@ -55,3 +55,10 @@ Em **Clientes > cliente > Serviços** a equipe (administrador/financeiro) cadast
 ## Contatos do cliente nas tarefas (atualização V)
 Os contatos cadastrados em **Clientes > cliente > Contatos** (ex.: Diego Vogt, CEO) podem ser marcados em cada tarefa, em **Contatos do cliente nesta tarefa**. Eles aparecem em **Pessoas envolvidas**, nos cartões ("Cliente: Diego") e no portal (só nome e cargo). A tarefa também mostra e-mail e WhatsApp deles com atalho para abrir.
 **Nome em branco:** quem não tem nome no perfil passa a aparecer pelo e-mail (ex.: "Dani Designer"). Para ajustar, abra **Configurações** e preencha o campo Nome do usuário.
+
+## Gerar o link de acesso do cliente
+**Portal do Cliente > Acessos e visibilidade > Gerar link de acesso** (somente administrador): escolha a empresa, informe nome e e-mail da pessoa e clique em gerar. O sistema cria o login, vincula à empresa e mostra um **link de uso único** (com botões Copiar link, Copiar mensagem pronta e Abrir no WhatsApp).
+- O cliente abre o link, clica em **Entrar** e **cria a própria senha**; depois entra em `/login` com e-mail e senha e cai direto no Quadro.
+- O link **não fica salvo**: aparece uma vez na tela. Se expirar ou já tiver sido usado, use **Gerar novo link** na lista de usuários (o novo invalida o anterior). O prazo de validade é do Supabase (Authentication > Providers > Email > Email OTP Expiration).
+- O botão "Entrar" na página do link evita que prévias de WhatsApp/e-mail gastem o link sem querer.
+- Segurança: nunca transforma um usuário da equipe em cliente e não move um cliente de uma empresa para outra (ajuste em Configurações). Exige `SUPABASE_SERVICE_ROLE_KEY` na Vercel (a mesma do agendador).
