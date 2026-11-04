@@ -52,6 +52,8 @@ export async function createTask(fd: FormData) {
   const plan = String(fd.get('deliverable_plan_id') ?? '') || null;
   const { data, error } = await supabase.from('tasks').insert({ ...r.data, project_id: projectId, deliverable_plan_id: plan, created_by: profile.id }).select('id, out_of_scope').single();
   if (error) dbErr(back, error);
+  const co = [...new Set(fd.getAll('co').map(String))].filter((u) => /^[0-9a-f-]{36}$/.test(u) && u !== r.data.assignee_id);
+  if (co.length) await supabase.from('task_assignees').insert(co.map((user_id) => ({ task_id: data!.id, user_id, added_by: profile.id })));
   revalidatePath('/projetos');
   flash(`/projetos/tarefas/${data!.id}`, data!.out_of_scope ? 'err' : 'ok', data!.out_of_scope ? 'Tarefa criada, mas EXCEDE a quantidade contratada: marcada como fora do escopo (orçar à parte).' : 'Tarefa criada.');
 }
@@ -219,4 +221,19 @@ export async function saveBoardSettings(fd: FormData) {
   if (error) dbErr(back, error);
   revalidatePath('/projetos');
   flash(back, 'ok', 'Configurações salvas.');
+}
+
+/** Define os demais responsáveis (além do principal): inclui os marcados e remove os desmarcados. */
+export async function setCoAssignees(taskId: string, fd: FormData) {
+  const { supabase, profile } = await requireModule('projetos');
+  const back = `/projetos/tarefas/${taskId}`;
+  const { data: t } = await supabase.from('tasks').select('assignee_id').eq('id', taskId).maybeSingle();
+  const want = new Set(fd.getAll('co').map(String).filter((u) => /^[0-9a-f-]{36}$/.test(u) && u !== t?.assignee_id));
+  const { data: cur } = await supabase.from('task_assignees').select('user_id').eq('task_id', taskId);
+  const have = new Set((cur ?? []).map((c) => c.user_id as string));
+  const add = [...want].filter((u) => !have.has(u)), del = [...have].filter((u) => !want.has(u));
+  if (del.length) { const { error } = await supabase.from('task_assignees').delete().eq('task_id', taskId).in('user_id', del); if (error) dbErr(back, error); }
+  if (add.length) { const { error } = await supabase.from('task_assignees').insert(add.map((user_id) => ({ task_id: taskId, user_id, added_by: profile.id }))); if (error) dbErr(back, error); }
+  revalidatePath(back); revalidatePath('/projetos');
+  flash(back, 'ok', 'Responsáveis atualizados.');
 }

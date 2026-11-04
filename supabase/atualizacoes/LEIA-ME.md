@@ -75,3 +75,7 @@ Rode `Q_quadro_do_cliente.sql` **uma vez** (pode ser repetido). Cria as áreas (
 Pré-requisito: a atualização Q. Rode `R_prazos_e_metricas.sql` **uma vez** (pode ser repetido). Cria a linha do tempo de cada tarefa, o cálculo da espera do cliente ("relógio pausado") e a aba **Projetos > Métricas**. Conferência: `select to_regproc('public.board_metrics') is not null;` → `true`.
 
 > Atalho para Q + R: rode apenas `QR_quadro_completo.sql` (contém os dois, na ordem certa).
+
+## S — Vários responsáveis por tarefa (migração 27)
+
+Pré-requisito: Q e R. Rode `S_varios_responsaveis.sql` **uma vez** (pode ser repetido). Na tarefa, além do responsável principal, aparece "Outros responsáveis"; cada pessoa incluída é avisada e o cliente vê todos os nomes no portal. Conferência: `select to_regclass('public.task_assignees') is not null;` → `true`.

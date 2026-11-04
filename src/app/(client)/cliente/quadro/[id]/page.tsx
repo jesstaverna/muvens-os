@@ -9,7 +9,7 @@ import { addTaskComment, addTaskLink, contentSent, decideOnTask, requestChange }
 
 type Detail = {
   id: string; title: string; status: string; area: string | null; starts_on: string | null; due_on: string | null; review_due_on: string | null; changes_due_on: string | null; client_wait_days: number; origin: string;
-  description: string | null; created_at: string; project: string; assignee: string | null;
+  description: string | null; created_at: string; project: string; assignee: string | null; assignees: string[];
   links: { id: string; kind: string; label: string | null; url: string; from_client: boolean; created_at: string }[];
   files: { id: string; name: string }[];
   comments: { id: string; body: string; from_client: boolean; author: string; created_at: string }[];
@@ -67,7 +67,7 @@ export default async function DemandaPage({ params }: { params: Promise<{ id: st
         <aside className="space-y-6"><section className="card"><h2 className="mb-3 text-base font-semibold">Datas e responsável</h2>
           <dl className="space-y-3">{dateRow('Início', t.starts_on)}{dateRow('Entrega combinada', t.due_on)}{adjustedDue(t) !== t.due_on && dateRow('Entrega prevista', adjustedDue(t), `+${Math.ceil(t.client_wait_days)} dias em que a demanda ficou aguardando você`)}{t.status === 'enviado' && dateRow('Devolução da revisão', t.review_due_on, 'prazo para você aprovar ou pedir ajustes')}{t.status === 'ajustes' && dateRow('Entrega das alterações', t.changes_due_on, 'prazo da equipe para refazer')}
             {!t.starts_on && !t.due_on && <p className="text-sm text-muted">A equipe ainda vai definir os prazos.</p>}
-            <div><dt className="text-xs text-muted">Responsável</dt><dd className="text-sm font-medium">{t.assignee ?? 'A definir'}</dd></div>
+            <div><dt className="text-xs text-muted">{t.assignees.length > 1 ? 'Responsáveis' : 'Responsável'}</dt><dd className="text-sm font-medium">{t.assignees.length ? t.assignees.join(', ') : (t.assignee ?? 'A definir')}</dd></div>
             <div><dt className="text-xs text-muted">Criada em</dt><dd className="text-sm">{dateBR(t.created_at)}{t.origin === 'cliente' ? ' · por você' : ''}</dd></div></dl></section></aside>
       </div>
     </>

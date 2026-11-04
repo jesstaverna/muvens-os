@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { COLUMNS, adjustedDue, columnOf, lateness, timelineRange, type BoardTask } from '@/lib/projects/board';
+import { COLUMNS, adjustedDue, columnOf, lateness, peopleOf, timelineRange, type BoardTask } from '@/lib/projects/board';
 import { CLIENT_TASK_STATUS } from '@/lib/domain';
 import { dateBR } from '@/lib/format';
 
@@ -28,7 +28,7 @@ function Card({ t, href, today, viewer, showProject }: { t: BoardTask; href: str
         <span>{t.due_on ? (adjustedDue(t) !== t.due_on ? `Entrega prevista ${dateBR(adjustedDue(t))}` : `Entrega ${dateBR(t.due_on)}`) : 'Sem data de entrega'}</span>
         <span className="flex items-center gap-2">{t.links > 0 && <span title="Links">🔗 {t.links}</span>}{t.comments > 0 && <span title="Mensagens">💬 {t.comments}</span>}</span>
       </div>
-      {t.assignee && <div className="mt-2 flex items-center gap-1.5 text-xs"><span className="grid h-5 w-5 place-items-center rounded-full bg-fg text-[10px] font-bold text-lime">{t.assignee.trim().charAt(0).toUpperCase()}</span>{t.assignee}</div>}
+      {peopleOf(t).length > 0 && <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">{peopleOf(t).slice(0, 3).map((n) => <span key={n} className="inline-flex items-center gap-1"><span className="grid h-5 w-5 place-items-center rounded-full bg-fg text-[10px] font-bold text-lime">{n.trim().charAt(0).toUpperCase()}</span>{n.split(' ')[0]}</span>)}{peopleOf(t).length > 3 && <span className="text-muted">+{peopleOf(t).length - 3}</span>}</div>}
     </article>
   );
 }
@@ -99,7 +99,7 @@ export function ListView({ tasks, today, hrefFor, viewer }: { tasks: BoardTask[]
             <td className="td"><span className="badge">{colLabel(t)}</span></td>
             <td className="td whitespace-nowrap">{t.starts_on ? dateBR(t.starts_on) : '—'}</td><td className="td whitespace-nowrap">{t.due_on ? dateBR(t.due_on) : '—'}{adjustedDue(t) !== t.due_on && <div className="text-xs text-muted">prevista {dateBR(adjustedDue(t))} (+{Math.ceil(t.client_wait_days ?? 0)}d espera do cliente)</div>}</td>
             <td className="td whitespace-nowrap">{t.status === 'enviado' && t.review_due_on ? dateBR(t.review_due_on) : '—'}</td><td className="td whitespace-nowrap">{t.status === 'ajustes' && t.changes_due_on ? dateBR(t.changes_due_on) : '—'}</td>
-            <td className="td">{t.assignee ?? '—'}</td></tr>))}</tbody></table>
+            <td className="td">{peopleOf(t).join(', ') || '—'}</td></tr>))}</tbody></table>
     </div>
   );
 }

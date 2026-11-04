@@ -3,7 +3,7 @@ export const AREAS: Record<string, string> = { diagramacao: 'Diagramação', soc
 
 export interface BoardTask {
   id: string; title: string; status: string; area: string | null; starts_on: string | null; due_on: string | null; review_due_on: string | null; changes_due_on: string | null;
-  client_wait_days?: number; priority?: string; origin?: string; project_id: string; project: string; assignee: string | null; links: number; comments: number;
+  client_wait_days?: number; priority?: string; origin?: string; project_id: string; project: string; assignee: string | null; assignees?: string[]; links: number; comments: number;
 }
 
 export const COLUMNS = [
@@ -67,3 +67,6 @@ export function timelineRange(tasks: Pick<BoardTask, 'starts_on' | 'due_on'>[], 
   for (let d = first.getTime(); d <= min + span; d += 7 * 86_400_000) ticks.push({ label: new Date(d).toISOString().slice(8, 10) + '/' + new Date(d).toISOString().slice(5, 7), left: ((d - min) / span) * 100 });
   return { pos, bar, ticks, todayLeft: pos(today) };
 }
+
+/** Nomes de todos os responsáveis (principal primeiro, sem repetir). */
+export const peopleOf = (t: Pick<BoardTask, 'assignee' | 'assignees'>): string[] => [...new Set([...(t.assignee ? [t.assignee] : []), ...(t.assignees ?? [])])];

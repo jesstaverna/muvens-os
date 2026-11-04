@@ -241,3 +241,21 @@ end $$;
 set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
 select pg_temp.expect_error($$select public.board_metrics(current_date - 30, current_date)$$, '42501');
 reset role;
+
+-- ===== vários responsáveis (0027) =====
+do $$ declare t uuid := '55555555-5555-5555-5555-555555555552'; begin
+  update profiles set full_name = 'Designer Dani' where id = '00000000-0000-0000-0000-0000000000a4';
+  update profiles set full_name = 'Comercial Caio' where id = '00000000-0000-0000-0000-0000000000a2';
+  update tasks set assignee_id = '00000000-0000-0000-0000-0000000000a4' where id = t;
+  insert into task_assignees (task_id, user_id) values (t, '00000000-0000-0000-0000-0000000000a2');
+  assert exists (select 1 from notifications where dedupe_key = 'task.assigned:' || t || ':00000000-0000-0000-0000-0000000000a2'), 'incluído recebe aviso';
+  assert exists (select 1 from task_events where task_id = t and kind = 'responsavel' and detail like 'Incluído(a): Comercial Caio'), 'inclusão no histórico';
+end $$;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+do $$ declare x jsonb; begin
+  select tk into x from jsonb_array_elements(public.portal_board()->'tasks') tk where tk->>'id' = '55555555-5555-5555-5555-555555555552';
+  assert x->'assignees' @> '["Designer Dani"]'::jsonb and x->'assignees' @> '["Comercial Caio"]'::jsonb, 'cliente vê todos os responsáveis';
+  assert (select count(*) from task_assignees) = 0, 'cliente não lê task_assignees direto';
+end $$;
+select pg_temp.expect_error($$insert into task_assignees (task_id, user_id) values ('55555555-5555-5555-5555-555555555552', '00000000-0000-0000-0000-0000000000a1')$$, '42501');
+reset role;

@@ -28,21 +28,21 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
     supabase.from('projects').select('id, name, status, due_on, client_id, clients(name), owner:profiles!projects_owner_id_fkey(full_name)').order('created_at', { ascending: false }),
   ]);
 
-  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
+  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name), co:task_assignees(who:profiles(full_name)), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
   if (sp.project && /^[0-9a-f-]{36}$/.test(sp.project)) tq = tq.eq('project_id', sp.project);
   if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) tq = tq.eq('projects.client_id', sp.client);
-  if (sp.me) tq = tq.eq('assignee_id', profile.id);
+  if (sp.me) { const { data: co } = await supabase.from('task_assignees').select('task_id').eq('user_id', profile.id); const ids = (co ?? []).map((c) => c.task_id); tq = ids.length ? tq.or(`assignee_id.eq.${profile.id},id.in.(${ids.join(',')})`) : tq.eq('assignee_id', profile.id); }
   const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' || view === 'metricas' ? { data: [] as never[] } : await tq;
 
   const { data: waits } = (tasksRaw ?? []).length ? await supabase.from('task_client_wait').select('task_id, client_wait_days').in('task_id', (tasksRaw ?? []).map((t: any) => t.id)) : { data: [] as { task_id: string; client_wait_days: number }[] };
   const waitOf = new Map((waits ?? []).map((w) => [w.task_id, Number(w.client_wait_days)]));
   const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => ({ client_wait_days: waitOf.get(t.id) ?? 0,
-    id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: one(t.assignee)?.full_name ?? null,
+    id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: one(t.assignee)?.full_name ?? null, assignees: (t.co ?? []).map((c: any) => one(c.who)?.full_name).filter(Boolean),
     client: one(one(t.projects)?.clients)?.name ?? null, project: one(t.projects)?.name ?? null, out_of_scope: t.out_of_scope,
     late: lateness({ status: t.status, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, client_wait_days: waitOf.get(t.id) ?? 0 }, today).late,
   }));
 
-  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
+  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, assignees: t.assignees, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
   const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
   const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'metricas', label: 'Métricas' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
   const late = tasks.filter((t) => t.late).length;
@@ -64,7 +64,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
             : view === 'kanban' ? <TaskBoard tasks={tasks} /> : view === 'timeline' ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : view === 'calendario' ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : (
               <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th><th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th></tr></thead>
                 <tbody>{tasks.map((t) => (<tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td"><Link className="font-medium hover:underline" href={`/projetos/tarefas/${t.id}`}>{t.title}</Link>{t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">fora do escopo</span>}</td>
-                  <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td><td className="td">{t.assignee ?? '—'}</td><td className={`td whitespace-nowrap ${t.late ? 'font-medium text-danger' : ''}`}>{dateBR(t.due_on)}</td>
+                  <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td><td className="td">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].join(', ') || '—'}</td><td className={`td whitespace-nowrap ${t.late ? 'font-medium text-danger' : ''}`}>{dateBR(t.due_on)}</td>
                   <td className={`td ${PRIORITY[t.priority].tone}`}>{PRIORITY[t.priority].label}</td><td className="td"><span className={`badge ${TASK_STATUS[t.status].tone}`}>{TASK_STATUS[t.status].label}</span></td></tr>))}</tbody></table></div>)}
         </>)}
 

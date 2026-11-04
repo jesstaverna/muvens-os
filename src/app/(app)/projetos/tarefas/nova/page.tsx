@@ -24,6 +24,7 @@ export default async function NovaTarefa({ searchParams }: { searchParams: Promi
         <Field label="Entrega"><input type="date" name="due_on" className="input" /></Field>
         <Field label="Prioridade"><select name="priority" defaultValue="media" className="input">{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field>
         <Field label="Entregável contratado" hint="Se passar da quantidade contratada, a tarefa é marcada como fora do escopo."><select name="deliverable_plan_id" className="input"><option value="">— nenhum —</option>{plans?.map((d) => <option key={d.id} value={d.id}>{d.name} · {String(d.period_month).slice(5, 7)}/{String(d.period_month).slice(0, 4)}</option>)}</select></Field></div>
+        <Field label="Outros responsáveis" hint="Além do responsável principal. Cada pessoa marcada é avisada."><div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">{people?.map((p) => <label key={p.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name="co" value={p.id} /> {p.full_name}</label>)}</div></Field>
         <Field label="Briefing"><textarea name="briefing" rows={6} className="input" placeholder="Objetivo, formato, referências, textos, restrições da marca…" /></Field><SubmitButton>Criar tarefa</SubmitButton></form></>
   );
 }

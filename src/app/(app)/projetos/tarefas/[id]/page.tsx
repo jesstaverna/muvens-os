@@ -4,7 +4,7 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { FileUploader } from '../../FileUploader';
-import { addChecklistItem, addComment, addTaskLink, removeTaskLink, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
+import { addChecklistItem, addComment, addTaskLink, removeTaskLink, setCoAssignees, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
 import { PRIORITY, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateTimeBR } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
@@ -19,7 +19,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
   const { data: t } = await supabase.from('tasks').select('*, projects(id, name, client_id, clients(name))').eq('id', id).maybeSingle();
   if (!t) notFound();
-  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }, { data: links }] = await Promise.all([
+  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }, { data: links }, { data: coRows }] = await Promise.all([
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
     supabase.from('task_checklist_items').select('*').eq('task_id', id).order('position'),
     supabase.from('task_comments').select('id, body, created_at, from_client, client_visible, author:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }),
@@ -27,6 +27,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
     supabase.from('task_files').select('id, name, size, created_at, client_visible').eq('task_id', id).order('created_at', { ascending: false }),
     supabase.from('time_entries').select('id, minutes, worked_on, note, user_id, who:profiles(full_name)').eq('task_id', id).order('worked_on', { ascending: false }),
     supabase.from('task_links').select('id, kind, label, url, from_client, client_visible, created_at').eq('task_id', id).order('created_at'),
+    supabase.from('task_assignees').select('user_id').eq('task_id', id),
   ]);
   const proj = one(t.projects) as { id: string; name: string; clients: { name: string } | { name: string }[] | null } | null;
   const st = TASK_STATUS[t.status];
@@ -69,6 +70,10 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
               <Field label="Descrição para o cliente" hint="Texto mostrado ao cliente na aprovação. O briefing interno nunca aparece no portal."><textarea name="briefing_public" rows={2} defaultValue={t.briefing_public ?? ''} className="input" /></Field></div>
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-end"><label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" name="out_of_scope" defaultChecked={t.out_of_scope} /> Fora do escopo</label><Field label="Observação sobre o escopo"><input name="out_of_scope_note" defaultValue={t.out_of_scope_note ?? ''} className="input" /></Field></div></fieldset>
             {canWrite && <SubmitButton>Salvar</SubmitButton>}</form>
+
+          <form action={setCoAssignees.bind(null, id)} className="card"><h2 className="mb-1 text-base font-semibold">Outros responsáveis</h2><p className="mb-3 text-xs text-muted">Além do responsável principal ({people?.find((p) => p.id === t.assignee_id)?.full_name ?? 'nenhum'}). Quem for incluído recebe um aviso; o cliente vê todos os nomes no portal.</p>
+            <fieldset disabled={!canWrite} className="flex flex-wrap gap-x-5 gap-y-2">{people?.filter((p) => p.id !== t.assignee_id).map((p) => <label key={p.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name="co" value={p.id} defaultChecked={(coRows ?? []).some((c) => c.user_id === p.id)} /> {p.full_name}</label>)}</fieldset>
+            {canWrite && <div className="mt-4"><SubmitButton className="btn btn-sm" pendingText="…">Salvar responsáveis</SubmitButton></div>}</form>
 
           <section className="card"><h2 className="mb-1 text-base font-semibold">Links</h2><p className="mb-4 text-xs text-muted">Onde estão os conteúdos (do cliente) e as entregas (da Muvens). Links marcados como visíveis aparecem no portal.</p>
             <ul className="mb-4 space-y-2 text-sm">{links?.map((l) => (<li key={l.id} className="flex items-center justify-between gap-2"><span className="min-w-0"><span className="block text-xs text-muted">{{ conteudo: 'Conteúdo do cliente', referencia: 'Referência', entrega: 'Entrega' }[l.kind as string]}{l.from_client ? ' · enviado pelo cliente' : ''}{l.client_visible ? '' : ' · oculto ao cliente'}</span><a href={l.url} target="_blank" rel="noopener noreferrer" className="block truncate underline">{l.label || l.url}</a></span>{canWrite && <form action={removeTaskLink.bind(null, id, l.id)}><button className="text-xs text-muted hover:text-danger" aria-label="Remover link">remover</button></form>}</li>))}{!links?.length && <li className="text-muted">Nenhum link.</li>}</ul>
