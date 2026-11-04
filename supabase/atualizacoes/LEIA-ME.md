@@ -73,3 +73,5 @@ Rode `Q_quadro_do_cliente.sql` **uma vez** (pode ser repetido). Cria as áreas (
 ## R — Prazos, atrasos e métricas do quadro (migração 26)
 
 Pré-requisito: a atualização Q. Rode `R_prazos_e_metricas.sql` **uma vez** (pode ser repetido). Cria a linha do tempo de cada tarefa, o cálculo da espera do cliente ("relógio pausado") e a aba **Projetos > Métricas**. Conferência: `select to_regproc('public.board_metrics') is not null;` → `true`.
+
+> Atalho para Q + R: rode apenas `QR_quadro_completo.sql` (contém os dois, na ordem certa).
