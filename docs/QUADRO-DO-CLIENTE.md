@@ -29,3 +29,9 @@ Cada tarefa é avisada uma vez e só repete após 3 dias ou se mudar de etapa.
 
 ## Exemplo: P&A Editora
 Projetos separados por frente (ex.: "Livro — Título X", "Redes sociais — Novembro"), todos liberados no portal. O cliente abre a demanda em **Diagramação** (com o link do manuscrito) ou **Social Media** (com o link dos textos/fotos); a equipe aceita, define responsável e datas e, se faltar material, usa "Pedir conteúdo ao cliente".
+
+## Prazos, atrasos e métricas (atualização R)
+- **Relógio pausado:** enquanto a demanda está com o cliente (aguardando conteúdo ou aprovação), o prazo da equipe não corre. **Entrega prevista = entrega combinada + dias de espera do cliente.** Isso aparece nos cartões, na lista, na linha do tempo (trecho tracejado) e nos avisos: atraso do cliente não conta contra a equipe.
+- **De quem é o atraso:** aprovação e conteúdo vencidos são do cliente; entrega e alterações vencidas, da equipe.
+- **Projetos > Métricas** (por período e por cliente): entregas, % no prazo (com e sem o ajuste da espera do cliente), tempo médio até a entrega (equipe × cliente), rodadas de ajuste, tempo de devolução das revisões, atrasos agora (equipe × cliente) e quebra por responsável, área e cliente.
+- As métricas usam o histórico de status que o sistema já grava; tarefas antigas entram com as datas reais de cada mudança de etapa.

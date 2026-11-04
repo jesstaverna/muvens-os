@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { COLUMNS, columnOf, lateness, timelineRange, type BoardTask } from '@/lib/projects/board';
+import { COLUMNS, adjustedDue, columnOf, lateness, timelineRange, type BoardTask } from '@/lib/projects/board';
 import { CLIENT_TASK_STATUS } from '@/lib/domain';
 import { dateBR } from '@/lib/format';
 
@@ -25,7 +25,7 @@ function Card({ t, href, today, viewer, showProject }: { t: BoardTask; href: str
         <LateBadge t={t} today={today} viewer={viewer} />
       </div>
       <div className="mt-2.5 flex items-center justify-between gap-2 text-xs text-muted">
-        <span>{t.due_on ? `Entrega ${dateBR(t.due_on)}` : 'Sem data de entrega'}</span>
+        <span>{t.due_on ? (adjustedDue(t) !== t.due_on ? `Entrega prevista ${dateBR(adjustedDue(t))}` : `Entrega ${dateBR(t.due_on)}`) : 'Sem data de entrega'}</span>
         <span className="flex items-center gap-2">{t.links > 0 && <span title="Links">🔗 {t.links}</span>}{t.comments > 0 && <span title="Mensagens">💬 {t.comments}</span>}</span>
       </div>
       {t.assignee && <div className="mt-2 flex items-center gap-1.5 text-xs"><span className="grid h-5 w-5 place-items-center rounded-full bg-fg text-[10px] font-bold text-lime">{t.assignee.trim().charAt(0).toUpperCase()}</span>{t.assignee}</div>}
@@ -38,7 +38,7 @@ export function KanbanView({ tasks, today, hrefFor, viewer, showProject }: { tas
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
       {cols.map((c) => {
-        const items = tasks.filter((t) => columnOf(t) === c.key);
+        const items = tasks.filter((t) => columnOf(t) === c.key).sort((a, b) => lateness(b, today).days - lateness(a, today).days);
         return (
           <section key={c.key} aria-label={c.label} className="w-64 shrink-0 rounded-2xl border border-line bg-subtle/50 p-3">
             <header className="mb-3 flex items-center justify-between px-1.5"><h3 className="flex items-center gap-2 text-sm font-semibold"><span className={`h-2 w-2 rounded-full ${COL_TONE[c.key]}`} />{c.label}</h3><span className="text-xs text-muted">{items.length}</span></header>
@@ -52,7 +52,7 @@ export function KanbanView({ tasks, today, hrefFor, viewer, showProject }: { tas
 export function TimelineView({ tasks, today, hrefFor }: { tasks: BoardTask[]; today: string; hrefFor: (id: string) => string }) {
   const dated = tasks.filter((t) => t.starts_on || t.due_on), undated = tasks.filter((t) => !t.starts_on && !t.due_on);
   if (!dated.length) return <div className="rounded-2xl border border-dashed border-line p-12 text-center text-sm text-muted">Nenhuma demanda com datas para mostrar na linha do tempo.</div>;
-  const r = timelineRange(dated, today);
+  const r = timelineRange(dated.map((t) => ({ starts_on: t.starts_on, due_on: adjustedDue(t) })), today);
   const projects = [...new Set(dated.map((t) => t.project))];
   return (
     <div className="card overflow-x-auto !p-0">
@@ -73,6 +73,7 @@ export function TimelineView({ tasks, today, hrefFor }: { tasks: BoardTask[]; to
                     {r.ticks.map((k) => <span key={k.label + k.left} className="absolute top-0 h-full w-px bg-line/60" style={{ left: `${k.left}%` }} />)}
                     <span className="absolute top-0 h-full w-0.5 bg-danger/70" style={{ left: `${r.todayLeft}%` }} title="Hoje" />
                     <span className={`absolute top-2.5 h-4 rounded-full ${l.late ? 'bg-danger' : COL_TONE[col]}`} style={{ left: `${b.left}%`, width: `${b.width}%` }} title={`${t.starts_on ? dateBR(t.starts_on) : '—'} → ${t.due_on ? dateBR(t.due_on) : '—'}`} />
+                    {adjustedDue(t) !== t.due_on && (() => { const e = r.bar({ starts_on: t.due_on, due_on: adjustedDue(t) }); return e ? <span className="absolute top-2.5 h-4 rounded-full border border-dashed border-danger/60 bg-danger/10" style={{ left: `${e.left}%`, width: `${e.width}%` }} title={`Entrega prevista ${dateBR(adjustedDue(t))} (+${Math.ceil(t.client_wait_days ?? 0)} dias de espera do cliente)`} /> : null; })()}
                     {t.review_due_on && t.status === 'enviado' && <span className="absolute top-1.5 h-6 w-1 rounded bg-amber-500" style={{ left: `${r.pos(t.review_due_on)}%` }} title={`Devolução da revisão: ${dateBR(t.review_due_on)}`} />}
                     {t.changes_due_on && t.status === 'ajustes' && <span className="absolute top-1.5 h-6 w-1 rounded bg-violet-500" style={{ left: `${r.pos(t.changes_due_on)}%` }} title={`Entrega das alterações: ${dateBR(t.changes_due_on)}`} />}
                   </div>
@@ -80,7 +81,7 @@ export function TimelineView({ tasks, today, hrefFor }: { tasks: BoardTask[]; to
             })}
           </div>))}
       </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-line px-4 py-2.5 text-xs text-muted"><span><span className="mr-1.5 inline-block h-2 w-4 rounded-full bg-blue-500" />Barra: início → entrega</span><span><span className="mr-1.5 inline-block h-3 w-1 rounded bg-amber-500" />Devolução da revisão</span><span><span className="mr-1.5 inline-block h-3 w-1 rounded bg-violet-500" />Entrega das alterações</span><span><span className="mr-1.5 inline-block h-3 w-0.5 bg-danger" />Hoje</span></div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-line px-4 py-2.5 text-xs text-muted"><span><span className="mr-1.5 inline-block h-2 w-4 rounded-full bg-blue-500" />Barra: início → entrega</span><span><span className="mr-1.5 inline-block h-3 w-1 rounded bg-amber-500" />Devolução da revisão</span><span><span className="mr-1.5 inline-block h-3 w-1 rounded bg-violet-500" />Entrega das alterações</span><span><span className="mr-1.5 inline-block h-2 w-4 rounded-full border border-dashed border-danger/60 bg-danger/10" />Empurrado pela espera do cliente</span><span><span className="mr-1.5 inline-block h-3 w-0.5 bg-danger" />Hoje</span></div>
       {!!undated.length && <div className="border-t border-line px-4 py-3 text-xs text-muted">Sem datas: {undated.map((t, i) => <span key={t.id}>{i ? ', ' : ''}<Link href={hrefFor(t.id)} className="underline">{t.title}</Link></span>)}</div>}
     </div>
   );
@@ -96,7 +97,7 @@ export function ListView({ tasks, today, hrefFor, viewer }: { tasks: BoardTask[]
           <tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
             <td className="td"><Link href={hrefFor(t.id)} className="font-medium hover:underline">{t.title}</Link><div className="text-xs text-muted">{t.project}</div><div className="mt-1"><LateBadge t={t} today={today} viewer={viewer} /></div></td>
             <td className="td"><span className="badge">{colLabel(t)}</span></td>
-            <td className="td whitespace-nowrap">{t.starts_on ? dateBR(t.starts_on) : '—'}</td><td className="td whitespace-nowrap">{t.due_on ? dateBR(t.due_on) : '—'}</td>
+            <td className="td whitespace-nowrap">{t.starts_on ? dateBR(t.starts_on) : '—'}</td><td className="td whitespace-nowrap">{t.due_on ? dateBR(t.due_on) : '—'}{adjustedDue(t) !== t.due_on && <div className="text-xs text-muted">prevista {dateBR(adjustedDue(t))} (+{Math.ceil(t.client_wait_days ?? 0)}d espera do cliente)</div>}</td>
             <td className="td whitespace-nowrap">{t.status === 'enviado' && t.review_due_on ? dateBR(t.review_due_on) : '—'}</td><td className="td whitespace-nowrap">{t.status === 'ajustes' && t.changes_due_on ? dateBR(t.changes_due_on) : '—'}</td>
             <td className="td">{t.assignee ?? '—'}</td></tr>))}</tbody></table>
     </div>

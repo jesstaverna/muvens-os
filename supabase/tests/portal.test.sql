@@ -209,3 +209,35 @@ end $$;
 set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
 select pg_temp.expect_error($$select * from public.task_delays()$$, '42501');
 reset role;
+
+-- ===== prazos e métricas (0026) =====
+do $$ declare t uuid := '55555555-5555-5555-5555-555555555551'; a timestamptz := now() - interval '10 days'; b timestamptz := now() - interval '6 days'; m jsonb; w numeric; begin
+  -- Post 1: criada há 12 dias, ficou 4 dias com o cliente (enviado), entregue hoje; entrega combinada há 3 dias
+  update tasks set status = 'em_andamento', due_on = current_date - 3, created_at = now() - interval '12 days' where id = t;
+  delete from task_events where task_id = t and kind = 'status';
+  update tasks set status = 'produzido' where id = t; update tasks set status = 'enviado' where id = t;
+  update task_events set created_at = a where task_id = t and kind = 'status' and detail like '% → enviado';
+  update tasks set status = 'aprovado' where id = t; update task_events set created_at = b where task_id = t and kind = 'status' and detail like '% → aprovado';
+  update tasks set status = 'entregue' where id = t;
+  select client_wait_days into w from task_client_wait where task_id = t;
+  assert w between 3.9 and 4.1, 'cliente segurou ~4 dias (enviado → aprovado): ' || w;
+  m := public.board_metrics(current_date - 1, current_date + 1, null);
+  assert (m->>'completed')::int >= 1, 'entrega contada no período';
+  assert exists (select 1 from jsonb_array_elements(m->'by_client') c where c->>'client' = 'Studio Aurora'), 'métricas por cliente';
+  -- entregue há 0 dias de uma entrega combinada 3 dias atrás: atrasada sem ajuste, mas dentro do prazo ajustado? 3 dias de atraso > 4 dias de espera? (4 ≥ 3) → no prazo
+  assert (select ok_adj from (select (app.br_date(completed_at) <= due_on + ceil(w)::int) as ok_adj from tasks where id = t) x), 'relógio pausado: espera do cliente cobre o atraso';
+  assert (app.br_date((select completed_at from tasks where id = t)) > (select due_on from tasks where id = t)), 'sem o ajuste estaria atrasada';
+  assert (m->'reviews'->>'total')::int >= 1, 'revisão do cliente medida';
+end $$;
+-- atraso do cliente não vira atraso da equipe
+do $$ declare t uuid := '55555555-5555-5555-5555-555555555553'; d record; begin
+  update tasks set internal = false, status = 'em_andamento', due_on = current_date - 2 where id = t;
+  assert exists (select 1 from public.task_delays() x where x.task_id = t and x.side = 'equipe' and x.days_late = 2), 'sem espera do cliente: atraso de 2 dias é da equipe';
+  update tasks set status = 'aguardando_cliente' where id = t;
+  update task_events set created_at = now() - interval '5 days' where task_id = t and kind = 'status' and detail like '% → aguardando_cliente';
+  update tasks set status = 'a_fazer' where id = t;
+  assert not exists (select 1 from public.task_delays() x where x.task_id = t and x.side = 'equipe'), 'cliente segurou 5 dias: a equipe não está atrasada';
+end $$;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+select pg_temp.expect_error($$select public.board_metrics(current_date - 30, current_date)$$, '42501');
+reset role;

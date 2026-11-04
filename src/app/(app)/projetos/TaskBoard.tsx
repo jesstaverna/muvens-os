@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react';
 import { moveTask } from './actions';
 import { AREAS } from '@/lib/projects/board';
 
-export interface KTask { id: string; title: string; status: string; priority: string; due_on: string | null; assignee: string | null; client: string | null; project: string | null; out_of_scope: boolean; late: boolean; starts_on: string | null; review_due_on: string | null; changes_due_on: string | null; area: string | null; origin: string; project_id: string }
+export interface KTask { id: string; title: string; status: string; priority: string; due_on: string | null; assignee: string | null; client: string | null; project: string | null; out_of_scope: boolean; late: boolean; starts_on: string | null; review_due_on: string | null; changes_due_on: string | null; area: string | null; origin: string; project_id: string; client_wait_days: number }
 const COLS = [['solicitada', 'Solicitadas'], ['aguardando_cliente', 'Aguardando cliente'], ['a_fazer', 'A fazer'], ['em_andamento', 'Em andamento'], ['produzido', 'Produzido'], ['enviado', 'Enviado ao cliente'], ['ajustes', 'Ajustes'], ['aprovado', 'Aprovado'], ['entregue', 'Entregue']] as const;
 const PRI: Record<string, string> = { urgente: 'bg-danger', alta: 'bg-amber-500', media: 'bg-blue-500', baixa: 'bg-muted' };
 

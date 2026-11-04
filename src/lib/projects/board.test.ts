@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { columnOf, lateness, timelineRange } from './board';
+import { adjustedDue, columnOf, lateness, timelineRange } from './board';
 
 describe('quadro do cliente', () => {
   it('coloca cada status na coluna certa', () => {
@@ -26,5 +26,13 @@ describe('quadro do cliente', () => {
     const b = r.bar({ starts_on: '2026-11-02', due_on: '2026-11-20' })!;
     expect(b.left).toBeGreaterThan(0); expect(b.left + b.width).toBeLessThanOrEqual(100); expect(r.todayLeft).toBeGreaterThan(b.left);
     expect(r.bar({ starts_on: null, due_on: null })).toBeNull(); expect(r.ticks.length).toBeGreaterThan(3);
+  });
+  it('relógio pausado: a espera do cliente empurra a entrega e tira o atraso da equipe', () => {
+    const t = { status: 'em_andamento', due_on: '2026-11-10', review_due_on: null, changes_due_on: null, client_wait_days: 3.2 };
+    expect(adjustedDue(t)).toBe('2026-11-14');
+    expect(lateness(t, '2026-11-13').late).toBe(false);
+    expect(lateness(t, '2026-11-16')).toMatchObject({ late: true, days: 2, side: 'equipe' });
+    expect(adjustedDue({ ...t, status: 'enviado' })).toBe('2026-11-10');          // com o cliente: prazo é a devolução da revisão
+    expect(adjustedDue({ ...t, client_wait_days: 0 })).toBe('2026-11-10');
   });
 });

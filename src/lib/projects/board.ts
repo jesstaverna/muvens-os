@@ -3,7 +3,7 @@ export const AREAS: Record<string, string> = { diagramacao: 'Diagramação', soc
 
 export interface BoardTask {
   id: string; title: string; status: string; area: string | null; starts_on: string | null; due_on: string | null; review_due_on: string | null; changes_due_on: string | null;
-  priority?: string; origin?: string; project_id: string; project: string; assignee: string | null; links: number; comments: number;
+  client_wait_days?: number; priority?: string; origin?: string; project_id: string; project: string; assignee: string | null; links: number; comments: number;
 }
 
 export const COLUMNS = [
@@ -25,16 +25,24 @@ export function columnOf(t: Pick<BoardTask, 'status' | 'area'>): ColumnKey {
   }
 }
 
+const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10);
+const TEAM_OPEN = ['solicitada', 'a_fazer', 'em_andamento', 'produzido'];
+/** Entrega prevista: a combinada + os dias em que o cliente segurou a demanda (o relógio da equipe para enquanto ela está com o cliente). */
+export function adjustedDue(t: Pick<BoardTask, 'status' | 'due_on' | 'client_wait_days'>): string | null {
+  const wait = Math.ceil(t.client_wait_days ?? 0);
+  return t.due_on && wait > 0 && TEAM_OPEN.includes(t.status) ? addDays(t.due_on, wait) : t.due_on;
+}
+
 export interface Lateness { late: boolean; days: number; due: string | null; side: 'cliente' | 'equipe' | null; what: string }
 /** Atraso de um cartão: aprovação e conteúdo pendentes contam para o cliente; entrega e alterações, para a equipe. */
-export function lateness(t: Pick<BoardTask, 'status' | 'due_on' | 'review_due_on' | 'changes_due_on'>, today: string): Lateness {
+export function lateness(t: Pick<BoardTask, 'status' | 'due_on' | 'review_due_on' | 'changes_due_on' | 'client_wait_days'>, today: string): Lateness {
   const none: Lateness = { late: false, days: 0, due: null, side: null, what: '' };
   const pick = (): { due: string | null; side: 'cliente' | 'equipe'; what: string } | null => {
     switch (t.status) {
       case 'enviado': return { due: t.review_due_on ?? t.due_on, side: 'cliente', what: 'Devolução da revisão' };
       case 'aguardando_cliente': return { due: t.due_on, side: 'cliente', what: 'Envio do conteúdo' };
       case 'ajustes': return { due: t.changes_due_on ?? t.due_on, side: 'equipe', what: 'Entrega das alterações' };
-      case 'solicitada': case 'a_fazer': case 'em_andamento': case 'produzido': return { due: t.due_on, side: 'equipe', what: 'Entrega' };
+      case 'solicitada': case 'a_fazer': case 'em_andamento': case 'produzido': return { due: adjustedDue(t), side: 'equipe', what: 'Entrega' };
       default: return null;
     }
   };

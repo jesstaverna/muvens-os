@@ -4,20 +4,20 @@ import { PageHeader, Stat, Tabs, Empty, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { TaskBoard, type KTask } from './TaskBoard';
 import { CalendarView, TimelineView } from '@/components/BoardViews';
-import type { BoardTask } from '@/lib/projects/board';
+import { AREAS, lateness, type BoardTask } from '@/lib/projects/board';
 import { createPlan, saveBoardSettings, saveRate } from './actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateBR, money } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
 
 export const metadata = { title: 'Projetos e Tarefas' };
-type SP = { view?: string; client?: string; project?: string; me?: string; m?: string };
+type SP = { d?: string; view?: string; client?: string; project?: string; me?: string; m?: string };
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
 export default async function Projetos({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('projetos');
   const sp = await searchParams;
-  const views = ['kanban', 'timeline', 'calendario', 'lista', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
+  const views = ['kanban', 'timeline', 'calendario', 'lista', 'metricas', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
   const view = views.includes(sp.view ?? '') ? sp.view! : 'kanban';
   const today = todayBR();
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
@@ -32,17 +32,19 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
   if (sp.project && /^[0-9a-f-]{36}$/.test(sp.project)) tq = tq.eq('project_id', sp.project);
   if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) tq = tq.eq('projects.client_id', sp.client);
   if (sp.me) tq = tq.eq('assignee_id', profile.id);
-  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' ? { data: [] as never[] } : await tq;
+  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' || view === 'metricas' ? { data: [] as never[] } : await tq;
 
-  const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => ({
+  const { data: waits } = (tasksRaw ?? []).length ? await supabase.from('task_client_wait').select('task_id, client_wait_days').in('task_id', (tasksRaw ?? []).map((t: any) => t.id)) : { data: [] as { task_id: string; client_wait_days: number }[] };
+  const waitOf = new Map((waits ?? []).map((w) => [w.task_id, Number(w.client_wait_days)]));
+  const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => ({ client_wait_days: waitOf.get(t.id) ?? 0,
     id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: one(t.assignee)?.full_name ?? null,
     client: one(one(t.projects)?.clients)?.name ?? null, project: one(t.projects)?.name ?? null, out_of_scope: t.out_of_scope,
-    late: !!t.due_on && t.due_on < today && !['entregue', 'aprovado'].includes(t.status),
+    late: lateness({ status: t.status, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, client_wait_days: waitOf.get(t.id) ?? 0 }, today).late,
   }));
 
-  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, links: 0, comments: 0 }));
+  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
   const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
-  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
+  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'metricas', label: 'Métricas' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
   const late = tasks.filter((t) => t.late).length;
 
   return (
@@ -77,6 +79,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
       {view === 'entregaveis' && <Entregaveis supabase={supabase} clients={clients ?? []} projects={projects ?? []} canPlan={canPlan} />}
       {view === 'rentabilidade' && <Rentabilidade supabase={supabase} />}
       {view === 'avisos' && <Avisos supabase={supabase} />}
+      {view === 'metricas' && <Metricas supabase={supabase} clients={clients ?? []} clientId={sp.client && /^[0-9a-f-]{36}$/.test(sp.client) ? sp.client : null} days={['7', '30', '90', '365'].includes(sp.d ?? '') ? Number(sp.d) : 30} />}
     </>
   );
 }
@@ -141,5 +144,59 @@ async function Avisos({ supabase }: { supabase: Awaited<ReturnType<typeof requir
         <label className="mt-3 flex items-start gap-2 text-sm"><input type="checkbox" name="late_email_client" defaultChecked={!!b?.late_email_client} className="mt-1" /><span><b>Lembrar o cliente</b> — e-mail aos usuários do portal quando uma aprovação ou o envio de conteúdo passou do prazo combinado.</span></label></div>
       <SubmitButton>Salvar</SubmitButton>
     </form>
+  );
+}
+
+type Metrics = {
+  created: number; completed: number; on_time_pct: number | null; on_time_raw_pct: number | null; avg_lead_days: number | null; avg_team_days: number | null; avg_client_days: number | null; avg_rounds: number | null;
+  reviews: { total: number; avg_days: number | null; within_pct: number | null; limit_days: number }; late_now: { team: number; client: number };
+  late_list: { id: string; title: string; client: string; project: string; side: 'equipe' | 'cliente'; days: number; assignee: string | null; status: string; wait_days: number }[];
+  by_assignee: { name: string; completed: number; on_time_pct: number | null; avg_lead_days: number | null; late_now: number }[];
+  by_area: { area: string; completed: number; on_time_pct: number | null; avg_lead_days: number | null; avg_client_days: number | null }[];
+  by_client: { client: string; completed: number; on_time_pct: number | null; avg_client_days: number | null; late_team: number; late_client: number }[];
+};
+const P = (v: number | null | undefined) => (v == null ? '—' : `${String(v).replace('.', ',')}%`);
+const D = (v: number | null | undefined) => (v == null ? '—' : `${String(v).replace('.', ',')} d`);
+
+async function Metricas({ supabase, clients, clientId, days }: { supabase: Awaited<ReturnType<typeof requireModule>>['supabase']; clients: { id: string; name: string }[]; clientId: string | null; days: number }) {
+  const to = todayBR(); const from = new Date(Date.parse(to) - days * 86_400_000).toISOString().slice(0, 10);
+  const { data, error } = await supabase.rpc('board_metrics', { p_from: from, p_to: to, p_client: clientId });
+  const m = data as Metrics | null;
+  return (
+    <>
+      <form method="get" className="mb-6 flex flex-wrap items-end gap-2"><input type="hidden" name="view" value="metricas" />
+        <select name="d" defaultValue={String(days)} className="input w-48" aria-label="Período"><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Últimos 12 meses</option></select>
+        <select name="client" defaultValue={clientId ?? ''} className="input w-56" aria-label="Cliente"><option value="">Todos os clientes</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+        <button className="btn btn-dark">Filtrar</button></form>
+      {error || !m ? <Empty title="Métricas indisponíveis" text="Rode a atualização R_prazos_e_metricas.sql no Supabase." /> : (
+        <div className="space-y-8">
+          <p className="text-sm text-muted">Período: {dateBR(from)} a {dateBR(to)} · entregas contadas pela data de <b>entrega final</b>. O relógio da equipe <b>para</b> enquanto a demanda está com o cliente (aguardando conteúdo ou aprovação): atraso do cliente não conta contra a equipe.</p>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Entregas no período" value={m.completed} hint={`${m.created} demandas criadas`} />
+            <Stat label="Entregues no prazo" value={P(m.on_time_pct)} tone={m.on_time_pct != null && m.on_time_pct < 70 ? 'danger' : 'lime'} hint={`Sem descontar a espera do cliente: ${P(m.on_time_raw_pct)}`} />
+            <Stat label="Tempo médio até a entrega" value={D(m.avg_lead_days)} hint={`Equipe ${D(m.avg_team_days)} · com o cliente ${D(m.avg_client_days)}`} />
+            <Stat label="Rodadas de ajuste (média)" value={m.avg_rounds ?? '—'} hint="Quantas vezes a peça voltou para ajustes" />
+            <Stat label="Atrasadas — equipe" value={m.late_now.team} tone={m.late_now.team ? 'danger' : undefined} hint="Agora, já descontando a espera do cliente" />
+            <Stat label="Atrasadas — cliente" value={m.late_now.client} tone={m.late_now.client ? 'danger' : undefined} hint="Aprovação ou conteúdo fora do prazo combinado" />
+            <Stat label="Revisão devolvida pelo cliente" value={D(m.reviews.avg_days)} hint={`${P(m.reviews.within_pct)} em até ${m.reviews.limit_days} dias (${m.reviews.total} revisões)`} />
+          </div>
+
+          <section><h2 className="mb-3 text-base font-semibold">Atrasos agora</h2>
+            {!m.late_list.length ? <div className="card text-sm text-muted">Nenhuma demanda atrasada. 🎉</div> : (
+              <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Demanda</th><th className="th">Cliente</th><th className="th">Com quem está</th><th className="th">Atraso</th><th className="th">Responsável</th></tr></thead>
+                <tbody>{m.late_list.map((l) => (<tr key={l.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td"><Link className="font-medium hover:underline" href={`/projetos/tarefas/${l.id}`}>{l.title}</Link><div className="text-xs text-muted">{l.project}</div></td><td className="td text-muted">{l.client}</td>
+                  <td className="td"><span className={`badge ${l.side === 'cliente' ? 'bg-amber-500/15 text-warn' : 'bg-danger/10 text-danger'}`}>{l.side === 'cliente' ? 'Cliente' : 'Equipe'}</span>{l.wait_days > 0 && l.side === 'equipe' && <div className="mt-1 text-xs text-muted">+{l.wait_days}d de espera do cliente já descontados</div>}</td>
+                  <td className="td font-medium text-danger">{l.days} {l.days === 1 ? 'dia' : 'dias'}</td><td className="td">{l.assignee ?? '—'}</td></tr>))}</tbody></table></div>)}</section>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <section><h2 className="mb-3 text-base font-semibold">Por responsável</h2><div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Pessoa</th><th className="th">Entregas</th><th className="th">No prazo</th><th className="th">Tempo médio</th><th className="th">Atrasadas</th></tr></thead>
+              <tbody>{m.by_assignee.map((r) => (<tr key={r.name} className="border-b border-line last:border-0"><td className="td">{r.name}</td><td className="td">{r.completed}</td><td className="td">{P(r.on_time_pct)}</td><td className="td">{D(r.avg_lead_days)}</td><td className={`td ${r.late_now ? 'font-medium text-danger' : ''}`}>{r.late_now}</td></tr>))}{!m.by_assignee.length && <tr><td className="td text-muted" colSpan={5}>Sem dados no período.</td></tr>}</tbody></table></div></section>
+            <section><h2 className="mb-3 text-base font-semibold">Por área</h2><div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Área</th><th className="th">Entregas</th><th className="th">No prazo</th><th className="th">Tempo médio</th><th className="th">Espera do cliente</th></tr></thead>
+              <tbody>{m.by_area.map((r) => (<tr key={r.area} className="border-b border-line last:border-0"><td className="td">{AREAS[r.area] ?? r.area}</td><td className="td">{r.completed}</td><td className="td">{P(r.on_time_pct)}</td><td className="td">{D(r.avg_lead_days)}</td><td className="td">{D(r.avg_client_days)}</td></tr>))}{!m.by_area.length && <tr><td className="td text-muted" colSpan={5}>Sem dados no período.</td></tr>}</tbody></table></div></section>
+          </div>
+          {!clientId && <section><h2 className="mb-3 text-base font-semibold">Por cliente</h2><div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Cliente</th><th className="th">Entregas</th><th className="th">No prazo</th><th className="th">Espera média do cliente</th><th className="th">Atrasadas (equipe)</th><th className="th">Atrasadas (cliente)</th></tr></thead>
+            <tbody>{m.by_client.map((r) => (<tr key={r.client} className="border-b border-line last:border-0"><td className="td">{r.client}</td><td className="td">{r.completed}</td><td className="td">{P(r.on_time_pct)}</td><td className="td">{D(r.avg_client_days)}</td><td className={`td ${r.late_team ? 'font-medium text-danger' : ''}`}>{r.late_team}</td><td className={`td ${r.late_client ? 'font-medium text-warn' : ''}`}>{r.late_client}</td></tr>))}{!m.by_client.length && <tr><td className="td text-muted" colSpan={6}>Sem dados no período.</td></tr>}</tbody></table></div></section>}
+        </div>)}
+    </>
   );
 }

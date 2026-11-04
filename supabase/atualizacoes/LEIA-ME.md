@@ -69,3 +69,7 @@ Rode `P_relatorio_google.sql` **uma vez** (pode ser repetido). Cria a página de
 ## Q — Quadro de demandas do cliente (migração 25)
 
 Rode `Q_quadro_do_cliente.sql` **uma vez** (pode ser repetido). Cria as áreas (Diagramação / Social Media), os novos status "Solicitada" e "Aguardando conteúdo do cliente", os links de conteúdo e entrega, as datas (início, entrega, devolução da revisão, entrega das alterações) e as configurações de avisos. Depois: (1) em **Projetos**, marque o projeto do cliente como "visível no portal"; (2) crie o acesso do cliente em **Portal do Cliente**; (3) em **Projetos > Prazos e avisos**, ajuste os prazos padrão e ligue os e-mails de atraso. Guia em `docs/QUADRO-DO-CLIENTE.md`. Conferência: `select to_regclass('public.task_links') is not null;` → `true`.
+
+## R — Prazos, atrasos e métricas do quadro (migração 26)
+
+Pré-requisito: a atualização Q. Rode `R_prazos_e_metricas.sql` **uma vez** (pode ser repetido). Cria a linha do tempo de cada tarefa, o cálculo da espera do cliente ("relógio pausado") e a aba **Projetos > Métricas**. Conferência: `select to_regproc('public.board_metrics') is not null;` → `true`.
