@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { requirePortal } from '@/lib/session';
@@ -17,7 +18,7 @@ export default async function ClientLayout({ children }: { children: React.React
       <Suspense><Flash /></Suspense>
       <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8">
         <div className="flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-lg bg-fg text-sm font-bold text-lime">M</span><div className="leading-tight"><div className="text-sm font-semibold">Portal do Cliente</div><div className="text-[11px] text-muted">{ov.client_name} · Muvens Agência</div></div></div>
-        <div className="flex items-center gap-2"><span className="hidden text-xs text-muted sm:inline">{profile.full_name || profile.email}</span><ThemeToggle /><form action={signOut}><button className="btn btn-sm">Sair</button></form></div>
+        <div className="flex items-center gap-2"><span className="hidden text-xs text-muted sm:inline">{profile.full_name || profile.email}</span><Link href="/definir-senha" className="hidden text-xs text-muted underline sm:inline">Alterar senha</Link><ThemeToggle /><form action={signOut}><button className="btn btn-sm">Sair</button></form></div>
       </header>
       <ClientNav pending={ov.awaiting_approval ?? 0} />
       <main className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-8">{children}</main>

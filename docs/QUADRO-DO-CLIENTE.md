@@ -62,3 +62,9 @@ Os contatos cadastrados em **Clientes > cliente > Contatos** (ex.: Diego Vogt, C
 - O link **não fica salvo**: aparece uma vez na tela. Se expirar ou já tiver sido usado, use **Gerar novo link** na lista de usuários (o novo invalida o anterior). O prazo de validade é do Supabase (Authentication > Providers > Email > Email OTP Expiration).
 - O botão "Entrar" na página do link evita que prévias de WhatsApp/e-mail gastem o link sem querer.
 - Segurança: nunca transforma um usuário da equipe em cliente e não move um cliente de uma empresa para outra (ajuste em Configurações). Exige `SUPABASE_SERVICE_ROLE_KEY` na Vercel (a mesma do agendador).
+
+## Vários usuários, login e senha
+Cada pessoa da empresa do cliente tem o **próprio login**. Em **Portal do Cliente > Acessos e visibilidade**, repita o formulário para cada usuário e escolha como entregar:
+- **Link de acesso** (recomendado): a pessoa abre o link e cria a senha.
+- **Login e senha**: o sistema cria o usuário com uma **senha forte gerada na hora**, mostrada **uma única vez**, com botões para copiar e uma mensagem pronta (endereço, login e senha) para WhatsApp. Para quem já tem acesso, "Nova senha" substitui a senha atual.
+Na lista de usuários há **Novo link** e **Nova senha** em cada pessoa. O cliente troca a própria senha em **Alterar senha** (cabeçalho do portal). O endereço de login do portal (`/login`) aparece no topo do formulário para copiar.

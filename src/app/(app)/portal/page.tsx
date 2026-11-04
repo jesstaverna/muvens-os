@@ -5,6 +5,7 @@ import { LinkButton } from '@/components/LinkButton';
 import { SubmitButton } from '@/components/SubmitButton';
 import { DocUploader } from './DocUploader';
 import { AccessForm } from './AccessForm';
+import { appUrl } from '@/lib/app-url';
 import { deleteClientDoc, respondRequest } from './actions';
 import { REQUEST_KIND, REQUEST_STATUS } from '@/lib/domain';
 import { dateTimeBR } from '@/lib/format';
@@ -12,7 +13,7 @@ import { dateTimeBR } from '@/lib/format';
 export const metadata = { title: 'Portal do Cliente — gestão' };
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
-export default async function PortalGestao({ searchParams }: { searchParams: Promise<{ tab?: string; email?: string; name?: string; c?: string }> }) {
+export default async function PortalGestao({ searchParams }: { searchParams: Promise<{ tab?: string; email?: string; name?: string; c?: string; mode?: string }> }) {
   const { supabase, profile } = await requireModule('portal');
   const sp = await searchParams;
   const tab = ['solicitacoes', 'documentos', 'acessos'].includes(sp.tab ?? '') ? sp.tab! : 'solicitacoes';
@@ -45,14 +46,14 @@ export default async function PortalGestao({ searchParams }: { searchParams: Pro
 
       {tab === 'acessos' && (
         <div className="space-y-6">
-          {profile.role === 'admin' ? <AccessForm clients={clients ?? []} defaults={{ email: sp.email, name: sp.name, client: sp.c }} /> : <div className="card text-sm text-muted">Somente administradores geram links de acesso. Peça a um administrador.</div>}
+          {profile.role === 'admin' ? <AccessForm clients={clients ?? []} loginUrl={`${appUrl().replace(/\/$/, '')}/login`} defaults={{ email: sp.email, name: sp.name, client: sp.c, mode: sp.mode }} /> : <div className="card text-sm text-muted">Somente administradores geram links de acesso. Peça a um administrador.</div>}
           <div className="card text-sm"><h2 className="mb-2 text-base font-semibold">Como funciona o acesso do cliente</h2><ol className="list-decimal space-y-1.5 pl-5 text-muted">
-            <li>Gere o link acima e envie ao cliente. O sistema já cria o login e vincula à empresa.</li>
+            <li>Preencha o formulário acima: o sistema cria o login, vincula à empresa e entrega um <b>link</b> (a pessoa cria a senha) ou <b>login e senha</b>. Repita para cada usuário da empresa.</li>
             <li>O cliente abre o link, clica em <b>Entrar</b> e define a senha. Nas próximas vezes entra em <code>/login</code> com e-mail e senha.</li>
             <li>Ele cai direto no <b>Quadro</b> e vê somente o que você liberar.</li></ol>
             <h3 className="mb-1 mt-5 font-medium">O que o cliente enxerga</h3><ul className="list-disc space-y-1 pl-5 text-muted"><li><b>Projetos</b> marcados como “Visível no Portal” e, neles, as tarefas que <b>não</b> são internas (nunca o briefing interno).</li><li><b>Aprovações</b>: tarefas no status “Enviado ao cliente”, com os arquivos marcados como visíveis.</li><li>Arquivos finais só depois de aprovados; documentos que você publica aqui; propostas liberadas; contratos enviados/assinados.</li></ul></div>
           <section className="card"><h2 className="mb-4 text-base font-semibold">Usuários de clientes</h2>
-            {!users?.length ? <p className="text-sm text-muted">Nenhum usuário com perfil Cliente ainda.</p> : <table className="w-full text-sm"><tbody>{users.map((u) => (<tr key={u.id} className="border-b border-line last:border-0"><td className="py-2.5">{u.full_name || u.email}<div className="text-xs text-muted">{u.email}</div></td><td className="py-2.5">{one(u.clients)?.name ?? <span className="text-danger">sem empresa vinculada</span>}</td><td className="py-2.5 text-right"><span className="badge">{u.active ? 'ativo' : 'inativo'}</span>{profile.role === 'admin' && u.client_id && <Link href={`/portal?tab=acessos&email=${encodeURIComponent(u.email ?? '')}&name=${encodeURIComponent(u.full_name ?? '')}&c=${u.client_id}`} className="ml-3 text-xs underline">Gerar novo link</Link>}</td></tr>))}</tbody></table>}
+            {!users?.length ? <p className="text-sm text-muted">Nenhum usuário com perfil Cliente ainda.</p> : <table className="w-full text-sm"><tbody>{users.map((u) => (<tr key={u.id} className="border-b border-line last:border-0"><td className="py-2.5">{u.full_name || u.email}<div className="text-xs text-muted">{u.email}</div></td><td className="py-2.5">{one(u.clients)?.name ?? <span className="text-danger">sem empresa vinculada</span>}</td><td className="py-2.5 text-right"><span className="badge">{u.active ? 'ativo' : 'inativo'}</span>{profile.role === 'admin' && u.client_id && <Link href={`/portal?tab=acessos&email=${encodeURIComponent(u.email ?? '')}&name=${encodeURIComponent(u.full_name ?? '')}&c=${u.client_id}`} className="ml-3 text-xs underline">Novo link</Link>}{profile.role === 'admin' && u.client_id && <Link href={`/portal?tab=acessos&mode=senha&email=${encodeURIComponent(u.email ?? '')}&name=${encodeURIComponent(u.full_name ?? '')}&c=${u.client_id}`} className="ml-3 text-xs underline">Nova senha</Link>}</td></tr>))}</tbody></table>}
             {profile.role === 'admin' && <p className="mt-3 text-xs text-muted">Para alterar vínculo ou desativar, use Configurações.</p>}</section>
         </div>)}
     </>
