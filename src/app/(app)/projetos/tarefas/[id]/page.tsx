@@ -19,7 +19,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
   const { data: t } = await supabase.from('tasks').select('*, projects(id, name, client_id, clients(name))').eq('id', id).maybeSingle();
   if (!t) notFound();
-  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }, { data: links }, { data: coRows }] = await Promise.all([
+  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }, { data: links }, { data: coRows }, { data: services }] = await Promise.all([
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
     supabase.from('task_checklist_items').select('*').eq('task_id', id).order('position'),
     supabase.from('task_comments').select('id, body, created_at, from_client, client_visible, author:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }),
@@ -28,12 +28,13 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
     supabase.from('time_entries').select('id, minutes, worked_on, note, user_id, who:profiles(full_name)').eq('task_id', id).order('worked_on', { ascending: false }),
     supabase.from('task_links').select('id, kind, label, url, from_client, client_visible, created_at').eq('task_id', id).order('created_at'),
     supabase.from('task_assignees').select('user_id').eq('task_id', id),
+    supabase.rpc('staff_service_options', { p_client: null }),
   ]);
   const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name as string]));
   const team = [...(t.assignee_id && nameOf.get(t.assignee_id) ? [{ id: t.assignee_id, name: nameOf.get(t.assignee_id)!, role: 'Responsável' }] : []),
     ...(coRows ?? []).filter((c) => c.user_id !== t.assignee_id && nameOf.get(c.user_id)).map((c) => ({ id: c.user_id as string, name: nameOf.get(c.user_id)!, role: 'Colaborador' }))];
   const clientPeople = [...new Set((comments ?? []).filter((c) => c.from_client).map((c) => one(c.author)?.full_name).filter((n): n is string => !!n))];
-  const proj = one(t.projects) as { id: string; name: string; clients: { name: string } | { name: string }[] | null } | null;
+  const proj = one(t.projects) as { id: string; name: string; client_id: string; clients: { name: string } | { name: string }[] | null } | null;
   const st = TASK_STATUS[t.status];
   const totalMin = (time ?? []).reduce((a, e) => a + e.minutes, 0);
   const late = t.due_on && t.due_on < todayBR() && !['entregue', 'aprovado', 'cancelada'].includes(t.status);
@@ -67,6 +68,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
               <Field label="Entrega"><input type="date" name="due_on" defaultValue={t.due_on ?? ''} className={`input ${late ? 'border-danger' : ''}`} /></Field>
               <Field label="Devolução da revisão (cliente)" hint="Até quando o cliente deve aprovar ou pedir ajustes. Sugerida ao enviar para aprovação."><input type="date" name="review_due_on" defaultValue={t.review_due_on ?? ''} className="input" /></Field>
               <Field label="Entrega das alterações (equipe)" hint="Até quando a equipe refaz os ajustes. Sugerida ao registrar ajustes."><input type="date" name="changes_due_on" defaultValue={t.changes_due_on ?? ''} className="input" /></Field>
+              <Field label="Serviço do cliente"><select name="service_id" defaultValue={t.service_id ?? ''} className="input"><option value="">—</option>{(services ?? []).filter((sv: { client_id: string }) => sv.client_id === proj?.client_id).map((sv: { id: string; service: string }) => <option key={sv.id} value={sv.id}>{sv.service}</option>)}</select></Field>
               <Field label="Área"><select name="area" defaultValue={t.area ?? ''} className="input"><option value="">—</option><option value="diagramacao">Diagramação</option><option value="social_media">Social Media</option><option value="outro">Outra</option></select></Field>
               <Field label="Prioridade"><select name="priority" defaultValue={t.priority} className="input">{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field></div>
             <Field label="Briefing (interno)"><textarea name="briefing" rows={6} defaultValue={t.briefing ?? ''} className="input" /></Field>

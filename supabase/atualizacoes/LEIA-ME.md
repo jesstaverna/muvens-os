@@ -85,3 +85,9 @@ Pré-requisito: Q e R. Rode `S_varios_responsaveis.sql` **uma vez** (pode ser re
 Pré-requisito: Q, R e S. Rode `T_ver_como_cliente.sql` **uma vez** (pode ser repetido). Libera **Portal do Cliente > Ver como o cliente** (e o botão em Projetos): o quadro do cliente exatamente como ele vê, com criação e arraste de cartões estilo Trello. Conferência: `select to_regproc('public.staff_client_board') is not null;` → `true`.
 
 > Atalho para Q + R + S + T de uma vez: `QRST_quadro_do_cliente_tudo.sql`.
+
+## U — Serviços do cliente no portal e nas tarefas (migração 29)
+
+Pré-requisito: Q, R, S e T. Rode `U_servicos_do_cliente.sql` **uma vez** (pode ser repetido). Em **Clientes > cliente > Serviços** (administrador/financeiro) dá para cadastrar e editar serviços, com descrição para o cliente e a opção de mostrar ou ocultar no portal. O cliente vê **Meus serviços** (sem valores), filtra o quadro por serviço e cada tarefa pode ser ligada a um serviço. Conferência: `select to_regproc('public.portal_services') is not null;` → `true`.
+
+> Atalho para Q + R + S + T + U de uma vez: `QRSTU_quadro_do_cliente_completo.sql`.

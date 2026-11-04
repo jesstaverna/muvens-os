@@ -38,6 +38,7 @@ export async function updateProject(id: string, fd: FormData) {
 
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Informe o título da tarefa'), briefing: optText, assignee_id: optId, due_on: optDate, starts_on: optDate, review_due_on: optDate, changes_due_on: optDate,
+  service_id: optId,
   area: z.preprocess((v) => v || null, z.enum(['diagramacao', 'social_media', 'outro']).nullable()),
   priority: z.enum(['baixa', 'media', 'alta', 'urgente']).default('media'),
 });

@@ -7,7 +7,7 @@ async function signOut() { 'use server'; const s = await createClient(); await s
 export default async function SemAcesso() {
   const s = await getSession();
   if (!s) redirect('/login');
-  if (s.profile.active && s.profile.role === 'cliente' && s.profile.client_id) redirect('/cliente');
+  if (s.profile.active && s.profile.role === 'cliente' && s.profile.client_id) redirect('/cliente/quadro');
   return (
     <main className="grid min-h-screen place-items-center px-6">
       <div className="card max-w-md text-center">

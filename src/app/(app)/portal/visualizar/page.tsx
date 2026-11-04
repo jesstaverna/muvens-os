@@ -8,11 +8,11 @@ import type { BoardTask } from '@/lib/projects/board';
 import { TrelloBoard } from './TrelloBoard';
 
 export const metadata = { title: 'Ver como o cliente' };
-type Board = { client_name: string; projects: { id: string; name: string; status: string }[]; hidden_projects: { id: string; name: string }[]; tasks: BoardTask[] };
+type Board = { client_name: string; services?: { id: string; name: string }[]; projects: { id: string; name: string; status: string }[]; hidden_projects: { id: string; name: string }[]; tasks: BoardTask[] };
 const VIEWS = [['kanban', 'Quadro'], ['timeline', 'Linha do tempo'], ['lista', 'Lista'], ['calendario', 'Calendário']] as const;
 const NAV = ['Início', 'Quadro', 'Projetos', 'Aprovações', 'Calendário', 'Solicitações', 'Documentos', 'Propostas e contratos'];
 
-export default async function VerComoCliente({ searchParams }: { searchParams: Promise<{ c?: string; v?: string; p?: string }> }) {
+export default async function VerComoCliente({ searchParams }: { searchParams: Promise<{ c?: string; v?: string; p?: string; s?: string }> }) {
   const sp = await searchParams;
   const { supabase } = await requireModule('portal');
   const { data: clients } = await supabase.from('clients').select('id, name').order('name');
@@ -31,9 +31,10 @@ export default async function VerComoCliente({ searchParams }: { searchParams: P
   if (!b) return <>{header}{picker}<Empty title="Não foi possível carregar" text="Rode a atualização T_ver_como_cliente.sql no Supabase." /></>;
   const view = VIEWS.some(([k]) => k === sp.v) ? sp.v! : 'kanban';
   const project = b.projects.some((p) => p.id === sp.p) ? sp.p! : '';
-  const tasks = project ? b.tasks.filter((t) => t.project_id === project) : b.tasks;
+  const services = b.services ?? []; const service = services.some((x) => x.id === sp.s) ? sp.s! : '';
+  const tasks = b.tasks.filter((t) => (!project || t.project_id === project) && (!service || t.service_id === service));
   const today = todayBR(); const href = (id: string) => `/projetos/tarefas/${id}`;
-  const q = (v: string, p: string) => `/portal/visualizar?c=${clientId}&v=${v}${p ? `&p=${p}` : ''}`;
+  const q = (v: string, p: string, sv = service) => `/portal/visualizar?c=${clientId}&v=${v}${p ? `&p=${p}` : ''}${sv ? `&s=${sv}` : ''}`;
   return (
     <>
       {header}{picker}
@@ -49,6 +50,7 @@ export default async function VerComoCliente({ searchParams }: { searchParams: P
             <nav aria-label="Visualização" className="flex gap-1 rounded-xl bg-subtle p-1">{VIEWS.map(([k, l]) => <Link key={k} href={q(k, project)} aria-current={view === k ? 'page' : undefined} className={`rounded-lg px-3 py-1.5 text-sm ${view === k ? 'bg-surface font-medium shadow-sm' : 'text-muted hover:text-fg'}`}>{l}</Link>)}</nav>
             {b.projects.length > 1 && <nav aria-label="Projeto" className="flex flex-wrap gap-1.5 text-sm"><Link href={q(view, '')} className={`badge ${project ? '' : 'bg-lime/40'}`}>Todos</Link>{b.projects.map((p) => <Link key={p.id} href={q(view, p.id)} className={`badge ${project === p.id ? 'bg-lime/40' : ''}`}>{p.name}</Link>)}</nav>}
           </div>
+          {services.length > 0 && <nav aria-label="Serviço" className="mb-5 flex flex-wrap items-center gap-1.5 text-sm"><span className="mr-1 text-xs text-muted">Serviço:</span><Link href={q(view, project, '')} className={`badge ${service ? '' : 'bg-lime/40'}`}>Todos</Link>{services.map((x) => <Link key={x.id} href={q(view, project, x.id)} className={`badge ${service === x.id ? 'bg-lime/40' : ''}`}>{x.name}</Link>)}</nav>}
           {!b.projects.length ? <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-muted">Este cliente ainda não tem projeto liberado no portal. Marque “visível no portal” em um projeto dele para criar cartões aqui.</div>
             : view === 'timeline' ? <TimelineView tasks={tasks} today={today} hrefFor={href} />
             : view === 'lista' ? <ListView tasks={tasks} today={today} hrefFor={href} viewer="cliente" />

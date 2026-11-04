@@ -21,6 +21,7 @@ export function Card({ t, href, today, viewer, showProject }: { t: BoardTask; hr
       <Link href={href} className="text-sm font-medium hover:underline">{t.title}</Link>
       {showProject && <div className="mt-0.5 text-xs text-muted">{t.project}</div>}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {t.service && <span className="rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted">{t.service}</span>}
         {(t.status === 'solicitada' || t.status === 'aguardando_cliente' || t.status === 'enviado') && st && <span className={`badge ${st.tone}`}>{st.label}</span>}
         <LateBadge t={t} today={today} viewer={viewer} />
       </div>

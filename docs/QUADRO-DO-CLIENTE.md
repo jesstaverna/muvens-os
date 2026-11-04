@@ -45,3 +45,9 @@ Se o cliente tem projetos ainda não liberados, aparece um aviso com o link para
 
 ## Pessoas envolvidas
 Cada tarefa tem um **responsável principal** e **outros responsáveis**. Os nomes aparecem nos cartões, na linha do tempo, no calendário, na lista e na página da tarefa (que também mostra as pessoas do cliente que comentaram). Quem é incluído recebe um aviso.
+
+## Entrada do cliente
+O cliente entra em `/login` e **cai direto no Quadro** (`/cliente/quadro`). O menu continua com Início, Serviços, Projetos, Aprovações etc.
+
+## Serviços (atualização U)
+Em **Clientes > cliente > Serviços** a equipe (administrador/financeiro) cadastra os serviços do cliente (ex.: "Diagramação de livros", "Criativos para redes sociais"), com descrição e visibilidade no portal. O cliente vê **Meus serviços** (nome, tipo de contrato, período, descrição e o andamento das demandas — **nunca valores**) e pode filtrar o quadro por serviço. Cada tarefa pode ser ligada a um serviço (campo "Serviço do cliente"). Serviços cadastrados à mão com valor maior que zero entram na receita recorrente do sistema; use 0 para só exibir no portal.

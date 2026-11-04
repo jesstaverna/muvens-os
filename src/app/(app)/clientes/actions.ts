@@ -39,3 +39,30 @@ export async function removeContact(clientId: string, contactId: string) {
   revalidatePath(`/clientes/${clientId}`);
   flash(`/clientes/${clientId}`, 'ok', 'Contato removido.');
 }
+
+const svcErr = (back: string, e: { code?: string }): never => flash(back, 'err', e.code === '42501' ? 'Somente administrador e financeiro cadastram serviços.' : e.code === 'PGRST204' || e.code === '42703' ? 'O banco ainda não tem a atualização de serviços. Rode U_servicos_do_cliente.sql no Supabase.' : 'Não foi possível salvar o serviço.');
+const day = (v: FormDataEntryValue | null) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? '')) ? String(v) : null);
+
+/** Cadastro manual de serviço (clientes que não vieram de uma proposta). Valor 0 não entra na receita recorrente. */
+export async function addService(clientId: string, fd: FormData) {
+  const { supabase } = await requireModule('clientes');
+  const back = `/clientes/${clientId}?tab=servicos`;
+  const name = String(fd.get('service') ?? '').trim();
+  if (name.length < 2) flash(back, 'err', 'Informe o nome do serviço.');
+  const value = Math.max(0, Number(String(fd.get('value') ?? '0').replace(/\./g, '').replace(',', '.')) || 0);
+  const { error } = await supabase.from('client_services').insert({ client_id: clientId, service: name.slice(0, 200), billing: fd.get('billing') === 'pontual' ? 'pontual' : 'mensal', value, starts_on: day(fd.get('starts_on')) ?? undefined,
+    status: ['ativo', 'pausado', 'encerrado'].includes(String(fd.get('status'))) ? String(fd.get('status')) : 'ativo', description: String(fd.get('description') ?? '').trim().slice(0, 2000) || null, portal_visible: fd.get('portal_visible') === 'on' });
+  if (error) svcErr(back, error);
+  revalidatePath(back);
+  flash(back, 'ok', 'Serviço cadastrado.');
+}
+
+export async function updateService(clientId: string, serviceId: string, fd: FormData) {
+  const { supabase } = await requireModule('clientes');
+  const back = `/clientes/${clientId}?tab=servicos`;
+  const { error } = await supabase.from('client_services').update({ status: ['ativo', 'pausado', 'encerrado'].includes(String(fd.get('status'))) ? String(fd.get('status')) : 'ativo', ends_on: day(fd.get('ends_on')),
+    description: String(fd.get('description') ?? '').trim().slice(0, 2000) || null, portal_visible: fd.get('portal_visible') === 'on' }).eq('id', serviceId).eq('client_id', clientId);
+  if (error) svcErr(back, error);
+  revalidatePath(back);
+  flash(back, 'ok', 'Serviço atualizado.');
+}

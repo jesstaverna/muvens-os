@@ -4,7 +4,8 @@ import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Pending, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { ClientForm } from '../ClientForm';
-import { addContact, removeContact, saveClient } from '../actions';
+import { addContact, addService, removeContact, saveClient, updateService } from '../actions';
+import { SERVICE_LABEL } from '@/lib/proposal-templates';
 import { dateBR, money } from '@/lib/format';
 import { PROPOSAL_STATUS, TX_STATUS_LABEL, todayBR } from '@/lib/domain';
 import { LinkButton } from '@/components/LinkButton';
@@ -66,9 +67,27 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
               <Field label="E-mail"><input name="email" type="email" className="input" /></Field><Field label="Telefone"><input name="phone" className="input" /></Field><SubmitButton className="btn btn-sm" pendingText="…">Adicionar contato</SubmitButton></form>}</section>
         </div>)}
 
-      {tab === 'servicos' && (!services?.length ? <Empty title="Nenhum serviço contratado" text="Serviços são registrados ao ativar uma proposta aceita (Propostas → Ativar cliente e gerar financeiro)." /> : (
-        <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Serviço</th><th className="th">Cobrança</th><th className="th">Valor</th><th className="th">Início</th><th className="th">Situação</th></tr></thead>
-          <tbody>{services.map((s) => (<tr key={s.id} className="border-b border-line last:border-0"><td className="td">{s.service}</td><td className="td">{s.billing === 'mensal' ? 'Mensal' : 'Pontual'}</td><td className="td">{money(s.value)}</td><td className="td">{dateBR(s.starts_on)}</td><td className="td"><span className="badge">{s.status}</span></td></tr>))}</tbody></table></div>))}
+      {tab === 'servicos' && (
+        <div className="space-y-6">
+          {!services?.length ? <Empty title="Nenhum serviço cadastrado" text="Serviços entram ao ativar uma proposta aceita ou pelo formulário abaixo. O cliente vê o nome, o período e a descrição no portal (nunca os valores)." /> : (
+            <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Serviço</th><th className="th">Cobrança</th><th className="th">Valor</th><th className="th">Início</th><th className="th">Situação</th><th className="th">No portal</th><th className="th"></th></tr></thead>
+              <tbody>{services.map((sv) => (<tr key={sv.id} className="border-b border-line align-top last:border-0"><td className="td">{sv.service}{sv.description && <div className="mt-0.5 max-w-xs text-xs text-muted">{sv.description}</div>}</td><td className="td">{sv.billing === 'mensal' ? 'Mensal' : 'Pontual'}</td><td className="td">{money(sv.value)}</td><td className="td">{dateBR(sv.starts_on)}</td><td className="td"><span className="badge">{sv.status}</span></td><td className="td">{sv.portal_visible ? 'Visível' : 'Oculto'}</td>
+                <td className="td"><details><summary className="cursor-pointer text-xs underline">Editar</summary>
+                  <form action={updateService.bind(null, id, sv.id)} className="mt-2 w-72 space-y-2"><label className="block text-xs">Situação<select name="status" defaultValue={sv.status} className="input !py-1.5"><option value="ativo">Ativo</option><option value="pausado">Pausado</option><option value="encerrado">Encerrado</option></select></label>
+                    <label className="block text-xs">Término (opcional)<input type="date" name="ends_on" defaultValue={sv.ends_on ?? ''} className="input !py-1.5" /></label>
+                    <label className="block text-xs">Descrição para o cliente<textarea name="description" rows={3} defaultValue={sv.description ?? ''} className="input" /></label>
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="portal_visible" defaultChecked={sv.portal_visible} /> Mostrar no portal do cliente</label><SubmitButton className="btn btn-sm" pendingText="…">Salvar</SubmitButton></form></details></td></tr>))}</tbody></table></div>)}
+          {['admin', 'financeiro'].includes(role) && (
+            <form action={addService.bind(null, id)} className="card max-w-3xl space-y-4"><h2 className="text-base font-semibold">Adicionar serviço</h2>
+              <div className="grid gap-4 sm:grid-cols-2"><Field label="Serviço *"><input name="service" required list="svc-list" maxLength={200} className="input" placeholder="Ex.: Diagramação de livros" /></Field>
+                <Field label="Cobrança"><select name="billing" className="input"><option value="mensal">Mensal</option><option value="pontual">Pontual</option></select></Field>
+                <Field label="Valor (R$)" hint="Deixe 0 se não quiser que entre na receita recorrente do sistema."><input name="value" inputMode="decimal" defaultValue="0" className="input" /></Field>
+                <Field label="Início"><input type="date" name="starts_on" defaultValue={today} className="input" /></Field></div>
+              <datalist id="svc-list">{[...new Set(Object.values(SERVICE_LABEL))].map((l) => <option key={l} value={l} />)}</datalist>
+              <Field label="Descrição para o cliente" hint="O que está incluído. Aparece em Meus serviços no portal."><textarea name="description" rows={3} className="input" /></Field>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="portal_visible" defaultChecked /> Mostrar no portal do cliente</label>
+              <SubmitButton>Adicionar serviço</SubmitButton></form>)}
+        </div>)}
 
       {tab === 'propostas' && (!proposals?.length ? <Empty title="Sem propostas" /> : (
         <div className="card overflow-x-auto !p-0"><table className="w-full"><tbody>{proposals.map((p) => (

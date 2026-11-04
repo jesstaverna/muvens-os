@@ -274,3 +274,30 @@ set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-000
 select pg_temp.expect_error($$select public.staff_client_board('11111111-1111-1111-1111-111111111111')$$, '42501');
 do $$ begin assert jsonb_array_length(public.portal_board()->'projects') >= 1, 'portal_board continua funcionando'; end $$;
 reset role;
+
+-- ===== serviços do cliente (0029) =====
+insert into client_services (id, client_id, service, billing, value, starts_on, description, portal_visible) values
+  ('88888888-8888-8888-8888-888888888881', '11111111-1111-1111-1111-111111111111', 'Diagramação de livros', 'pontual', 4500, current_date - 30, 'Miolo e capa', true),
+  ('88888888-8888-8888-8888-888888888882', '11111111-1111-1111-1111-111111111111', 'Serviço interno', 'mensal', 999, current_date - 30, null, false),
+  ('88888888-8888-8888-8888-888888888883', '99999999-9999-9999-9999-999999999999', 'Serviço da B', 'mensal', 100, current_date - 30, null, true);
+update tasks set service_id = '88888888-8888-8888-8888-888888888881' where id = '55555555-5555-5555-5555-555555555552';
+update tasks set service_id = '88888888-8888-8888-8888-888888888882' where id = '55555555-5555-5555-5555-555555555551';
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+do $$ declare s jsonb; b jsonb; begin
+  s := public.portal_services();
+  assert exists (select 1 from jsonb_array_elements(s) x where x->>'name' = 'Diagramação de livros') and not exists (select 1 from jsonb_array_elements(s) x where x->>'name' in ('Serviço interno', 'Serviço da B')), 'cliente vê só serviços liberados e seus';
+  assert not exists (select 1 from jsonb_array_elements(s) x where x ? 'value') and s::text not like '%4500%' and s::text not like '%999%', 'valores nunca vazam';
+  assert (select (x->>'open_tasks')::int from jsonb_array_elements(s) x where x->>'name' = 'Diagramação de livros') >= 1, 'conta demandas abertas do serviço';
+  b := public.portal_board();
+  assert exists (select 1 from jsonb_array_elements(b->'tasks') t where t->>'id' = '55555555-5555-5555-5555-555555555552' and t->>'service' = 'Diagramação de livros'), 'cartão mostra o serviço';
+  assert not exists (select 1 from jsonb_array_elements(b->'tasks') t where t->>'service' = 'Serviço interno'), 'serviço oculto não aparece no cartão';
+  assert exists (select 1 from jsonb_array_elements(b->'services') x where x->>'name' = 'Diagramação de livros') and not exists (select 1 from jsonb_array_elements(b->'services') x where x->>'name' = 'Serviço interno'), 'filtro de serviços do quadro';
+  assert (select count(*) from client_services) = 0, 'cliente não lê client_services direto';
+end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a4';
+do $$ begin assert (select count(*) from public.staff_service_options('11111111-1111-1111-1111-111111111111')) >= 2, 'designer escolhe serviço na tarefa'; end $$;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+select pg_temp.expect_error($$select * from public.staff_service_options()$$, '42501');
+reset role;

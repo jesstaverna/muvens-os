@@ -3,7 +3,7 @@ export const AREAS: Record<string, string> = { diagramacao: 'Diagramação', soc
 
 export interface BoardTask {
   id: string; title: string; status: string; area: string | null; starts_on: string | null; due_on: string | null; review_due_on: string | null; changes_due_on: string | null;
-  client_wait_days?: number; priority?: string; origin?: string; project_id: string; project: string; assignee: string | null; assignees?: string[]; links: number; comments: number;
+  client_wait_days?: number; priority?: string; origin?: string; project_id: string; project: string; assignee: string | null; assignees?: string[]; service_id?: string | null; service?: string | null; links: number; comments: number;
 }
 
 export const COLUMNS = [

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const LINKS = [['/cliente', 'Início'], ['/cliente/quadro', 'Quadro'], ['/cliente/projetos', 'Projetos'], ['/cliente/aprovacoes', 'Aprovações'], ['/cliente/calendario', 'Calendário'], ['/cliente/solicitacoes', 'Solicitações'], ['/cliente/documentos', 'Documentos'], ['/cliente/contratos', 'Propostas e contratos']];
+const LINKS = [['/cliente', 'Início'], ['/cliente/quadro', 'Quadro'], ['/cliente/servicos', 'Serviços'], ['/cliente/projetos', 'Projetos'], ['/cliente/aprovacoes', 'Aprovações'], ['/cliente/calendario', 'Calendário'], ['/cliente/solicitacoes', 'Solicitações'], ['/cliente/documentos', 'Documentos'], ['/cliente/contratos', 'Propostas e contratos']];
 
 export function ClientNav({ pending }: { pending: number }) {
   const path = usePathname();

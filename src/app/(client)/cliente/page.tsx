@@ -9,7 +9,8 @@ type Deadline = { id: string; title: string; due_on: string; status: string; pro
 
 export default async function Inicio() {
   const { supabase } = await requirePortal();
-  const { data } = await supabase.rpc('portal_overview');
+  const [{ data }, { data: sv }] = await Promise.all([supabase.rpc('portal_overview'), supabase.rpc('portal_services')]);
+  const services = ((sv ?? []) as { id: string; name: string; open_tasks: number }[]);
   const o = (data ?? {}) as { client_name: string; projects_active: number; awaiting_approval: number; open_requests: number; next_deadlines: Deadline[] };
   return (
     <>
@@ -20,6 +21,7 @@ export default async function Inicio() {
         <Stat label="Projetos em andamento" value={o.projects_active} href="/cliente/projetos" />
         <Stat label="Solicitações abertas" value={o.open_requests} href="/cliente/solicitacoes" />
       </section>
+      {services.length > 0 && <section className="card mb-6"><h2 className="mb-3 text-base font-semibold">Seus serviços</h2><ul className="flex flex-wrap gap-2">{services.map((s) => <li key={s.id}><Link href={`/cliente/quadro?s=${s.id}`} className="badge">{s.name}{s.open_tasks ? ` · ${s.open_tasks}` : ''}</Link></li>)}</ul></section>}
       <section className="card"><h2 className="mb-4 text-base font-semibold">Próximas entregas</h2>
         {!o.next_deadlines?.length ? <p className="text-sm text-muted">Nenhuma entrega com prazo definido no momento.</p> : (
           <ul className="divide-y divide-line">{o.next_deadlines.map((d) => (<li key={d.id} className="flex items-center justify-between gap-3 py-3 text-sm"><div><div className="font-medium">{d.title}</div><div className="text-xs text-muted">{d.project}</div></div>
