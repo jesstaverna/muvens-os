@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createClientAccess, generatePassword, type AdminLike } from './access';
+import { createClientAccess, createStaffAccess, generatePassword, type AdminLike } from './access';
 
 const CLIENT = '11111111-1111-1111-1111-111111111111', OTHER = '99999999-9999-9999-9999-999999999999';
 type P = { id: string; role: string; client_id: string | null; active: boolean; full_name: string | null };
@@ -57,5 +57,21 @@ describe('link de acesso do cliente', () => {
     const set = new Set(Array.from({ length: 50 }, () => generatePassword()));
     expect(set.size).toBeGreaterThan(45);
     for (const p of set) { expect(p).toHaveLength(12); expect(p).toMatch(/[A-Z]/); expect(p).toMatch(/[a-z]/); expect(p).toMatch(/[0-9]/); expect(p).not.toMatch(/[0OIl1]/); }
+  });
+  it('equipe nova: cria com o perfil escolhido, sem empresa', async () => {
+    const f = fake(null); const r = await createStaffAccess(f.admin, { email: 'Dani@Muvens.com.br', name: 'Dani Designer', role: 'designer', base: 'https://app.test/' });
+    expect(r).toMatchObject({ ok: true, mode: 'link', kind: 'novo' }); expect(f.patches[0]).toMatchObject({ role: 'designer', client_id: null, active: true, full_name: 'Dani Designer' });
+  });
+  it('equipe existente: só reativa, NUNCA troca o perfil; cliente não vira equipe', async () => {
+    const adm = fake({ id: 'a1', role: 'admin', client_id: null, active: true, full_name: 'Jessica' });
+    expect(await createStaffAccess(adm.admin, { email: 'j@x.com', name: 'Jessica', role: 'designer', base: 'https://app.test', mode: 'senha' })).toMatchObject({ ok: true, kind: 'existente' });
+    expect(adm.patches[0]).toEqual({ active: true }); expect(adm.resets).toHaveLength(1);
+    const cli = fake({ id: 'c1', role: 'cliente', client_id: CLIENT, active: true, full_name: 'Diego' });
+    expect(await createStaffAccess(cli.admin, { email: 'd@x.com', name: 'Diego', role: 'comercial', base: 'https://app.test' })).toMatchObject({ ok: false }); expect(cli.calls).toHaveLength(0); expect(cli.patches).toHaveLength(0);
+  });
+  it('perfil de equipe inválido é recusado (inclusive "cliente")', async () => {
+    const f = fake(null);
+    for (const role of ['cliente', 'root', '']) expect(await createStaffAccess(f.admin, { email: 'a@b.co', name: 'Ana', role, base: 'https://app.test' })).toMatchObject({ ok: false });
+    expect(f.calls).toHaveLength(0); expect(f.created).toHaveLength(0);
   });
 });

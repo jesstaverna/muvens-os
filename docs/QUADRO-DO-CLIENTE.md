@@ -71,3 +71,6 @@ Na lista de usuários há **Novo link** e **Nova senha** em cada pessoa. O clien
 
 ## Responsáveis dentro do cliente
 Em **Clientes > cliente**: (1) **Responsável pela conta (Muvens)** — quem da equipe cuida do cliente (aparece no cabeçalho e na lista; novos projetos sem responsável herdam esse nome); (2) **Contatos** — cada um tem **Editar** (nome, cargo, e-mail, telefone) e a marca **Responsável principal do cliente** (só um por cliente).
+
+## Criar usuários da equipe
+Em **Configurações > Criar usuário da equipe** (administrador): informe nome, e-mail e **perfil** (Administrador, Comercial, Financeiro, Designer ou Tráfego) e escolha **link de acesso** ou **login e senha gerados na hora** (mostrados uma única vez, com mensagem pronta para WhatsApp). A pessoa já aparece na lista de **Responsáveis** das tarefas. Quem já tem acesso só é reativado/recebe nova senha — o perfil dele nunca é alterado por este formulário; clientes do portal não podem ser convertidos em equipe.

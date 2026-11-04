@@ -1,4 +1,6 @@
 import { revalidatePath } from 'next/cache';
+import { AccessForm } from '../portal/AccessForm';
+import { appUrl } from '@/lib/app-url';
 import { requireModule, flash } from '@/lib/session';
 import { PageHeader, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
@@ -59,8 +61,9 @@ export default async function Config() {
     <>
       <PageHeader title="Configurações" subtitle="Usuários e permissões, funil comercial, integrações e auditoria." />
 
+      {profile.role === 'admin' && <div className="mb-8"><AccessForm variant="equipe" loginUrl={`${appUrl().replace(/\/$/, '')}/login`} roles={(Object.keys(ROLE_LABEL) as Role[]).filter((r) => r !== 'cliente').map((r) => ({ value: r, label: ROLE_LABEL[r] }))} /></div>}
       <section className="card mb-8"><h2 className="mb-1 text-base font-semibold">Usuários e perfis</h2>
-        <p className="mb-5 text-sm text-muted">Crie o usuário no Supabase Auth (convite por e-mail) e defina o perfil aqui. Novos cadastros entram <b>sem acesso</b> até você liberar. Contas “Cliente” só terão portal na Fase 2.</p>
+        <p className="mb-5 text-sm text-muted">Crie novos usuários da equipe no formulário acima (link ou login e senha). Aqui você ajusta nome, perfil e situação de cada um. Para clientes do portal, use Portal do Cliente › Acessos.</p>
         <div className="space-y-3">{users?.map((u) => (
           <form key={u.id} action={updateUser.bind(null, u.id)} className="grid items-end gap-3 rounded-xl border border-line p-3 md:grid-cols-[1.2fr_1.2fr_11rem_1fr_auto_auto]">
             <div><span className="label">E-mail</span><div className="truncate text-sm">{u.email}</div></div>

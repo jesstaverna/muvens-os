@@ -28,23 +28,38 @@ export function generatePassword(rand: (n: number) => number = (n) => crypto.get
 const MAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const UUID = /^[0-9a-f-]{36}$/;
 
-export async function createClientAccess(admin: AdminLike, input: { email: string; name: string; clientId: string; base: string; mode?: 'link' | 'senha' }): Promise<AccessResult> {
+export const STAFF_ROLES = ['admin', 'comercial', 'financeiro', 'designer', 'trafego'] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+type Target = { kind: 'cliente'; clientId: string } | { kind: 'equipe'; role: StaffRole };
+type Input = { email: string; name: string; base: string; mode?: 'link' | 'senha' };
+
+async function grant(admin: AdminLike, input: Input, target: Target): Promise<AccessResult> {
   const email = input.email.trim().toLowerCase(); const name = input.name.trim().slice(0, 120);
   if (!MAIL.test(email)) return { ok: false, error: 'Informe um e-mail válido.' };
-  if (!UUID.test(input.clientId)) return { ok: false, error: 'Escolha a empresa do cliente.' };
   if (name.length < 2) return { ok: false, error: 'Informe o nome da pessoa.' };
+  const base = input.base.replace(/\/$/, '');
 
   const { data: prof } = await admin.from('profiles').select('id, role, client_id, active, full_name').ilike('email', email).maybeSingle();
-  if (prof && prof.role !== 'cliente') return { ok: false, error: 'Este e-mail já é de um usuário da equipe Muvens. Use outro e-mail para o cliente.' };
-  if (prof && prof.client_id && prof.client_id !== input.clientId) return { ok: false, error: 'Este e-mail já está vinculado a outra empresa. Ajuste em Configurações antes de gerar o link.' };
+  if (target.kind === 'cliente') {
+    if (prof && prof.role !== 'cliente') return { ok: false, error: 'Este e-mail já é de um usuário da equipe Muvens. Use outro e-mail para o cliente.' };
+    if (prof && prof.client_id && prof.client_id !== target.clientId) return { ok: false, error: 'Este e-mail já está vinculado a outra empresa. Ajuste em Configurações antes de gerar o link.' };
+  } else if (prof && prof.role === 'cliente') return { ok: false, error: 'Este e-mail já é de um cliente do portal. Use outro e-mail para a equipe.' };
+
+  // o que gravar no perfil: cliente = vínculo à empresa; equipe nova = perfil escolhido; equipe existente = só reativa (nunca muda o perfil de quem já existe)
+  const patchFor = (): Record<string, unknown> => {
+    const p: Record<string, unknown> = target.kind === 'cliente' ? { role: 'cliente', client_id: target.clientId, active: true } : prof ? { active: true } : { role: target.role, client_id: null, active: true };
+    if (!prof?.full_name?.trim()) p.full_name = name;
+    return p;
+  };
+  const linkFail = 'O usuário foi criado, mas não foi possível ajustar o perfil. Ajuste em Configurações.';
 
   if (input.mode === 'senha') {
     const password = generatePassword(); let uid = prof?.id;
     if (prof) { const r = await admin.auth.admin.updateUserById(prof.id, { password }); if (r.error) return { ok: false, error: 'Não foi possível definir a senha agora. Tente de novo.' }; }
     else { const r = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: name } }); uid = r.data?.user?.id; if (r.error || !uid) return { ok: false, error: 'Não foi possível criar o usuário agora. Se o e-mail já existir no login, peça o link em vez da senha.' }; }
-    const { error } = await admin.from('profiles').update({ role: 'cliente', client_id: input.clientId, active: true, ...(prof?.full_name?.trim() ? {} : { full_name: name }) }).eq('id', uid!);
-    if (error) return { ok: false, error: 'O usuário foi criado, mas não foi possível vincular à empresa. Vincule em Configurações.' };
-    return { ok: true, mode: 'senha', kind: prof ? 'existente' : 'novo', email, name, password, loginUrl: `${input.base.replace(/\/$/, '')}/login` };
+    const { error } = await admin.from('profiles').update(patchFor()).eq('id', uid!);
+    if (error) return { ok: false, error: linkFail };
+    return { ok: true, mode: 'senha', kind: prof ? 'existente' : 'novo', email, name, password, loginUrl: `${base}/login` };
   }
 
   let type: 'invite' | 'recovery' = prof ? 'recovery' : 'invite';
@@ -52,11 +67,17 @@ export async function createClientAccess(admin: AdminLike, input: { email: strin
   if (res.error && type === 'invite') { type = 'recovery'; res = await admin.auth.admin.generateLink({ type, email }); }   // já existia no login e ainda não tinha perfil visível
   const token = res.data?.properties?.hashed_token; const uid = res.data?.user?.id ?? prof?.id;
   if (res.error || !token || !uid) return { ok: false, error: 'Não foi possível gerar o link agora. Confira se a chave de serviço do Supabase está configurada e tente de novo.' };
+  const { error } = await admin.from('profiles').update(patchFor()).eq('id', uid);
+  if (error) return { ok: false, error: linkFail };
+  return { ok: true, mode: 'link', kind: prof ? 'existente' : 'novo', email, name, link: `${base}/auth/confirmar?token_hash=${encodeURIComponent(token)}&type=${type}` };
+}
 
-  const patch: Record<string, unknown> = { role: 'cliente', client_id: input.clientId, active: true };
-  if (!prof?.full_name?.trim() || !prof) patch.full_name = name;
-  const { error } = await admin.from('profiles').update(patch).eq('id', uid);
-  if (error) return { ok: false, error: 'O link foi criado, mas não foi possível vincular o usuário à empresa. Vincule em Configurações.' };
+export async function createClientAccess(admin: AdminLike, input: Input & { clientId: string }): Promise<AccessResult> {
+  if (!UUID.test(input.clientId)) return { ok: false, error: 'Escolha a empresa do cliente.' };
+  return grant(admin, input, { kind: 'cliente', clientId: input.clientId });
+}
 
-  return { ok: true, mode: 'link', kind: prof ? 'existente' : 'novo', email, name, link: `${input.base.replace(/\/$/, '')}/auth/confirmar?token_hash=${encodeURIComponent(token)}&type=${type}` };
+export async function createStaffAccess(admin: AdminLike, input: Input & { role: string }): Promise<AccessResult> {
+  if (!(STAFF_ROLES as readonly string[]).includes(input.role)) return { ok: false, error: 'Escolha o perfil da pessoa.' };
+  return grant(admin, input, { kind: 'equipe', role: input.role as StaffRole });
 }
