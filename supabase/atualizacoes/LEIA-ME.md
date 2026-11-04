@@ -91,3 +91,9 @@ Pré-requisito: Q, R e S. Rode `T_ver_como_cliente.sql` **uma vez** (pode ser re
 Pré-requisito: Q, R, S e T. Rode `U_servicos_do_cliente.sql` **uma vez** (pode ser repetido). Em **Clientes > cliente > Serviços** (administrador/financeiro) dá para cadastrar e editar serviços, com descrição para o cliente e a opção de mostrar ou ocultar no portal. O cliente vê **Meus serviços** (sem valores), filtra o quadro por serviço e cada tarefa pode ser ligada a um serviço. Conferência: `select to_regproc('public.portal_services') is not null;` → `true`.
 
 > Atalho para Q + R + S + T + U de uma vez: `QRSTU_quadro_do_cliente_completo.sql`.
+
+## V — Contatos do cliente nas tarefas (migração 30)
+
+Pré-requisito: Q a U. Rode `V_contatos_nas_tarefas.sql` **uma vez** (pode ser repetido). Na tarefa, **Contatos do cliente nesta tarefa** lista os contatos cadastrados em Clientes > cliente > Contatos (nome, cargo, e-mail e WhatsApp com atalho) e deixa marcar quem participa. O cliente vê nome e cargo no portal (nunca e-mail ou telefone). Também corrige responsáveis com nome em branco: passam a aparecer pelo e-mail. Conferência: `select to_regclass('public.task_contacts') is not null;` → `true`.
+
+> Atalho para Q a V de uma vez: `QRSTUV_quadro_do_cliente_completo.sql`.

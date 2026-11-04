@@ -30,6 +30,7 @@ export function Card({ t, href, today, viewer, showProject }: { t: BoardTask; hr
         <span className="flex items-center gap-2">{t.links > 0 && <span title="Links">🔗 {t.links}</span>}{t.comments > 0 && <span title="Mensagens">💬 {t.comments}</span>}</span>
       </div>
       {peopleOf(t).length > 0 && <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">{peopleOf(t).slice(0, 3).map((n) => <span key={n} className="inline-flex items-center gap-1"><span className="grid h-5 w-5 place-items-center rounded-full bg-fg text-[10px] font-bold text-lime">{n.trim().charAt(0).toUpperCase()}</span>{n.split(' ')[0]}</span>)}{peopleOf(t).length > 3 && <span className="text-muted">+{peopleOf(t).length - 3}</span>}</div>}
+      {(t.contacts?.length ?? 0) > 0 && <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted" title="Contatos do cliente nesta demanda">{t.contacts!.slice(0, 2).map((c) => <span key={c.name} className="inline-flex items-center gap-1"><span className="grid h-5 w-5 place-items-center rounded-full border border-line text-[10px] font-bold text-fg">{c.name.trim().charAt(0).toUpperCase()}</span>{c.name.split(' ')[0]}</span>)}{t.contacts!.length > 2 && <span>+{t.contacts!.length - 2}</span>}</div>}
     </article>
   );
 }

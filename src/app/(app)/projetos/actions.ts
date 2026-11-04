@@ -238,3 +238,17 @@ export async function setCoAssignees(taskId: string, fd: FormData) {
   revalidatePath(back); revalidatePath('/projetos');
   flash(back, 'ok', 'Responsáveis atualizados.');
 }
+
+/** Define quais contatos cadastrados no cliente estão envolvidos na tarefa. */
+export async function setTaskContacts(taskId: string, fd: FormData) {
+  const { supabase, profile } = await requireModule('projetos');
+  const back = `/projetos/tarefas/${taskId}`;
+  const want = new Set(fd.getAll('contact').map(String).filter((u) => /^[0-9a-f-]{36}$/.test(u)));
+  const { data: cur } = await supabase.from('task_contacts').select('contact_id').eq('task_id', taskId);
+  const have = new Set((cur ?? []).map((c) => c.contact_id as string));
+  const add = [...want].filter((u) => !have.has(u)), del = [...have].filter((u) => !want.has(u));
+  if (del.length) { const { error } = await supabase.from('task_contacts').delete().eq('task_id', taskId).in('contact_id', del); if (error) dbErr(back, error); }
+  if (add.length) { const { error } = await supabase.from('task_contacts').insert(add.map((contact_id) => ({ task_id: taskId, contact_id, added_by: profile.id }))); if (error) dbErr(back, error); }
+  revalidatePath(back); revalidatePath('/projetos');
+  flash(back, 'ok', 'Contatos do cliente atualizados.');
+}

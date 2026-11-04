@@ -18,7 +18,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
   const { from, to } = monthRange(y, mo);
   const prev = mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`, nxt = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
 
-  let q = supabase.from('tasks').select('id, title, status, priority, due_on, assignee:profiles!tasks_assignee_id_fkey(full_name), projects!inner(name, client_id, clients(name))').gte('due_on', from).lte('due_on', to).neq('status', 'cancelada').order('due_on');
+  let q = supabase.from('tasks').select('id, title, status, priority, due_on, assignee:profiles!tasks_assignee_id_fkey(full_name, email), projects!inner(name, client_id, clients(name))').gte('due_on', from).lte('due_on', to).neq('status', 'cancelada').order('due_on');
   if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) q = q.eq('projects.client_id', sp.client);
   if (sp.me) q = q.eq('assignee_id', profile.id);
   const [{ data }, { data: clients }] = await Promise.all([q, supabase.from('clients').select('id, name').order('name')]);

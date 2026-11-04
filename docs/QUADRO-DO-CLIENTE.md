@@ -51,3 +51,7 @@ O cliente entra em `/login` e **cai direto no Quadro** (`/cliente/quadro`). O me
 
 ## Serviços (atualização U)
 Em **Clientes > cliente > Serviços** a equipe (administrador/financeiro) cadastra os serviços do cliente (ex.: "Diagramação de livros", "Criativos para redes sociais"), com descrição e visibilidade no portal. O cliente vê **Meus serviços** (nome, tipo de contrato, período, descrição e o andamento das demandas — **nunca valores**) e pode filtrar o quadro por serviço. Cada tarefa pode ser ligada a um serviço (campo "Serviço do cliente"). Serviços cadastrados à mão com valor maior que zero entram na receita recorrente do sistema; use 0 para só exibir no portal.
+
+## Contatos do cliente nas tarefas (atualização V)
+Os contatos cadastrados em **Clientes > cliente > Contatos** (ex.: Diego Vogt, CEO) podem ser marcados em cada tarefa, em **Contatos do cliente nesta tarefa**. Eles aparecem em **Pessoas envolvidas**, nos cartões ("Cliente: Diego") e no portal (só nome e cargo). A tarefa também mostra e-mail e WhatsApp deles com atalho para abrir.
+**Nome em branco:** quem não tem nome no perfil passa a aparecer pelo e-mail (ex.: "Dani Designer"). Para ajustar, abra **Configurações** e preencha o campo Nome do usuário.

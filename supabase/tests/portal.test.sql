@@ -301,3 +301,23 @@ reset role;
 set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
 select pg_temp.expect_error($$select * from public.staff_service_options()$$, '42501');
 reset role;
+
+-- ===== contatos do cliente nas tarefas e nomes sem branco (0030) =====
+insert into client_contacts (id, client_id, name, role_title, email, phone, is_primary) values
+  ('99999999-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Diego Vogt', 'CEO', 'diego@aurora.test', '+5541974503810', true),
+  ('99999999-0000-0000-0000-000000000002', '99999999-9999-9999-9999-999999999999', 'Contato da B', 'Dono', 'b@b.test', null, false);
+insert into task_contacts (task_id, contact_id) values ('55555555-5555-5555-5555-555555555552', '99999999-0000-0000-0000-000000000001');
+select pg_temp.expect_error($$insert into task_contacts (task_id, contact_id) values ('55555555-5555-5555-5555-555555555552', '99999999-0000-0000-0000-000000000002')$$, '23514');
+update profiles set full_name = '' where id = '00000000-0000-0000-0000-0000000000a4';
+update profiles set email = 'dani.designer@muvens.test' where id = '00000000-0000-0000-0000-0000000000a4';
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+do $$ declare d jsonb; b jsonb; begin
+  d := public.portal_task_detail('55555555-5555-5555-5555-555555555552');
+  assert d->'contacts'->0->>'name' = 'Diego Vogt' and d->'contacts'->0->>'role' = 'CEO', 'cliente vê os contatos da tarefa';
+  assert d::text not like '%diego@aurora.test%' and d::text not like '%5541974503810%', 'e-mail e telefone do contato não vazam';
+  assert d->'assignees' @> '["Dani Designer"]'::jsonb, 'responsável sem nome aparece pelo e-mail';
+  b := public.portal_board();
+  assert exists (select 1 from jsonb_array_elements(b->'tasks') t where t->>'id' = '55555555-5555-5555-5555-555555555552' and t->'contacts'->0->>'name' = 'Diego Vogt'), 'cartão traz os contatos';
+  assert (select count(*) from task_contacts) = 0, 'cliente não lê task_contacts direto';
+end $$;
+reset role;

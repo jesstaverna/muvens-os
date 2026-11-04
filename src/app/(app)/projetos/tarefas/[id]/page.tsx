@@ -1,10 +1,11 @@
 import Link from 'next/link';
+import { personName } from '@/lib/people';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { FileUploader } from '../../FileUploader';
-import { addChecklistItem, addComment, addTaskLink, removeTaskLink, setCoAssignees, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
+import { addChecklistItem, addComment, addTaskLink, removeTaskLink, setCoAssignees, setTaskContacts, deleteTaskFile, deleteTime, toggleFileVisible, logTime, removeChecklistItem, setTaskStatus, toggleChecklistItem, updateTask } from '../../actions';
 import { PRIORITY, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateTimeBR } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
@@ -19,22 +20,26 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
   const { data: t } = await supabase.from('tasks').select('*, projects(id, name, client_id, clients(name))').eq('id', id).maybeSingle();
   if (!t) notFound();
-  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }, { data: links }, { data: coRows }, { data: services }] = await Promise.all([
-    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
+  const [{ data: people }, { data: items }, { data: comments }, { data: events }, { data: files }, { data: time }, { data: links }, { data: coRows }, { data: services }, { data: contactsAll }, { data: tcRows }] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, email').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
     supabase.from('task_checklist_items').select('*').eq('task_id', id).order('position'),
-    supabase.from('task_comments').select('id, body, created_at, from_client, client_visible, author:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }),
-    supabase.from('task_events').select('id, kind, detail, created_at, actor:profiles(full_name)').eq('task_id', id).order('created_at', { ascending: false }).limit(60),
+    supabase.from('task_comments').select('id, body, created_at, from_client, client_visible, author:profiles(full_name, email)').eq('task_id', id).order('created_at', { ascending: false }),
+    supabase.from('task_events').select('id, kind, detail, created_at, actor:profiles(full_name, email)').eq('task_id', id).order('created_at', { ascending: false }).limit(60),
     supabase.from('task_files').select('id, name, size, created_at, client_visible').eq('task_id', id).order('created_at', { ascending: false }),
-    supabase.from('time_entries').select('id, minutes, worked_on, note, user_id, who:profiles(full_name)').eq('task_id', id).order('worked_on', { ascending: false }),
+    supabase.from('time_entries').select('id, minutes, worked_on, note, user_id, who:profiles(full_name, email)').eq('task_id', id).order('worked_on', { ascending: false }),
     supabase.from('task_links').select('id, kind, label, url, from_client, client_visible, created_at').eq('task_id', id).order('created_at'),
     supabase.from('task_assignees').select('user_id').eq('task_id', id),
     supabase.rpc('staff_service_options', { p_client: null }),
+    supabase.from('client_contacts').select('id, name, role_title, email, phone, is_primary, client_id'),
+    supabase.from('task_contacts').select('contact_id').eq('task_id', id),
   ]);
-  const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name as string]));
+  const proj = one(t.projects) as { id: string; name: string; client_id: string; clients: { name: string } | { name: string }[] | null } | null;
+  const myContacts = (contactsAll ?? []).filter((c) => c.client_id === proj?.client_id).sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.name.localeCompare(b.name));
+  const picked = new Set((tcRows ?? []).map((r) => r.contact_id as string));
+  const nameOf = new Map((people ?? []).map((p) => [p.id, personName(p)]));
   const team = [...(t.assignee_id && nameOf.get(t.assignee_id) ? [{ id: t.assignee_id, name: nameOf.get(t.assignee_id)!, role: 'Responsável' }] : []),
     ...(coRows ?? []).filter((c) => c.user_id !== t.assignee_id && nameOf.get(c.user_id)).map((c) => ({ id: c.user_id as string, name: nameOf.get(c.user_id)!, role: 'Colaborador' }))];
-  const clientPeople = [...new Set((comments ?? []).filter((c) => c.from_client).map((c) => one(c.author)?.full_name).filter((n): n is string => !!n))];
-  const proj = one(t.projects) as { id: string; name: string; client_id: string; clients: { name: string } | { name: string }[] | null } | null;
+  const clientPeople = [...new Set((comments ?? []).filter((c) => c.from_client).map((c) => personName(one(c.author), '')).filter((n) => !!n))];
   const st = TASK_STATUS[t.status];
   const totalMin = (time ?? []).reduce((a, e) => a + e.minutes, 0);
   const late = t.due_on && t.due_on < todayBR() && !['entregue', 'aprovado', 'cancelada'].includes(t.status);
@@ -63,7 +68,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
         <div className="space-y-6 xl:col-span-2">
           <form action={updateTask.bind(null, id)} className="card space-y-5"><h2 className="text-base font-semibold">Detalhes e briefing</h2><fieldset disabled={!canWrite} className="space-y-5">
             <div className="grid gap-5 sm:grid-cols-2"><Field label="Título"><input name="title" defaultValue={t.title} required className="input" /></Field>
-              <Field label="Responsável"><select name="assignee_id" defaultValue={t.assignee_id ?? ''} className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+              <Field label="Responsável"><select name="assignee_id" defaultValue={t.assignee_id ?? ''} className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{personName(p)}</option>)}</select></Field>
               <Field label="Início"><input type="date" name="starts_on" defaultValue={t.starts_on ?? ''} className="input" /></Field>
               <Field label="Entrega"><input type="date" name="due_on" defaultValue={t.due_on ?? ''} className={`input ${late ? 'border-danger' : ''}`} /></Field>
               <Field label="Devolução da revisão (cliente)" hint="Até quando o cliente deve aprovar ou pedir ajustes. Sugerida ao enviar para aprovação."><input type="date" name="review_due_on" defaultValue={t.review_due_on ?? ''} className="input" /></Field>
@@ -77,9 +82,15 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-end"><label className="flex items-center gap-2 pb-2.5 text-sm"><input type="checkbox" name="out_of_scope" defaultChecked={t.out_of_scope} /> Fora do escopo</label><Field label="Observação sobre o escopo"><input name="out_of_scope_note" defaultValue={t.out_of_scope_note ?? ''} className="input" /></Field></div></fieldset>
             {canWrite && <SubmitButton>Salvar</SubmitButton>}</form>
 
-          <form action={setCoAssignees.bind(null, id)} className="card"><h2 className="mb-1 text-base font-semibold">Outros responsáveis</h2><p className="mb-3 text-xs text-muted">Além do responsável principal ({people?.find((p) => p.id === t.assignee_id)?.full_name ?? 'nenhum'}). Quem for incluído recebe um aviso; o cliente vê todos os nomes no portal.</p>
-            <fieldset disabled={!canWrite} className="flex flex-wrap gap-x-5 gap-y-2">{people?.filter((p) => p.id !== t.assignee_id).map((p) => <label key={p.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name="co" value={p.id} defaultChecked={(coRows ?? []).some((c) => c.user_id === p.id)} /> {p.full_name}</label>)}</fieldset>
+          <form action={setCoAssignees.bind(null, id)} className="card"><h2 className="mb-1 text-base font-semibold">Outros responsáveis</h2><p className="mb-3 text-xs text-muted">Além do responsável principal ({(people?.find((p) => p.id === t.assignee_id) ? personName(people.find((p) => p.id === t.assignee_id)) : 'nenhum')}). Quem for incluído recebe um aviso; o cliente vê todos os nomes no portal.</p>
+            <fieldset disabled={!canWrite} className="flex flex-wrap gap-x-5 gap-y-2">{people?.filter((p) => p.id !== t.assignee_id).map((p) => <label key={p.id} className="flex items-center gap-2 text-sm"><input type="checkbox" name="co" value={p.id} defaultChecked={(coRows ?? []).some((c) => c.user_id === p.id)} /> {personName(p)}</label>)}</fieldset>
             {canWrite && <div className="mt-4"><SubmitButton className="btn btn-sm" pendingText="…">Salvar responsáveis</SubmitButton></div>}</form>
+
+          <form action={setTaskContacts.bind(null, id)} className="card"><h2 className="mb-1 text-base font-semibold">Contatos do cliente nesta tarefa</h2><p className="mb-3 text-xs text-muted">Pessoas cadastradas em <Link href={`/clientes/${proj?.client_id}`} className="underline">{one(proj?.clients)?.name}</Link> que participam desta demanda (quem aprova, quem envia o conteúdo). O cliente vê nome e cargo no portal.</p>
+            {!myContacts.length ? <p className="text-sm text-muted">Este cliente ainda não tem contatos cadastrados. <Link href={`/clientes/${proj?.client_id}`} className="underline">Cadastrar contatos</Link></p> : (
+              <fieldset disabled={!canWrite} className="space-y-2">{myContacts.map((c) => (<label key={c.id} className="flex items-start gap-2 text-sm"><input type="checkbox" name="contact" value={c.id} defaultChecked={picked.has(c.id)} className="mt-1" /><span><b>{c.name}</b>{c.role_title ? <span className="text-muted"> · {c.role_title}</span> : null}
+                <span className="block text-xs text-muted">{[c.email && <a key="m" href={`mailto:${c.email}`} className="underline">{c.email}</a>, c.phone && <a key="p" href={`https://wa.me/${String(c.phone).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="underline">{c.phone}</a>].filter(Boolean).reduce<React.ReactNode[]>((a, x, i) => (i ? [...a, ' · ', x] : [x]), [])}</span></span></label>))}</fieldset>)}
+            {canWrite && myContacts.length > 0 && <div className="mt-4"><SubmitButton className="btn btn-sm" pendingText="…">Salvar contatos</SubmitButton></div>}</form>
 
           <section className="card"><h2 className="mb-1 text-base font-semibold">Links</h2><p className="mb-4 text-xs text-muted">Onde estão os conteúdos (do cliente) e as entregas (da Muvens). Links marcados como visíveis aparecem no portal.</p>
             <ul className="mb-4 space-y-2 text-sm">{links?.map((l) => (<li key={l.id} className="flex items-center justify-between gap-2"><span className="min-w-0"><span className="block text-xs text-muted">{{ conteudo: 'Conteúdo do cliente', referencia: 'Referência', entrega: 'Entrega' }[l.kind as string]}{l.from_client ? ' · enviado pelo cliente' : ''}{l.client_visible ? '' : ' · oculto ao cliente'}</span><a href={l.url} target="_blank" rel="noopener noreferrer" className="block truncate underline">{l.label || l.url}</a></span>{canWrite && <form action={removeTaskLink.bind(null, id, l.id)}><button className="text-xs text-muted hover:text-danger" aria-label="Remover link">remover</button></form>}</li>))}{!links?.length && <li className="text-muted">Nenhum link.</li>}</ul>
@@ -93,25 +104,26 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
 
           <section className="card"><h2 className="mb-4 text-base font-semibold">Comentários</h2>
             {canWrite && <form action={addComment.bind(null, id)} className="mb-5 space-y-2"><div className="flex gap-2"><input name="body" required placeholder="Escreva um comentário" className="input" aria-label="Comentário" /><SubmitButton pendingText="…">Publicar</SubmitButton></div><label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" name="client_visible" /> Visível ao cliente no portal (desmarcado = comentário interno)</label></form>}
-            <ul className="space-y-3">{comments?.map((c) => (<li key={c.id} className="text-sm"><div className="text-xs text-muted">{one(c.author)?.full_name ?? 'Usuário'} · {dateTimeBR(c.created_at)}{c.from_client ? ' · do cliente' : c.client_visible ? ' · visível ao cliente' : ' · interno'}</div>{c.body}</li>))}{!comments?.length && <li className="text-sm text-muted">Sem comentários.</li>}</ul></section>
+            <ul className="space-y-3">{comments?.map((c) => (<li key={c.id} className="text-sm"><div className="text-xs text-muted">{personName(one(c.author), 'Usuário')} · {dateTimeBR(c.created_at)}{c.from_client ? ' · do cliente' : c.client_visible ? ' · visível ao cliente' : ' · interno'}</div>{c.body}</li>))}{!comments?.length && <li className="text-sm text-muted">Sem comentários.</li>}</ul></section>
         </div>
 
         <aside className="space-y-6">
           <section className="card"><h2 className="mb-3 text-base font-semibold">Pessoas envolvidas</h2>
             <ul className="space-y-2 text-sm">{team.map((p) => (<li key={p.id} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-fg text-[11px] font-bold text-lime">{p.name.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 truncate">{p.name}</span><span className="ml-auto shrink-0 text-xs text-muted">{p.role}</span></li>))}
               {!team.length && <li className="text-muted">Nenhum responsável definido.</li>}
-              {clientPeople.map((n) => (<li key={n} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line text-[11px] font-bold">{n.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 truncate">{n}</span><span className="ml-auto shrink-0 text-xs text-muted">Cliente</span></li>))}</ul></section>
+              {myContacts.filter((c) => picked.has(c.id)).map((c) => (<li key={c.id} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line text-[11px] font-bold">{c.name.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 truncate">{c.name}{c.role_title ? <span className="text-muted"> · {c.role_title}</span> : null}</span><span className="ml-auto shrink-0 text-xs text-muted">Cliente</span></li>))}
+              {clientPeople.filter((n) => !myContacts.some((c) => picked.has(c.id) && c.name === n)).map((n) => (<li key={n} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line text-[11px] font-bold">{n.trim().charAt(0).toUpperCase()}</span><span className="min-w-0 truncate">{n}</span><span className="ml-auto shrink-0 text-xs text-muted">Cliente (comentou)</span></li>))}</ul></section>
 
           <section className="card"><h2 className="mb-1 text-base font-semibold">Horas</h2><p className="mb-4 text-2xl font-semibold">{fmtMinutes(totalMin)}</p>
             {canWrite && <form action={logTime.bind(null, id)} className="mb-4 space-y-3"><div className="grid grid-cols-2 gap-2"><Field label="Tempo"><input name="duration" required placeholder="1:30 ou 1,5" className="input" /></Field><Field label="Dia"><input type="date" name="worked_on" defaultValue={todayBR()} className="input" /></Field></div><Field label="Nota"><input name="note" className="input" /></Field><SubmitButton className="btn btn-sm" pendingText="…">Apontar horas</SubmitButton></form>}
-            <ul className="space-y-2 text-sm">{time?.map((e) => (<li key={e.id} className="flex items-start justify-between gap-2"><span>{fmtMinutes(e.minutes)} · {one(e.who)?.full_name}<span className="block text-xs text-muted">{e.worked_on.split('-').reverse().join('/')}{e.note ? ` — ${e.note}` : ''}</span></span>{(e.user_id === profile.id || profile.role === 'admin') && <form action={deleteTime.bind(null, id, e.id)}><button className="text-xs text-muted hover:text-danger">remover</button></form>}</li>))}</ul></section>
+            <ul className="space-y-2 text-sm">{time?.map((e) => (<li key={e.id} className="flex items-start justify-between gap-2"><span>{fmtMinutes(e.minutes)} · {personName(one(e.who), '—')}<span className="block text-xs text-muted">{e.worked_on.split('-').reverse().join('/')}{e.note ? ` — ${e.note}` : ''}</span></span>{(e.user_id === profile.id || profile.role === 'admin') && <form action={deleteTime.bind(null, id, e.id)}><button className="text-xs text-muted hover:text-danger">remover</button></form>}</li>))}</ul></section>
 
           <section className="card"><h2 className="mb-4 text-base font-semibold">Arquivos</h2>
             <ul className="mb-4 space-y-2 text-sm">{files?.map((f) => (<li key={f.id} className="flex items-center justify-between gap-2"><a className="truncate underline" href={`/projetos/tarefas/${id}/arquivo?f=${f.id}`} target="_blank" rel="noreferrer">{f.name}</a>{canWrite && <span className="flex shrink-0 items-center gap-2"><form action={toggleFileVisible.bind(null, id, f.id, !f.client_visible)}><button className={`badge ${f.client_visible ? 'bg-lime/40' : ''}`} title="Alternar visibilidade para o cliente">{f.client_visible ? 'visível ao cliente' : 'só equipe'}</button></form><form action={deleteTaskFile.bind(null, id, f.id)}><button className="text-xs text-muted hover:text-danger">remover</button></form></span>}</li>))}{!files?.length && <li className="text-muted">Nenhum arquivo.</li>}</ul>
             {canWrite && <FileUploader taskId={id} />}</section>
 
           <section className="card"><h2 className="mb-4 text-base font-semibold">Histórico de alterações</h2>
-            <ol className="space-y-2.5 text-sm">{events?.map((e) => (<li key={e.id}><div className="text-xs text-muted">{dateTimeBR(e.created_at)} · {one(e.actor)?.full_name ?? 'sistema'}</div><b>{EVT[e.kind] ?? e.kind}</b>{e.detail ? `: ${e.detail}` : ''}</li>))}</ol></section>
+            <ol className="space-y-2.5 text-sm">{events?.map((e) => (<li key={e.id}><div className="text-xs text-muted">{dateTimeBR(e.created_at)} · {personName(one(e.actor), 'sistema')}</div><b>{EVT[e.kind] ?? e.kind}</b>{e.detail ? `: ${e.detail}` : ''}</li>))}</ol></section>
         </aside>
       </div>
     </>

@@ -189,6 +189,7 @@ revoke execute on function app.portal_task(uuid) from public, anon, authenticate
 grant execute on function app.portal_task(uuid) to authenticated;
 
 -- atrasos para o aviso por e-mail (só o servidor usa). 'equipe' = a Muvens está devendo; 'cliente' = quem deve é o cliente (aprovação ou conteúdo).
+drop function if exists public.task_delays();   -- a versão da migração 26 devolve mais colunas: permite rodar este arquivo de novo depois dela
 create or replace function public.task_delays() returns table (task_id uuid, title text, project text, client_id uuid, client_name text, assignee_id uuid, assignee_name text, assignee_email text, side text, due date, days_late int, status text)
 language plpgsql stable security definer set search_path = public as $$
 declare today date := app.br_date(now());

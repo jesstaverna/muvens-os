@@ -9,7 +9,7 @@ import { addTaskComment, addTaskLink, contentSent, decideOnTask, requestChange }
 
 type Detail = {
   id: string; title: string; status: string; area: string | null; starts_on: string | null; due_on: string | null; review_due_on: string | null; changes_due_on: string | null; client_wait_days: number; origin: string;
-  description: string | null; created_at: string; project: string; assignee: string | null; assignees: string[];
+  description: string | null; created_at: string; project: string; assignee: string | null; assignees: string[]; contacts: { name: string; role: string | null }[]; service: string | null;
   links: { id: string; kind: string; label: string | null; url: string; from_client: boolean; created_at: string }[];
   files: { id: string; name: string }[];
   comments: { id: string; body: string; from_client: boolean; author: string; created_at: string }[];
@@ -68,6 +68,8 @@ export default async function DemandaPage({ params }: { params: Promise<{ id: st
           <dl className="space-y-3">{dateRow('Início', t.starts_on)}{dateRow('Entrega combinada', t.due_on)}{adjustedDue(t) !== t.due_on && dateRow('Entrega prevista', adjustedDue(t), `+${Math.ceil(t.client_wait_days)} dias em que a demanda ficou aguardando você`)}{t.status === 'enviado' && dateRow('Devolução da revisão', t.review_due_on, 'prazo para você aprovar ou pedir ajustes')}{t.status === 'ajustes' && dateRow('Entrega das alterações', t.changes_due_on, 'prazo da equipe para refazer')}
             {!t.starts_on && !t.due_on && <p className="text-sm text-muted">A equipe ainda vai definir os prazos.</p>}
             <div><dt className="text-xs text-muted">{t.assignees.length > 1 ? 'Pessoas envolvidas' : 'Responsável'}</dt><dd className="mt-1 space-y-1.5 text-sm">{(t.assignees.length ? t.assignees : t.assignee ? [t.assignee] : []).map((n) => <div key={n} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-fg text-[11px] font-bold text-lime">{n.trim().charAt(0).toUpperCase()}</span><span className="font-medium">{n}</span></div>)}{!t.assignees.length && !t.assignee && <span className="font-medium">A definir</span>}</dd></div>
+            {t.contacts.length > 0 && <div><dt className="text-xs text-muted">Do seu lado</dt><dd className="mt-1 space-y-1.5 text-sm">{t.contacts.map((c) => <div key={c.name} className="flex items-center gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line text-[11px] font-bold">{c.name.trim().charAt(0).toUpperCase()}</span><span><span className="font-medium">{c.name}</span>{c.role ? <span className="text-muted"> · {c.role}</span> : null}</span></div>)}</dd></div>}
+            {t.service && <div><dt className="text-xs text-muted">Serviço</dt><dd className="text-sm font-medium">{t.service}</dd></div>}
             <div><dt className="text-xs text-muted">Criada em</dt><dd className="text-sm">{dateBR(t.created_at)}{t.origin === 'cliente' ? ' · por você' : ''}</dd></div></dl></section></aside>
       </div>
     </>

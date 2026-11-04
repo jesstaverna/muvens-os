@@ -1,4 +1,4 @@
--- MUVENS OS — Quadro do cliente COMPLETO (Q + R juntos). Cole tudo no SQL Editor do Supabase e clique em Run. Pode rodar mais de uma vez.
+-- MUVENS OS — Quadro do cliente COMPLETO (Q + R). Cole tudo no SQL Editor do Supabase e clique em Run. Pode rodar mais de uma vez.
 
 -- MUVENS OS — 0025 Quadro do cliente: demandas por área (Diagramação / Social Media), links de conteúdo, solicitações e alterações pelo portal
 -- O cliente continua SEM acesso direto às tabelas: tudo passa por funções security definer filtradas pela empresa do usuário.
@@ -191,6 +191,7 @@ revoke execute on function app.portal_task(uuid) from public, anon, authenticate
 grant execute on function app.portal_task(uuid) to authenticated;
 
 -- atrasos para o aviso por e-mail (só o servidor usa). 'equipe' = a Muvens está devendo; 'cliente' = quem deve é o cliente (aprovação ou conteúdo).
+drop function if exists public.task_delays();   -- a versão da migração 26 devolve mais colunas: permite rodar este arquivo de novo depois dela
 create or replace function public.task_delays() returns table (task_id uuid, title text, project text, client_id uuid, client_name text, assignee_id uuid, assignee_name text, assignee_email text, side text, due date, days_late int, status text)
 language plpgsql stable security definer set search_path = public as $$
 declare today date := app.br_date(now());

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { personName } from '@/lib/people';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
@@ -25,10 +26,10 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
 
   const [{ data: clients }, { data: projects }] = await Promise.all([
     supabase.from('clients').select('id, name').order('name'),
-    supabase.from('projects').select('id, name, status, due_on, client_id, clients(name), owner:profiles!projects_owner_id_fkey(full_name)').order('created_at', { ascending: false }),
+    supabase.from('projects').select('id, name, status, due_on, client_id, clients(name), owner:profiles!projects_owner_id_fkey(full_name, email)').order('created_at', { ascending: false }),
   ]);
 
-  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name), co:task_assignees(who:profiles(full_name)), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
+  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name, email), co:task_assignees(who:profiles(full_name, email)), tc:task_contacts(c:client_contacts(name, role_title)), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
   if (sp.project && /^[0-9a-f-]{36}$/.test(sp.project)) tq = tq.eq('project_id', sp.project);
   if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) tq = tq.eq('projects.client_id', sp.client);
   if (sp.me) { const { data: co } = await supabase.from('task_assignees').select('task_id').eq('user_id', profile.id); const ids = (co ?? []).map((c) => c.task_id); tq = ids.length ? tq.or(`assignee_id.eq.${profile.id},id.in.(${ids.join(',')})`) : tq.eq('assignee_id', profile.id); }
@@ -37,12 +38,12 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
   const { data: waits } = (tasksRaw ?? []).length ? await supabase.from('task_client_wait').select('task_id, client_wait_days').in('task_id', (tasksRaw ?? []).map((t: any) => t.id)) : { data: [] as { task_id: string; client_wait_days: number }[] };
   const waitOf = new Map((waits ?? []).map((w) => [w.task_id, Number(w.client_wait_days)]));
   const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => ({ client_wait_days: waitOf.get(t.id) ?? 0,
-    id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: one(t.assignee)?.full_name ?? null, assignees: (t.co ?? []).map((c: any) => one(c.who)?.full_name).filter(Boolean),
+    id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: (one(t.assignee) ? personName(one(t.assignee)) : null), contacts: (t.tc ?? []).map((x: any) => ({ name: one(x.c)?.name, role: one(x.c)?.role_title ?? null })).filter((c: any) => c.name), assignees: (t.co ?? []).map((c: any) => personName(one(c.who), '')).filter(Boolean),
     client: one(one(t.projects)?.clients)?.name ?? null, project: one(t.projects)?.name ?? null, out_of_scope: t.out_of_scope,
     late: lateness({ status: t.status, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, client_wait_days: waitOf.get(t.id) ?? 0 }, today).late,
   }));
 
-  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, assignees: t.assignees, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
+  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, assignees: t.assignees, contacts: t.contacts, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
   const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
   const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'metricas', label: 'Métricas' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
   const late = tasks.filter((t) => t.late).length;
@@ -73,7 +74,7 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
           const list = projects.filter((p) => p.client_id === cid); const cname = one(list[0].clients)?.name;
           return (<section key={cid}><h2 className="mb-3 text-base font-semibold"><Link href={`/clientes/${cid}`} className="hover:underline">{cname}</Link></h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{list.map((p) => (<Link key={p.id} href={`/projetos/${p.id}`} className="card block !p-5 transition hover:bg-subtle/60"><div className="font-medium">{p.name}</div>
-              <div className="mt-1 text-xs text-muted">{PROJECT_STATUS[p.status]}{p.due_on ? ` · prazo ${dateBR(p.due_on)}` : ''}</div><div className="mt-3 text-xs text-muted">{one(p.owner)?.full_name ?? 'Sem responsável'}</div></Link>))}</div></section>);
+              <div className="mt-1 text-xs text-muted">{PROJECT_STATUS[p.status]}{p.due_on ? ` · prazo ${dateBR(p.due_on)}` : ''}</div><div className="mt-3 text-xs text-muted">{personName(one(p.owner), 'Sem responsável')}</div></Link>))}</div></section>);
         })}</div>))}
 
       {view === 'entregaveis' && <Entregaveis supabase={supabase} clients={clients ?? []} projects={projects ?? []} canPlan={canPlan} />}
@@ -111,7 +112,7 @@ async function Rentabilidade({ supabase }: { supabase: Awaited<ReturnType<typeof
   const today = todayBR(); const from = `${today.slice(0, 7)}-01`;
   const [{ data: rows }, { data: people }, { data: rates }] = await Promise.all([
     supabase.rpc('client_profitability', { p_from: from, p_to: today }),
-    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
+    supabase.from('profiles').select('id, full_name, email').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
     supabase.from('staff_rates').select('user_id, hourly_cost'),
   ]);
   const rate = new Map(rates?.map((r) => [r.user_id, Number(r.hourly_cost)]));
@@ -126,7 +127,7 @@ async function Rentabilidade({ supabase }: { supabase: Awaited<ReturnType<typeof
             <tbody>{rows.map((r: any) => (<tr key={r.client_id} className="border-b border-line last:border-0"><td className="td font-medium">{r.client_name}</td><td className="td">{money(r.received)}</td><td className="td">{fmtMinutes(Number(r.minutes))}</td><td className="td">{money(r.labor_cost)}</td><td className={`td font-medium ${Number(r.margin) < 0 ? 'text-danger' : ''}`}>{money(r.margin)}</td></tr>))}</tbody></table></div>)}
       </div>
       <div className="card h-fit"><h2 className="mb-4 text-base font-semibold">Custo por hora da equipe</h2>
-        <div className="space-y-3">{people?.map((p) => (<form key={p.id} action={saveRate} className="flex items-end gap-2"><input type="hidden" name="user_id" value={p.id} /><div className="flex-1"><span className="label">{p.full_name}</span><input name="hourly_cost" inputMode="decimal" defaultValue={rate.has(p.id) ? String(rate.get(p.id)).replace('.', ',') : ''} placeholder="R$/hora" className="input" aria-label={`Custo por hora de ${p.full_name}`} /></div><SubmitButton className="btn btn-sm" pendingText="…">Salvar</SubmitButton></form>))}</div></div>
+        <div className="space-y-3">{people?.map((p) => (<form key={p.id} action={saveRate} className="flex items-end gap-2"><input type="hidden" name="user_id" value={p.id} /><div className="flex-1"><span className="label">{personName(p)}</span><input name="hourly_cost" inputMode="decimal" defaultValue={rate.has(p.id) ? String(rate.get(p.id)).replace('.', ',') : ''} placeholder="R$/hora" className="input" aria-label={`Custo por hora de ${personName(p)}`} /></div><SubmitButton className="btn btn-sm" pendingText="…">Salvar</SubmitButton></form>))}</div></div>
     </div>);
 }
 

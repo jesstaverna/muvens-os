@@ -191,6 +191,7 @@ revoke execute on function app.portal_task(uuid) from public, anon, authenticate
 grant execute on function app.portal_task(uuid) to authenticated;
 
 -- atrasos para o aviso por e-mail (só o servidor usa). 'equipe' = a Muvens está devendo; 'cliente' = quem deve é o cliente (aprovação ou conteúdo).
+drop function if exists public.task_delays();   -- a versão da migração 26 devolve mais colunas: permite rodar este arquivo de novo depois dela
 create or replace function public.task_delays() returns table (task_id uuid, title text, project text, client_id uuid, client_name text, assignee_id uuid, assignee_name text, assignee_email text, side text, due date, days_late int, status text)
 language plpgsql stable security definer set search_path = public as $$
 declare today date := app.br_date(now());
@@ -207,6 +208,7 @@ begin
 end $$;
 revoke execute on function public.task_delays() from public, anon, authenticated;
 grant execute on function public.task_delays() to service_role;
+
 
 -- MUVENS OS — 0026 Prazos, atrasos e métricas do quadro
 -- Regra central: o RELÓGIO DA EQUIPE PARA enquanto a demanda está com o cliente (aguardando conteúdo ou aprovação).
@@ -332,6 +334,7 @@ end $$;
 revoke execute on function public.board_metrics(date, date, uuid) from public, anon;
 grant execute on function public.board_metrics(date, date, uuid) to authenticated;
 
+
 -- MUVENS OS — 0027 Vários responsáveis por tarefa
 -- tasks.assignee_id continua sendo o RESPONSÁVEL PRINCIPAL (métricas e avisos de atraso). Os demais ficam em task_assignees.
 
@@ -402,6 +405,7 @@ begin
     'comments', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'body', c.body, 'from_client', c.from_client, 'author', case when c.from_client then 'Você' else coalesce(pr.full_name, 'Equipe Muvens') end, 'created_at', c.created_at) order by c.created_at)
                           from public.task_comments c left join public.profiles pr on pr.id = c.author_id where c.task_id = t.id and (c.from_client or c.client_visible)), '[]'::jsonb));
 end $$;
+
 
 -- MUVENS OS — 0028 Equipe vê o quadro EXATAMENTE como o cliente vê (mesma montagem de dados do portal)
 

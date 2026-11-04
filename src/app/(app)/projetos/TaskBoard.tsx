@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react';
 import { moveTask } from './actions';
 import { AREAS } from '@/lib/projects/board';
 
-export interface KTask { id: string; title: string; status: string; priority: string; due_on: string | null; assignee: string | null; assignees: string[]; client: string | null; project: string | null; out_of_scope: boolean; late: boolean; starts_on: string | null; review_due_on: string | null; changes_due_on: string | null; area: string | null; origin: string; project_id: string; client_wait_days: number }
+export interface KTask { id: string; title: string; status: string; priority: string; due_on: string | null; assignee: string | null; assignees: string[]; contacts: { name: string; role: string | null }[]; client: string | null; project: string | null; out_of_scope: boolean; late: boolean; starts_on: string | null; review_due_on: string | null; changes_due_on: string | null; area: string | null; origin: string; project_id: string; client_wait_days: number }
 const COLS = [['solicitada', 'Solicitadas'], ['aguardando_cliente', 'Aguardando cliente'], ['a_fazer', 'A fazer'], ['em_andamento', 'Em andamento'], ['produzido', 'Produzido'], ['enviado', 'Enviado ao cliente'], ['ajustes', 'Ajustes'], ['aprovado', 'Aprovado'], ['entregue', 'Entregue']] as const;
 const PRI: Record<string, string> = { urgente: 'bg-danger', alta: 'bg-amber-500', media: 'bg-blue-500', baixa: 'bg-muted' };
 
@@ -39,6 +39,7 @@ export function TaskBoard({ tasks }: { tasks: KTask[] }) {
                     <div className="mt-1 text-xs text-muted">{t.client}{t.project ? ` · ${t.project}` : ''}</div>
                     <div className="mt-2 flex items-center justify-between text-xs"><span className={t.late ? 'font-medium text-danger' : 'text-muted'}>{t.due_on ? t.due_on.split('-').reverse().slice(0, 2).join('/') : 'Sem prazo'}{t.late ? ' · atrasada' : ''}</span><span className="text-muted">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].map((n) => n.split(' ')[0]).join(', ') || 'Sem resp.'}</span></div>
                     {(t.area || t.origin === 'cliente') && <div className="mt-2 flex flex-wrap gap-1">{t.area && <span className="badge">{AREAS[t.area]}</span>}{t.origin === 'cliente' && <span className="badge bg-lime/40">Pedido do cliente</span>}</div>}
+                    {t.contacts.length > 0 && <div className="mt-2 text-xs text-muted" title="Contatos do cliente">Cliente: {t.contacts.map((c) => c.name.split(' ')[0]).join(', ')}</div>}
                     {t.out_of_scope && <div className="mt-2 rounded-md bg-amber-500/15 px-2 py-1 text-[11px] text-warn">Fora do escopo contratado</div>}
                     <label className="sr-only" htmlFor={`mv-${t.id}`}>Mover {t.title}</label>
                     <select id={`mv-${t.id}`} value={t.status} onChange={(e) => move(t.id, e.target.value)} className="mt-2 w-full rounded-lg border border-line bg-surface px-2 py-1 text-xs">{COLS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
