@@ -20,23 +20,29 @@ const schema = z.object({
 async function saveGoal(fd: FormData) {
   'use server';
   const { supabase } = await requireModule('metas');
+  const viewMonth = String(fd.get('view_month') ?? '');
+  const back = /^\\d{4}-(0[1-9]|1[0-2])$/.test(viewMonth) ? `/metas?m=${viewMonth}` : '/metas';
   const r = schema.safeParse(Object.fromEntries(fd));
-  if (!r.success) flash('/metas', 'err', r.error.issues[0].message);
+  if (!r.success) flash(back, 'err', r.error.issues[0].message);
   const { period, ...rest } = r.data;
   const period_start = rest.period_type === 'anual' ? `${period.slice(0, 4)}-01-01` : `${period.length === 7 ? period : period + '-01'}-01`;
   const { error } = await supabase.from('goals').upsert({ ...rest, period_start }, { onConflict: 'period_type,period_start' });
-  if (error) flash('/metas', 'err', error.code === '42501' ? 'Apenas administradores definem metas.' : 'Não foi possível salvar a meta.');
+  if (error) flash(back, 'err', error.code === '42501' ? 'Apenas administradores definem metas.' : 'Não foi possível salvar a meta.');
   revalidatePath('/metas');
-  flash('/metas', 'ok', 'Meta salva.');
+  flash(back, 'ok', 'Meta salva.');
 }
 
 type M = Record<string, number>;
 const pick = (m: M, basis: Basis) => Number(basis === 'contratado' ? m.contracted : basis === 'emitido' ? m.issued : m.received);
 
-export default async function Metas() {
+export default async function Metas({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const { supabase, profile } = await requireModule('metas');
   const today = todayBR();
-  const [y, mo] = today.split('-').map(Number);
+  const [currentYear, currentMonth] = today.split('-').map(Number);
+  const { m: selectedMonth } = await searchParams;
+  const selection = /^(20\\d{2})-(0[1-9]|1[0-2])$/.exec(selectedMonth ?? '');
+  const y = selection ? Number(selection[1]) : currentYear;
+  const mo = selection ? Number(selection[2]) : currentMonth;
   const cur = monthRange(y, mo), year = { from: `${y}-01-01`, to: `${y}-12-31` };
 
   const [{ data: goals }, { data: mCur }, { data: mYear }, { data: conv }] = await Promise.all([
@@ -75,7 +81,12 @@ export default async function Metas() {
 
   return (
     <>
-      <PageHeader title="Metas e Resultados" subtitle="Projeção = realizado + recebíveis do período (bases emitido/recebido) ou + pipeline ponderado (base contratado)." />
+      <PageHeader title="Metas e Resultados" subtitle="Projeção = realizado + recebíveis do período (bases emitido/recebido) ou + pipeline ponderado (base contratado)." actions={
+        <form method="get" className="flex items-end gap-2">
+          <label className="text-sm"><span className="label">Mês de referência</span><input type="month" name="m" defaultValue={`${y}-${String(mo).padStart(2, '0')}`} className="input w-44" aria-label="Mês de referência das metas" /></label>
+          <button type="submit" className="btn btn-dark">Visualizar</button>
+        </form>
+      } />
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Contratos fechados (ano)" value={a.contracts_closed ?? 0} />
         <Stat label="Ticket médio (ano)" value={ticket ? money(ticket) : '—'} hint="Contratado ÷ propostas aceitas" />
@@ -90,7 +101,7 @@ export default async function Metas() {
             {!goals?.length ? <Empty title="Sem metas" /> : <table className="w-full text-sm"><tbody>{[...goals].sort((x, z) => x.period_start.localeCompare(z.period_start)).map((g) => <tr key={g.id} className="border-b border-line last:border-0"><td className="py-2">{g.period_type === 'anual' ? `Ano ${g.period_start.slice(0, 4)}` : `${MONTHS[Number(g.period_start.slice(5, 7)) - 1]}/${g.period_start.slice(0, 4)}`}</td><td className="py-2 text-muted">{g.basis}</td><td className="py-2 text-right">{money(g.revenue_target)}</td></tr>)}</tbody></table>}</section>
         </div>
         {profile.role === 'admin' && (
-          <form action={saveGoal} className="card h-fit space-y-4"><h2 className="text-base font-semibold">Definir / alterar meta</h2>
+          <form action={saveGoal} className="card h-fit space-y-4"><input type="hidden" name="view_month" value={`${y}-${String(mo).padStart(2, '0')}`} /><h2 className="text-base font-semibold">Definir / alterar meta</h2>
             <Field label="Tipo"><select name="period_type" className="input"><option value="mensal">Mensal</option><option value="anual">Anual</option></select></Field>
             <Field label="Período" hint="Mensal: escolha o mês. Anual: vale o ano do mês escolhido."><input type="month" name="period" required defaultValue={`${y}-${String(mo).padStart(2, '0')}`} className="input" /></Field>
             <Field label="Base de medição"><select name="basis" defaultValue="recebido" className="input"><option value="recebido">Recebido (caixa)</option><option value="emitido">Emitido (faturado)</option><option value="contratado">Contratado (vendido)</option></select></Field>
