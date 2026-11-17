@@ -52,7 +52,6 @@ export interface Client360Data {
 }
 
 const ACTIVE_TASK = new Set(['solicitada', 'aguardando_cliente', 'a_fazer', 'em_andamento', 'produzido', 'enviado', 'ajustes']);
-const CLOSED_PROJECT = new Set(['cancelado', 'concluido']);
 const statusBadge = (status: string, label?: string) => (
   <span className="badge whitespace-nowrap">{label ?? status.replaceAll('_', ' ')}</span>
 );
@@ -77,7 +76,7 @@ function Shortcut({ href, label, description, icon: Icon }: {
 export function Client360Overview(props: Client360Data) {
   const { id, client, role, today, ownerName, projects, tasks, contracts, requests, documents, services, loadErrors } = props;
   const signed = contracts.filter((c) => c.status === 'assinado');
-  const liveProjects = projects.filter((p) => !CLOSED_PROJECT.has(p.status));
+  const liveProjects = projects.filter((p) => p.status === 'em_andamento');
   const liveTasks = tasks.filter((t) => ACTIVE_TASK.has(t.status));
   const overdue = liveTasks.filter((t) => !!t.due_on && t.due_on < today);
   const awaiting = liveTasks.filter((t) => t.status === 'produzido' || t.status === 'enviado').length;
