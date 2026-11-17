@@ -2,6 +2,8 @@ import { Field } from '@/components/ui';
 import { PLAN_STATUS, type MarketingPlan } from '@/lib/marketing';
 import { saveMarketingPlan } from '@/app/(app)/marketing/actions';
 
+function channelName(value:string){return ({instagram:'Instagram',facebook:'Facebook',google:'Google Ads',linkedin:'LinkedIn'} as Record<string,string>)[value]??value;}
+
 export function PlanForm({plan,canEdit=true}:{plan:MarketingPlan|null;canEdit?:boolean}){
  if(!canEdit)return <p className="text-sm text-muted">Seu perfil pode consultar, mas não editar a estratégia.</p>;
  return <form action={saveMarketingPlan} className="space-y-4">
