@@ -65,10 +65,52 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
     late: delay.late, effective_due: delay.due, assignee_id: t.assignee_id, assignee_ids: (t.co ?? []).map((x: any) => x.user_id).filter(Boolean),
   }); });
 
-  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, assignees: t.assignees, contacts: t.contacts, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
-  const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
-  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'metricas', label: 'Métricas' }, { key: 'pessoas', label: 'Pessoas por projeto' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
-  const late = tasks.filter((t) => t.late).length;
+  const visibleTasks = filterProductionTasks(tasks, { focus, priority, query: search, today });
+  const boardTasks: BoardTask[] = visibleTasks.map((t) => ({
+    id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on,
+    due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on,
+    project_id: t.project_id, project: (t.client ?? '') + ' · ' + (t.project ?? ''),
+    assignee: t.assignee, assignees: t.assignees, contacts: t.contacts,
+    links: 0, comments: 0, client_wait_days: t.client_wait_days,
+  }));
+  const visibleProjects = (projects ?? []).filter((p) => (!validClient || p.client_id === validClient) && (!validProject || p.id === validProject));
+  const productionProjects: ProductionProject[] = visibleProjects.map((p) => ({
+    id: p.id, name: p.name, client_id: p.client_id,
+    client_name: one(p.clients)?.name ?? 'Cliente sem nome',
+    status: p.status, due_on: p.due_on,
+    owner_name: personName(one(p.owner), 'Sem responsável'),
+  }));
+  const qs = (extra: Record<string, string>) => {
+    const p = new URLSearchParams({
+      ...(validClient ? { client: validClient } : {}),
+      ...(validProject ? { project: validProject } : {}),
+      ...(sp.me ? { me: '1' } : ownerFilter ? { owner: ownerFilter } : {}),
+      ...(priority ? { priority } : {}),
+      ...(search ? { q: search } : {}),
+      ...(focus !== 'todas' ? { focus } : {}),
+      ...extra,
+    });
+    if (p.get('focus') === 'todas') p.delete('focus');
+    Object.entries(extra).forEach(([key, value]) => { if (!value) p.delete(key); });
+    return '/projetos?' + p.toString();
+  };
+  const TABS = [
+    { key: 'visao', label: 'Visão da produção' },
+    { key: 'kanban', label: 'Kanban' },
+    { key: 'lista', label: 'Lista de tarefas' },
+    { key: 'timeline', label: 'Linha do tempo' },
+    { key: 'calendario', label: 'Calendário' },
+    { key: 'projetos', label: 'Projetos por cliente' },
+    { key: 'pessoas', label: 'Equipe por projeto' },
+    { key: 'entregaveis', label: 'Entregáveis contratados' },
+    { key: 'metricas', label: 'Métricas' },
+    ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []),
+    ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : []),
+  ];
+  const late = visibleTasks.filter((t) => t.late).length;
+  const filterActive = Boolean(validClient || validProject || ownerFilter || priority || search || focus !== 'todas');
+  const newTaskHref = validProject ? '/projetos/tarefas/nova?project=' + validProject : '/projetos/tarefas/nova';
+  const newProjectHref = validClient ? '/projetos/novo?client=' + validClient : '/projetos/novo';
 
   return (
     <>
