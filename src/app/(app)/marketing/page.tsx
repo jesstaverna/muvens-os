@@ -45,6 +45,7 @@ export default async function Marketing({searchParams}:{searchParams:Promise<SP>
  const spend=plannedBudget(activities);
  const max=Number(plan?.monthly_budget_max??0);
  const error=Boolean(pRes.error||aRes.error||crmRes.error);
+ const crmCount=crmRes.count;
  const url=(selected:MarketingTab)=>plan?href(plan.id,selected):'/marketing?tab='+selected;
  const canSeeCrm=['admin','comercial'].includes(profile.role);
  return <>
