@@ -10,7 +10,7 @@ export function AppShell({ items, userName, userId, roleLabel, signOut, topBar, 
   return (
     <div className="min-h-screen">
       <Suspense fallback={null}><Sidebar items={items} userName={userName} userId={userId} roleLabel={roleLabel} signOut={signOut} collapsed={collapsed} onToggle={toggle} /></Suspense>
-      <div className={`transition-[padding] ${collapsed ? 'lg:pl-[68px]' : 'lg:pl-64'}`}>
+      <div className={`transition-[padding] ${collapsed ? 'lg:pl-[68px]' : 'lg:pl-[280px]'}`}>
         <div className="flex items-center justify-end gap-2 px-4 pt-[4.5rem] sm:px-6 lg:px-10 lg:pt-5">{topBar}</div>
         <main className="mx-auto max-w-[1400px] px-4 pb-20 pt-4 sm:px-6 lg:px-10 lg:pt-6">
           {children}
