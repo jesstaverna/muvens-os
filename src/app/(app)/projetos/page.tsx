@@ -114,32 +114,147 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
 
   return (
     <>
-      <PageHeader title="Projetos e Tarefas" subtitle="Produção por cliente, com fluxo de aprovação, entregáveis e controle de horas."
-        actions={canWrite ? <>{['admin', 'comercial'].includes(profile.role) && <LinkButton href="/portal/visualizar" className="btn">Ver como o cliente</LinkButton>}<LinkButton href="/projetos/novo" className="btn">Novo projeto</LinkButton><LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton></> : undefined} />
-      <Tabs current={view} items={TABS.map((t) => ({ ...t, href: `/projetos?view=${t.key}` }))} />
+      <PageHeader title="Central de Produção" subtitle="Planejamento, responsáveis, tarefas, prazos e aprovações em uma única operação."
+        actions={<>
+          {canWrite && <>
+            {['admin', 'comercial'].includes(profile.role) && <LinkButton href="/portal/visualizar" className="btn btn-sm">Ver como o cliente</LinkButton>}
+            <LinkButton href={newProjectHref} className="btn btn-sm">Novo projeto</LinkButton>
+            <LinkButton href={newTaskHref} className="btn btn-primary btn-sm">Nova tarefa</LinkButton>
+          </>}
+        </>} />
+      <Tabs current={view} items={TABS.map((t) => ({ ...t, href: qs({ view: t.key }) }))} />
 
-      {(view === 'kanban' || view === 'lista' || view === 'timeline' || view === 'calendario') && (
+      {['visao', 'kanban', 'lista', 'timeline', 'calendario', 'projetos'].includes(view) && (
+        <section aria-label="Filtros de produção" className="mb-6 rounded-2xl border border-line bg-surface p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold">Filtrar produção</h2>
+              <p className="mt-0.5 text-xs text-muted">Cliente, projeto, pessoa e prazo permanecem ao mudar de visualização.</p>
+            </div>
+            {filterActive && <Link href={'/projetos?view=' + view} className="text-xs font-medium underline underline-offset-4">Limpar filtros</Link>}
+          </div>
+          <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <input type="hidden" name="view" value={view} />
+            <label><span className="label">Cliente</span>
+              <select name="client" defaultValue={validClient ?? ''} className="input" aria-label="Cliente">
+                <option value="">Todos os clientes</option>
+                {clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Projeto</span>
+              <select name="project" defaultValue={validProject ?? ''} className="input" aria-label="Projeto">
+                <option value="">Todos os projetos</option>
+                {projects?.filter((p) => !validClient || p.client_id === validClient).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Responsável</span>
+              <select name="owner" defaultValue={validOwner ?? ''} className="input" aria-label="Responsável">
+                <option value="">Toda a equipe</option>
+                {people?.map((p) => <option key={p.id} value={p.id}>{personName(p)}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Prioridade</span>
+              <select name="priority" defaultValue={priority} className="input" aria-label="Prioridade">
+                <option value="">Todas as prioridades</option>
+                {Object.entries(PRIORITY).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Situação / prazo</span>
+              <select name="focus" defaultValue={focus} className="input" aria-label="Situação e prazo">
+                <option value="todas">Todas as tarefas</option>
+                <option value="atrasadas">Atrasadas</option>
+                <option value="hoje">Com prazo hoje</option>
+                <option value="proximos7">Próximos 7 dias</option>
+                <option value="revisao">Em revisão / aprovação</option>
+                <option value="aguardando_cliente">Aguardando conteúdo</option>
+                <option value="sem_responsavel">Sem responsável</option>
+                <option value="prioritarias">Urgentes e altas</option>
+              </select>
+            </label>
+            <label className="sm:col-span-2"><span className="label">Buscar tarefa, cliente ou projeto</span>
+              <input name="q" type="search" maxLength={100} defaultValue={search} placeholder="Ex.: carrossel de novembro" className="input" />
+            </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex min-h-10 items-center gap-2 text-sm">
+                <input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} />
+                Só minhas
+              </label>
+              <button className="btn btn-dark">Aplicar filtros</button>
+            </div>
+          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3 text-xs text-muted">
+            <span>{visibleTasks.length} tarefa(s) encontrada(s){view === 'projetos' ? ' para contagem dos projetos' : ''}</span>
+            {late > 0 && <Link href={qs({ view: 'lista', focus: 'atrasadas' })} className="font-medium text-danger underline underline-offset-4">{late} com prazo em atraso</Link>}
+            {sp.me && <span>Filtro “Só minhas” inclui responsáveis principal e secundários.</span>}
+            {tasksError && <span role="alert" className="font-medium text-danger">Falha ao carregar tarefas. Verifique o acesso e atualize a página.</span>}
+          </div>
+        </section>
+      )}
+
+      {view === 'visao' && <ProductionOverview
+        tasks={visibleTasks} projects={productionProjects} today={today} canWrite={canWrite}
+        focusUrl={(selected) => qs({ view: 'lista', focus: selected })}
+        filterActive={filterActive}
+      />}
+
+      {['kanban', 'lista', 'timeline', 'calendario'].includes(view) && (
         <>
-          <form method="get" className="mb-5 flex flex-wrap items-end gap-2"><input type="hidden" name="view" value={view} />
-            <select name="client" defaultValue={sp.client ?? ''} className="input w-52" aria-label="Cliente"><option value="">Todos os clientes</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-            <select name="project" defaultValue={sp.project ?? ''} className="input w-60" aria-label="Projeto"><option value="">Todos os projetos</option>{projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-            <label className="flex items-center gap-2 px-2 pb-2.5 text-sm"><input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} /> Só minhas</label>
-            <button className="btn btn-dark">Filtrar</button>{late > 0 && <span className="pb-2.5 text-sm text-danger">{late} atrasada(s)</span>}</form>
-          {!tasks.length ? <Empty title="Nenhuma tarefa" text="Crie um projeto para o cliente e adicione tarefas. Ao assinar um contrato, o projeto de onboarding é criado automaticamente." action={canWrite ? <LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton> : undefined} />
-            : view === 'kanban' ? <TaskBoard tasks={tasks} /> : view === 'timeline' ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : view === 'calendario' ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : (
-              <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th><th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th></tr></thead>
-                <tbody>{tasks.map((t) => (<tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td"><Link className="font-medium hover:underline" href={`/projetos/tarefas/${t.id}`}>{t.title}</Link>{t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">fora do escopo</span>}</td>
-                  <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td><td className="td">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].join(', ') || '—'}</td><td className={`td whitespace-nowrap ${t.late ? 'font-medium text-danger' : ''}`}>{dateBR(t.due_on)}</td>
-                  <td className={`td ${PRIORITY[t.priority].tone}`}>{PRIORITY[t.priority].label}</td><td className="td"><span className={`badge ${TASK_STATUS[t.status].tone}`}>{TASK_STATUS[t.status].label}</span></td></tr>))}</tbody></table></div>)}
-        </>)}
+          {!visibleTasks.length
+            ? <Empty title="Nenhuma tarefa encontrada" text={filterActive ? 'Tente limpar os filtros ou selecionar outra empresa e projeto.' : 'Crie um projeto e adicione tarefas para começar a produção.'}
+                action={canWrite ? <LinkButton href={newTaskHref} className="btn btn-primary">Nova tarefa</LinkButton> : undefined} />
+            : view === 'kanban'
+              ? <TaskBoard tasks={visibleTasks} canMove={canWrite} />
+              : view === 'timeline'
+                ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => '/projetos/tarefas/' + id} />
+                : view === 'calendario'
+                  ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => '/projetos/tarefas/' + id} />
+                  : <div className="card overflow-x-auto !p-0"><table className="w-full">
+                    <thead><tr className="border-b border-line">
+                      <th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th>
+                      <th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th>
+                    </tr></thead>
+                    <tbody>{visibleTasks.map((t) => <tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
+                      <td className="td"><Link className="font-medium hover:underline" href={'/projetos/tarefas/' + t.id}>{t.title}</Link>
+                        {t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">Fora do escopo</span>}</td>
+                      <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td>
+                      <td className="td">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].join(', ') || 'Sem responsável'}</td>
+                      <td className={'td whitespace-nowrap ' + (t.late ? 'font-medium text-danger' : '')}>{dateBR(t.effective_due)}
+                        {t.effective_due !== t.due_on && <div className="text-[11px] text-muted">Prazo ajustado</div>}</td>
+                      <td className={'td ' + (PRIORITY[t.priority]?.tone ?? '')}>{PRIORITY[t.priority]?.label ?? t.priority}</td>
+                      <td className="td"><span className={'badge ' + (TASK_STATUS[t.status]?.tone ?? '')}>{TASK_STATUS[t.status]?.label ?? t.status}</span></td>
+                    </tr>)}</tbody>
+                  </table></div>}
+        </>
+      )}
 
-      {view === 'projetos' && (!projects?.length ? <Empty title="Nenhum projeto" action={canWrite ? <LinkButton href="/projetos/novo" className="btn btn-primary">Novo projeto</LinkButton> : undefined} /> : (
-        <div className="space-y-8">{[...new Set(projects.map((p) => p.client_id))].map((cid) => {
-          const list = projects.filter((p) => p.client_id === cid); const cname = one(list[0].clients)?.name;
-          return (<section key={cid}><h2 className="mb-3 text-base font-semibold"><Link href={`/clientes/${cid}`} className="hover:underline">{cname}</Link></h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{list.map((p) => (<Link key={p.id} href={`/projetos/${p.id}`} className="card block !p-5 transition hover:bg-subtle/60"><div className="font-medium">{p.name}</div>
-              <div className="mt-1 text-xs text-muted">{PROJECT_STATUS[p.status]}{p.due_on ? ` · prazo ${dateBR(p.due_on)}` : ''}</div><div className="mt-3 text-xs text-muted">{personName(one(p.owner), 'Sem responsável')}</div></Link>))}</div></section>);
-        })}</div>))}
+      {view === 'projetos' && (!visibleProjects.length
+        ? <Empty title="Nenhum projeto encontrado" text={filterActive ? 'Nenhum projeto corresponde ao cliente ou projeto selecionado.' : 'Crie um projeto para começar.'}
+            action={canWrite ? <LinkButton href={newProjectHref} className="btn btn-primary">Novo projeto</LinkButton> : undefined} />
+        : <div className="space-y-7">{[...new Set(visibleProjects.map((p) => p.client_id))].map((cid) => {
+          const list = visibleProjects.filter((p) => p.client_id === cid);
+          const cname = one(list[0].clients)?.name ?? 'Cliente';
+          return <section key={cid}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold"><Link href={'/clientes/' + cid} className="hover:underline">{cname}</Link></h2>
+              <Link href={'/clientes/' + cid + '?tab=operacao'} className="text-xs font-medium underline underline-offset-4">Abrir Cliente 360°</Link>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{list.map((p) => {
+              const related = visibleTasks.filter((t) => t.project_id === p.id);
+              const open = related.filter((t) => !['aprovado', 'entregue', 'cancelada'].includes(t.status));
+              const delayed = open.filter((t) => t.late).length;
+              return <Link key={p.id} href={'/projetos/' + p.id} className="card block !p-5 transition hover:bg-subtle/60">
+                <div className="font-semibold">{p.name}</div>
+                <div className="mt-1 text-xs text-muted">{PROJECT_STATUS[p.status] ?? p.status}{p.due_on ? ' · prazo ' + dateBR(p.due_on) : ''}</div>
+                <div className="mt-3 text-xs text-muted">{personName(one(p.owner), 'Sem responsável')}</div>
+                <div className="mt-4 flex items-center gap-2 border-t border-line pt-3 text-xs">
+                  <span className="rounded-md bg-subtle px-2 py-1">{open.length} tarefa(s) aberta(s)</span>
+                  {delayed > 0 && <span className="font-medium text-danger">{delayed} atrasada(s)</span>}
+                </div>
+              </Link>;
+            })}</div>
+          </section>;
+        })}</div>
+      )}
 
       {view === 'entregaveis' && <Entregaveis supabase={supabase} clients={clients ?? []} projects={projects ?? []} canPlan={canPlan} />}
       {view === 'rentabilidade' && <Rentabilidade supabase={supabase} />}
