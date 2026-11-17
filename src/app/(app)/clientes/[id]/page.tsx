@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
-import { PageHeader, Stat, Tabs, Empty, Pending, Field } from '@/components/ui';
+import { PageHeader, Stat, Tabs, Empty, Field } from '@/components/ui';
+import { Client360Overview, Client360Operation, Client360Commercial, Client360BrandSection, Client360Portal, Client360History, type Client360Data } from '@/components/Client360Sections';
 import { SubmitButton } from '@/components/SubmitButton';
 import { ClientForm } from '../ClientForm';
 import { addContact, addService, removeContact, saveClient, updateContact, updateService } from '../actions';
@@ -14,12 +15,15 @@ import { LinkButton } from '@/components/LinkButton';
 export default async function ClientePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const tab = (await searchParams).tab ?? 'geral';
+  const requestedTab = (await searchParams).tab ?? 'resumo';
+  const tab = requestedTab === 'fase2' ? 'operacao' : requestedTab;
   const { supabase, profile } = await requireModule('clientes');
   const role = profile.role;
   const canEdit = ['admin', 'comercial', 'financeiro'].includes(role);
   const seeFin = role === 'admin' || role === 'financeiro';
   const seeSales = ['admin', 'comercial', 'financeiro'].includes(role);
+  const canBrand = ['admin', 'comercial', 'designer', 'trafego'].includes(role);
+  const canPortal = role === 'admin' || role === 'comercial';
 
   const { data: client } = await supabase.from('clients').select('*').eq('id', id).maybeSingle();
   if (!client) notFound();
@@ -33,12 +37,99 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
     supabase.from('profiles').select('id, full_name, email').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name')
   ]);
 
+  // Dados operacionais vinculados exclusivamente ao cadastro existente do cliente.
+  // Todas as consultas usam a sessão do usuário e respeitam as políticas RLS.
+  const [
+    projectsResult,
+    contractsResult,
+    brandProfileResult,
+    colorsResult,
+    fontsResult,
+    assetsResult,
+    documentsResult,
+    requestsResult,
+  ] = await Promise.all([
+    supabase.from('projects').select('id, name, status, starts_on, due_on').eq('client_id', id).order('created_at', { ascending: false }).limit(150),
+    seeSales
+      ? supabase.from('contracts').select('id, number, title, status, starts_on, ends_on, readjust_on, signed_at').eq('client_id', id).order('created_at', { ascending: false }).limit(100)
+      : Promise.resolve({ data: [] as Client360Data['contracts'], error: null }),
+    canBrand
+      ? supabase.from('brand_profiles').select('tone_of_voice, design_rules, restrictions, ai_instructions').eq('client_id', id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    canBrand
+      ? supabase.from('brand_colors').select('id, name, hex, role').eq('client_id', id).order('position').limit(60)
+      : Promise.resolve({ data: [] as Client360Data['colors'], error: null }),
+    canBrand
+      ? supabase.from('brand_fonts').select('id, name, usage').eq('client_id', id).order('position').limit(60)
+      : Promise.resolve({ data: [] as Client360Data['fonts'], error: null }),
+    canBrand
+      ? supabase.from('brand_assets').select('id, name, category, created_at').eq('client_id', id).order('created_at', { ascending: false }).limit(100)
+      : Promise.resolve({ data: [] as Client360Data['assets'], error: null }),
+    canPortal
+      ? supabase.from('client_documents').select('id, name, category, created_at').eq('client_id', id).order('created_at', { ascending: false }).limit(60)
+      : Promise.resolve({ data: [] as Client360Data['documents'], error: null }),
+    canPortal
+      ? supabase.from('client_requests').select('id, subject, status, created_at').eq('client_id', id).order('created_at', { ascending: false }).limit(60)
+      : Promise.resolve({ data: [] as Client360Data['requests'], error: null }),
+  ]);
+
+  const projects = (projectsResult.data ?? []) as Client360Data['projects'];
+  const projectIds = projects.map((p) => p.id);
+  const tasksResult = projectIds.length
+    ? await supabase.from('tasks')
+        .select('id, title, status, due_on, review_due_on, area, project_id, created_at')
+        .in('project_id', projectIds).neq('status', 'cancelada')
+        .order('due_on', { ascending: true, nullsFirst: false }).limit(300)
+    : { data: [] as Client360Data['tasks'], error: null };
+  const tasks = (tasksResult.data ?? []) as Client360Data['tasks'];
+  const taskIds = tasks.map((t) => t.id);
+  const eventsResult = tab === 'historico' && taskIds.length
+    ? await supabase.from('task_events')
+        .select('id, task_id, kind, detail, created_at')
+        .in('task_id', taskIds).order('created_at', { ascending: false }).limit(100)
+    : { data: [] as Client360Data['events'], error: null };
+
+  const client360: Client360Data = {
+    id,
+    client: {
+      name: client.name, status: client.status, segment: client.segment,
+      notes: client.notes, website: client.website,
+    },
+    role, today,
+    ownerName: null,
+    projects,
+    tasks,
+    contracts: (contractsResult.data ?? []) as Client360Data['contracts'],
+    proposals: (proposals ?? []) as Client360Data['proposals'],
+    services: (services ?? []) as Client360Data['services'],
+    brandProfile: (brandProfileResult.data ?? null) as Client360Data['brandProfile'],
+    colors: (colorsResult.data ?? []) as Client360Data['colors'],
+    fonts: (fontsResult.data ?? []) as Client360Data['fonts'],
+    assets: (assetsResult.data ?? []) as Client360Data['assets'],
+    documents: (documentsResult.data ?? []) as Client360Data['documents'],
+    requests: (requestsResult.data ?? []) as Client360Data['requests'],
+    events: (eventsResult.data ?? []) as Client360Data['events'],
+    loadErrors: [
+      projectsResult.error && 'projetos',
+      contractsResult.error && 'contratos',
+      tasksResult.error && 'tarefas',
+      brandProfileResult.error && 'marca',
+      colorsResult.error && 'cores',
+      fontsResult.error && 'fontes',
+      assetsResult.error && 'arquivos',
+      documentsResult.error && 'documentos',
+      requestsResult.error && 'solicitações',
+      eventsResult.error && 'histórico',
+    ].filter((v): v is string => Boolean(v)),
+  };
+
   const mrr = (services ?? []).filter((s) => s.billing === 'mensal' && s.status === 'ativo').reduce((a, s) => a + Number(s.value), 0);
   const open = (tx ?? []).filter((t) => t.direction === 'in' && ['previsto', 'emitido'].includes(t.status));
   const overdue = open.filter((t) => t.due_date < today);
   const received = (tx ?? []).filter((t) => t.direction === 'in' && t.status === 'liquidado').reduce((a, t) => a + Number(t.amount), 0);
   const base = `/clientes/${id}`;
   const ownerName = client.owner_id ? ((people ?? []).find((p) => p.id === client.owner_id) ? personName((people ?? []).find((p) => p.id === client.owner_id)) : null) : null;
+  client360.ownerName = ownerName;
 
   return (
     <>
