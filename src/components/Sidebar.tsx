@@ -187,7 +187,7 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
   );
 }
 
-function isViewMatch(href: string, query: ReadonlyURLSearchParams) {
+function isViewMatch(href: string, query: ReturnType<typeof useSearchParams>) {
   const [, params] = href.split('?');
   if (!params) return false;
   return [...new URLSearchParams(params).entries()].every(([key, value]) => query.get(key) === value);
