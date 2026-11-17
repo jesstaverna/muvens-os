@@ -16,7 +16,7 @@ export type ModuleKey =
   | 'crm' | 'prospeccao' | 'atendimento-ia' | 'propostas' | 'contratos'
   | 'clientes' | 'brand' | 'portal'
   | 'projetos' | 'calendario' | 'aprovacoes' | 'equipe'
-  | 'conteudos' | 'trafego' | 'relatorios'
+  | 'marketing' | 'conteudos' | 'trafego' | 'relatorios'
   | 'financeiro' | 'metas' | 'rentabilidade'
   | 'ia' | 'automacoes' | 'configuracoes';
 
@@ -59,8 +59,9 @@ export const MODULES: ModuleDef[] = [
   { key: 'aprovacoes', group: 'Operação', label: 'Aprovações', href: '/aprovacoes', roles: STAFF, phase: 1, icon: 'clipboard-check', summary: 'Peças em revisão interna ou aguardando aprovação.' },
   { key: 'equipe', group: 'Operação', label: 'Equipe por Projeto', href: '/projetos?view=pessoas', roles: STAFF, phase: 2, done: true, icon: 'users-round', summary: 'Pessoas vinculadas aos projetos; planejamento de capacidade virá depois.' },
 
-  { key: 'conteudos', group: 'Marketing', label: 'Conteúdos', href: '/conteudos', roles: ['admin', 'comercial', 'designer', 'trafego'], phase: 3, icon: 'megaphone', summary: 'Calendário editorial (planejado).', planned: ['Planejamento de conteúdo por cliente e canal', 'Copy, criação, revisão e aprovações', 'Data e link de publicação', 'Visualizações de calendário e lista'] },
-  { key: 'trafego', group: 'Marketing', label: 'Tráfego Pago', href: '/trafego', roles: ['admin', 'trafego'], phase: 3, icon: 'bar-chart-3', summary: 'Meta Ads e Google Ads (pendente).', planned: ['Investimento, CTR, CPC, CPM, CPL, ROAS', 'Alertas de orçamento', 'Relatórios por cliente', 'Integrações Meta/Google Ads pendentes'] },
+  { key: 'marketing', group: 'Marketing', label: 'Central de Marketing', href: '/marketing', roles: ['admin', 'comercial', 'designer', 'trafego'], phase: 1, icon: 'target', summary: 'Planos estratégicos, campanhas, públicos, criativos e calendário.' },
+  { key: 'conteudos', group: 'Marketing', label: 'Calendário Editorial', href: '/marketing?tab=conteudos', roles: ['admin', 'comercial', 'designer', 'trafego'], phase: 3, done: true, icon: 'calendar-days', summary: 'Planejamento editorial por canal e data (publicação não automatizada).' },
+  { key: 'trafego', group: 'Marketing', label: 'Planejamento de Anúncios', href: '/marketing?tab=campanhas', roles: ['admin', 'trafego'], phase: 3, done: true, icon: 'bar-chart-3', summary: 'Planejamento de mídia, criativos e orçamento. Meta Ads não conectado.' },
   { key: 'relatorios', group: 'Marketing', label: 'Relatórios de Campanhas', href: '/relatorios', roles: ['admin', 'comercial', 'financeiro', 'trafego'], phase: 4, icon: 'file-bar-chart', summary: 'Relatórios gerenciais e de clientes (planejados).', planned: ['Relatórios de campanhas e performance', 'Filtros de período e cliente', 'Exportação de relatórios'] },
 
   { key: 'financeiro', group: 'Gestão', label: 'Financeiro', href: '/financeiro', roles: ['admin', 'financeiro'], phase: 1, icon: 'wallet', summary: 'Receitas, despesas e recebimentos.' },
