@@ -93,7 +93,7 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
     id,
     client: {
       name: client.name, status: client.status, segment: client.segment,
-      notes: client.notes, website: client.website,
+      notes: ['admin', 'comercial', 'financeiro'].includes(role) ? client.notes : null, website: client.website,
     },
     role, today,
     ownerName: null,
