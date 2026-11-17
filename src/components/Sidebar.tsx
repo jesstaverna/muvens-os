@@ -7,7 +7,14 @@ import { useEffect, useState } from 'react';
 import { GROUP_ICONS, GROUP_ORDER } from '@/lib/permissions';
 import { Icon } from './Icon';
 
-export interface NavItem { key: string; label: string; href: string; icon: string; phase: number; group: string }
+export interface NavItem {
+  key: string;
+  label: string;
+  href: string;
+  icon: string;
+  phase: number;
+  group: string;
+}
 
 interface Props {
   items: NavItem[];
@@ -26,24 +33,25 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
   const [favorites, setFavorites] = useState<string[]>([]);
   const favoritesKey = 'muvens-nav-favorites:' + userId;
+  const groupsKey = 'muvens-nav-groups:' + userId;
 
   useEffect(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem('muvens-nav') ?? '{}');
+      const stored = JSON.parse(localStorage.getItem(groupsKey) ?? localStorage.getItem('muvens-nav') ?? '{}');
       if (stored && typeof stored === 'object' && !Array.isArray(stored)) setClosedGroups(stored);
-    } catch { /* sem armazenamento */ }
-  }, []);
+    } catch { /* O menu funciona sem armazenamento local. */ }
+  }, [groupsKey]);
 
   useEffect(() => {
     try {
       const stored: unknown = JSON.parse(localStorage.getItem(favoritesKey) ?? '[]');
-      setFavorites(Array.isArray(stored) ? stored.filter((k): k is string => typeof k === 'string') : []);
+      setFavorites(Array.isArray(stored) ? stored.filter((key): key is string => typeof key === 'string') : []);
     } catch { setFavorites([]); }
   }, [favoritesKey]);
 
   const toggleGroup = (group: string) => setClosedGroups((current) => {
     const next = { ...current, [group]: !current[group] };
-    try { localStorage.setItem('muvens-nav', JSON.stringify(next)); } catch { /* ignora */ }
+    try { localStorage.setItem(groupsKey, JSON.stringify(next)); } catch { /* ignora */ }
     return next;
   });
 
@@ -58,7 +66,7 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
     .filter(({ list }) => list.length > 0);
   const favoriteItems = items.filter((item) => favorites.includes(item.key));
 
-  // Links com ?view=... reutilizam a tela existente; só uma entrada fica ativa por vez.
+  // Links com filtros de visualização representam páginas distintas no menu.
   const isActive = (item: NavItem) => {
     const [path, params] = item.href.split('?');
     if (pathname !== path && !pathname.startsWith(path + '/')) return false;
@@ -67,8 +75,10 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
       return [...new URLSearchParams(params).entries()].every(([key, value]) => query.get(key) === value);
     }
     if (pathname === path) {
-      const matchingView = items.some((other) => other.href.startsWith(path + '?') && isViewMatch(other.href, query));
-      if (matchingView) return false;
+      const specificViewIsActive = items.some(
+        (other) => other.href.startsWith(path + '?') && isViewMatch(other.href, query)
+      );
+      if (specificViewIsActive) return false;
     }
     return true;
   };
@@ -77,25 +87,49 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
     const active = isActive(item);
     const pinned = favorites.includes(item.key);
     return (
-      <div key={prefix + item.key} className={'group flex items-center rounded-xl ' + (active ? 'bg-lime text-black' : 'text-fg/80 hover:bg-subtle')}>
-        <Link href={item.href} onClick={() => setMobileOpen(false)}
+      <div key={prefix + item.key} className={
+        'group relative flex min-h-[38px] items-center rounded-[11px] transition-colors ' +
+        (active ? 'bg-lime text-black' : 'text-fg/75 hover:bg-subtle hover:text-fg')
+      }>
+        <Link
+          href={item.href}
+          onClick={() => setMobileOpen(false)}
           title={compact ? item.label : undefined}
           aria-label={compact ? item.label : undefined}
           aria-current={active ? 'page' : undefined}
-          className={'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl text-sm transition ' + (compact ? 'justify-center p-2.5' : 'px-3 py-2.5') + (active ? ' font-medium' : '')}>
-          <Icon name={item.icon} />
-          {!compact && <>
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {item.phase > 1 && <span className="rounded-full border border-current px-1.5 text-[10px] opacity-60">F{item.phase}</span>}
-          </>}
+          className={
+            'flex min-w-0 flex-1 items-center gap-3 rounded-[11px] text-[13px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg ' +
+            (compact ? 'justify-center px-2 py-2.5' : 'py-2.5 pl-3 pr-1') +
+            (active ? ' font-semibold' : ' font-medium')
+          }
+        >
+          <Icon name={item.icon} className="h-[17px] w-[17px] shrink-0" />
+          {!compact && (
+            <>
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {item.phase > 1 && (
+                <span className="rounded-md border border-current/30 px-1.5 py-0.5 text-[10px] font-medium opacity-65">
+                  F{item.phase}
+                </span>
+              )}
+            </>
+          )}
         </Link>
         {!compact && (
-          <button type="button" onClick={() => toggleFavorite(item.key)}
+          <button
+            type="button"
+            onClick={() => toggleFavorite(item.key)}
             title={pinned ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             aria-label={(pinned ? 'Remover ' : 'Favoritar ') + item.label}
             aria-pressed={pinned}
-            className={'mr-2 shrink-0 rounded p-1.5 transition hover:opacity-70 focus-visible:outline focus-visible:outline-2 ' + (pinned ? 'opacity-100' : 'opacity-40 group-hover:opacity-100')}>
-            <Star className="h-3.5 w-3.5" fill={pinned ? 'currentColor' : 'none'} strokeWidth={1.6} />
+            className={
+              'mr-1.5 grid h-8 w-8 shrink-0 place-items-center rounded-md transition-opacity focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current ' +
+              (pinned
+                ? 'opacity-70 hover:opacity-100'
+                : 'opacity-45 hover:opacity-100 md:opacity-0 md:group-hover:opacity-70 md:group-focus-within:opacity-100')
+            }
+          >
+            <Star className="h-[15px] w-[15px]" fill={pinned ? 'currentColor' : 'none'} strokeWidth={1.6} />
           </button>
         )}
       </div>
@@ -103,34 +137,90 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
   };
 
   const navigation = (compact: boolean) => (
-    <nav aria-label="Menu principal" className={'flex-1 overflow-y-auto py-2 ' + (compact ? 'space-y-2 px-2' : 'space-y-3 px-3')}>
-      {!compact && favoriteItems.length > 0 && (
-        <section aria-label="Páginas favoritas">
-          <div className="mb-1 flex items-center gap-2 px-3 text-[11px] font-medium uppercase tracking-wider text-muted">
-            <Star className="h-3.5 w-3.5" /> Favoritos
+    <nav
+      aria-label="Menu principal"
+      className={
+        'min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5 pt-3 ' +
+        (compact ? 'space-y-2 px-2' : 'px-3')
+      }
+    >
+      {favoriteItems.length > 0 && (
+        <section aria-label="Páginas favoritas" className={
+          'border-b border-line/80 ' + (compact ? 'mb-3 space-y-1 pb-3' : 'mb-3 pb-4')
+        }>
+          {!compact && (
+            <div className="mb-2 flex items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-muted">
+              <Star className="h-3.5 w-3.5" strokeWidth={1.6} />
+              <span>Acesso rápido</span>
+              <span className="ml-auto font-normal tracking-normal">{favoriteItems.length}</span>
+            </div>
+          )}
+          <div className="space-y-1">
+            {favoriteItems.map((item) => navItem(item, 'favorite-', compact))}
           </div>
-          <div className="space-y-0.5">{favoriteItems.map((item) => navItem(item, 'fav-'))}</div>
         </section>
       )}
-      {groups.map(({ group, list }) => {
-        const expanded = list.some(isActive) || !closedGroups[group];
+      {groups.map(({ group, list }, index) => {
+        // Evita duplicidade: páginas fixadas ficam somente em Acesso rápido.
+        const visibleItems = list.filter((item) => !favorites.includes(item.key));
+        const activeGroup = list.some(isActive);
+        const expanded = visibleItems.some(isActive) || !closedGroups[group];
         if (compact) {
           const current = list.find(isActive) ?? list[0];
           return (
-            <Link key={group} href={current.href} title={group} aria-label={group}
-              className={'flex items-center justify-center rounded-xl p-2.5 ' + (list.some(isActive) ? 'bg-lime text-black' : 'text-fg/80 hover:bg-subtle')}>
-              <Icon name={GROUP_ICONS[group]} />
+            <Link
+              key={group}
+              href={current.href}
+              title={group}
+              aria-label={group}
+              onClick={() => setMobileOpen(false)}
+              className={
+                'flex min-h-10 items-center justify-center rounded-[11px] p-2.5 transition-colors ' +
+                (activeGroup ? 'bg-lime text-black' : 'text-fg/70 hover:bg-subtle hover:text-fg')
+              }
+            >
+              <Icon name={GROUP_ICONS[group]} className="h-[18px] w-[18px]" />
             </Link>
           );
         }
         return (
-          <section key={group} aria-label={group}>
-            <button type="button" onClick={() => toggleGroup(group)} aria-expanded={expanded}
-              className="mb-1 flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-muted hover:bg-subtle hover:text-fg">
-              <span className="flex items-center gap-2"><Icon name={GROUP_ICONS[group]} className="h-4 w-4" />{group}</span>
-              <ChevronDown className={'h-3.5 w-3.5 transition ' + (expanded ? '' : '-rotate-90')} />
+          <section
+            key={group}
+            aria-label={group}
+            className={
+              'border-t border-line/70 pt-3 ' +
+              (index === 0 ? 'mt-0' : 'mt-3')
+            }
+          >
+            <button
+              type="button"
+              onClick={() => toggleGroup(group)}
+              aria-expanded={expanded}
+              className={
+                'group relative flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-fg ' +
+                (activeGroup
+                  ? 'bg-subtle/70 text-fg'
+                  : 'text-muted hover:bg-subtle/70 hover:text-fg')
+              }
+            >
+              <span aria-hidden="true" className={
+                'absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full ' +
+                (activeGroup ? 'bg-lime' : 'bg-transparent')
+              } />
+              <Icon name={GROUP_ICONS[group]} className="h-[15px] w-[15px] shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.12em]">{group}</span>
+              <ChevronDown
+                className={'h-3.5 w-3.5 shrink-0 transition-transform ' + (expanded ? '' : '-rotate-90')}
+                strokeWidth={1.6}
+              />
             </button>
-            {expanded && <div className="space-y-0.5">{list.map((item) => navItem(item, group + '-'))}</div>}
+            {expanded && (
+              <div className="mt-1 space-y-0.5 pl-2">
+                {visibleItems.length > 0
+                  ? visibleItems.map((item) => navItem(item, group + '-'))
+                  : <p className="px-3 py-2 text-[11px] text-muted">Itens em Acesso rápido</p>}
+              </div>
+            )}
           </section>
         );
       })}
@@ -138,29 +228,47 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
   );
 
   const brand = (compact: boolean) => (
-    <div className={'flex items-center gap-2.5 pb-4 pt-6 ' + (compact ? 'justify-center px-2' : 'px-6')}>
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-black p-1.5">
-        <img src="/logo-muvens.svg" alt="Muvens" className="h-full w-full object-contain" />
-      </span>
-      {!compact && <div className="leading-tight"><div className="text-sm font-semibold tracking-wide">MUVENS OS</div><div className="text-[11px] text-muted">Muvens Agência</div></div>}
+    <div className={
+      'shrink-0 border-b border-line/80 ' +
+      (compact ? 'px-2 pb-4 pt-5' : 'px-5 pb-5 pt-6')
+    }>
+      <div className={'flex items-center gap-3 ' + (compact ? 'justify-center' : '')}>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-black p-1.5">
+          <img src="/logo-muvens.svg" alt="Muvens" className="h-full w-full object-contain" />
+        </span>
+        {!compact && (
+          <div className="min-w-0 leading-tight">
+            <div className="text-[13px] font-bold tracking-[0.025em]">MUVENS OS</div>
+            <div className="mt-1 text-[11px] text-muted">Painel de gestão</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 
   const footer = (compact: boolean) => (
-    <div className={'border-t border-line ' + (compact ? 'p-2' : 'p-4')}>
-      {!compact && <>
-        <div className="truncate text-sm font-medium">{userName}</div>
-        <div className="mb-3 text-xs text-muted">{roleLabel}</div>
-      </>}
+    <div className={'shrink-0 border-t border-line/80 ' + (compact ? 'p-2' : 'px-4 py-4')}>
+      {!compact && (
+        <div className="mb-4 border-b border-line/60 px-1 pb-3">
+          <div className="truncate text-[13px] font-semibold">{userName}</div>
+          <div className="mt-0.5 text-[11px] text-muted">{roleLabel}</div>
+        </div>
+      )}
       <form action={signOut}>
         <button className={'btn btn-sm w-full gap-2 ' + (compact ? '!px-0' : '')} title="Sair" aria-label="Sair">
-          <LogOut className="h-4 w-4" strokeWidth={1.7} />{!compact && 'Sair'}
+          <LogOut className="h-4 w-4" strokeWidth={1.7} />
+          {!compact && 'Sair'}
         </button>
       </form>
-      <button type="button" onClick={onToggle}
+      <button
+        type="button"
+        onClick={onToggle}
         className={'btn btn-sm mt-2 hidden w-full gap-2 lg:flex ' + (compact ? '!px-0' : '')}
-        aria-label={compact ? 'Expandir menu' : 'Recolher menu'}>
-        {compact ? <PanelLeftOpen className="h-4 w-4" strokeWidth={1.7} /> : <><PanelLeftClose className="h-4 w-4" strokeWidth={1.7} />Recolher menu</>}
+        aria-label={compact ? 'Expandir menu' : 'Recolher menu'}
+      >
+        {compact
+          ? <PanelLeftOpen className="h-4 w-4" strokeWidth={1.7} />
+          : <><PanelLeftClose className="h-4 w-4" strokeWidth={1.7} />Recolher menu</>}
       </button>
     </div>
   );
@@ -169,17 +277,33 @@ export function Sidebar({ items, userName, userId, roleLabel, signOut, collapsed
     <>
       <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-line bg-bg/90 px-4 py-3 backdrop-blur lg:hidden">
         <span className="text-sm font-semibold tracking-wide">MUVENS OS</span>
-        <button onClick={() => setMobileOpen(true)} aria-label="Abrir menu" className="btn btn-sm"><Menu className="h-4 w-4" /></button>
+        <button type="button" onClick={() => setMobileOpen(true)} aria-label="Abrir menu" className="btn btn-sm">
+          <Menu className="h-4 w-4" />
+        </button>
       </div>
-      <aside className={'fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-line bg-surface transition-[width] lg:flex ' + (collapsed ? 'w-[68px]' : 'w-64')}>
-        {brand(collapsed)}{navigation(collapsed)}{footer(collapsed)}
+      <aside className={
+        'fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-line bg-surface transition-[width] lg:flex ' +
+        (collapsed ? 'w-[68px]' : 'w-[280px]')
+      }>
+        {brand(collapsed)}
+        {navigation(collapsed)}
+        {footer(collapsed)}
       </aside>
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal aria-label="Menu de navegação">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-surface">
-            <button onClick={() => setMobileOpen(false)} aria-label="Fechar menu" className="btn btn-sm absolute right-3 top-3"><X className="h-4 w-4" /></button>
-            {brand(false)}{navigation(false)}{footer(false)}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Fechar menu"
+              className="btn btn-sm absolute right-3 top-3"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {brand(false)}
+            {navigation(false)}
+            {footer(false)}
           </aside>
         </div>
       )}
