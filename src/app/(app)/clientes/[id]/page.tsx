@@ -133,21 +133,65 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
 
   return (
     <>
-      <PageHeader title={client.name} subtitle={[client.segment, client.email, client.phone, ownerName ? `Responsável: ${ownerName}` : null].filter(Boolean).join(' · ') || undefined} actions={<><LinkButton href={`/clientes/${id}/google`} className="btn">Relatórios do Google</LinkButton><LinkButton href="/clientes" className="btn">← Clientes</LinkButton></>} />
+      <PageHeader
+        title={client.name}
+        subtitle={[client.segment, client.email, client.phone, ownerName ? 'Responsável: ' + ownerName : null].filter(Boolean).join(' · ') || undefined}
+        actions={<>
+          <LinkButton href="/clientes" className="btn btn-sm">← Todos os clientes</LinkButton>
+          {canEdit && <LinkButton href={base + '?tab=geral'} className="btn btn-sm">Editar cadastro</LinkButton>}
+          <LinkButton href={'/clientes/' + id + '/google'} className="btn btn-sm">Relatórios Google</LinkButton>
+        </>}
+      />
 
-      <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Situação do cliente">
-        <Stat label="Comercial" value={<span className="text-lg">{client.status === 'ativo' ? 'Cliente ativo' : client.status}</span>} hint={seeSales ? `${(proposals ?? []).length} proposta(s) · ${(services ?? []).filter((s) => s.status === 'ativo').length} serviço(s) ativo(s)` : undefined} />
-        {seeSales && <Stat label="Mensalidade (MRR)" value={money(mrr)} />}
-        {seeFin && <Stat label="Financeiro" value={overdue.length ? <span className="text-danger">{overdue.length} em atraso</span> : <span className="text-ok">Em dia</span>} hint={`${money(open.reduce((a, t) => a + Number(t.amount), 0))} a receber · ${money(received)} recebido`} />}
-        <div className="card"><div className="text-xs font-medium uppercase tracking-wider text-muted">Operacional</div><div className="mt-3"><Pending>Projetos e entregas — Fase 2</Pending></div></div>
-      </section>
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className={'badge ' + (client.status === 'ativo' ? 'border-lime bg-lime/15 text-fg' : 'text-muted')}>
+          {client.status === 'ativo' ? 'Cliente ativo' : client.status}
+        </span>
+        {ownerName && <span className="text-xs text-muted">Responsável: {ownerName}</span>}
+        <span className="ml-auto text-xs text-muted">Ficha integrada · MUVENS OS</span>
+      </div>
 
-      <Tabs current={tab} items={[
-        { key: 'geral', label: 'Dados e contatos', href: base },
-        ...(seeSales ? [{ key: 'servicos', label: 'Serviços', href: `${base}?tab=servicos` }, { key: 'propostas', label: 'Propostas', href: `${base}?tab=propostas` }] : []),
-        ...(seeFin ? [{ key: 'financeiro', label: 'Financeiro', href: `${base}?tab=financeiro` }] : []),
-        { key: 'fase2', label: 'Projetos · Documentos · Campanhas', href: `${base}?tab=fase2` },
+      <Tabs current={['servicos', 'propostas'].includes(tab) ? 'comercial' : tab} items={[
+        { key: 'resumo', label: 'Visão geral', href: base },
+        { key: 'operacao', label: 'Operação', href: base + '?tab=operacao' },
+        ...(seeSales ? [{ key: 'comercial', label: 'Comercial', href: base + '?tab=comercial' }] : []),
+        ...(canBrand ? [{ key: 'marca', label: 'Marca e estratégia', href: base + '?tab=marca' }] : []),
+        ...(canPortal ? [{ key: 'portal', label: 'Portal e arquivos', href: base + '?tab=portal' }] : []),
+        ...(seeFin ? [{ key: 'financeiro', label: 'Financeiro', href: base + '?tab=financeiro' }] : []),
+        { key: 'historico', label: 'Histórico', href: base + '?tab=historico' },
+        { key: 'geral', label: 'Cadastro e contatos', href: base + '?tab=geral' },
       ]} />
+
+      {['comercial', 'servicos', 'propostas'].includes(tab) && seeSales && (
+        <nav aria-label="Seções comerciais deste cliente" className="mb-6 flex flex-wrap items-center gap-2">
+          {[
+            { key: 'comercial', label: 'Resumo e contratos' },
+            { key: 'servicos', label: 'Serviços e mensalidades' },
+            { key: 'propostas', label: 'Propostas' },
+          ].map((item) => (
+            <Link key={item.key} href={base + '?tab=' + item.key}
+              aria-current={item.key === tab ? 'page' : undefined}
+              className={'btn btn-sm ' + (tab === item.key ? 'btn-dark' : '')}>{item.label}</Link>
+          ))}
+        </nav>
+      )}
+
+      {tab === 'resumo' && <>
+        {seeFin && (
+          <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Indicadores financeiros restritos">
+            <Stat label="Receita recorrente ativa" value={money(mrr)} hint="Serviços mensais ativos; não representa valores recebidos." />
+            <Stat label="Contas a receber" value={money(open.reduce((a, t) => a + Number(t.amount), 0))}
+              hint={overdue.length ? overdue.length + ' lançamento(s) em atraso' : 'Sem atraso registrado'} />
+            <Stat label="Recebimentos registrados" value={money(received)} hint="Histórico dos lançamentos carregados nesta ficha." />
+          </section>
+        )}
+        <Client360Overview {...client360} />
+      </>}
+      {tab === 'operacao' && <Client360Operation {...client360} />}
+      {tab === 'comercial' && seeSales && <Client360Commercial {...client360} />}
+      {tab === 'marca' && canBrand && <Client360BrandSection {...client360} />}
+      {tab === 'portal' && canPortal && <Client360Portal {...client360} />}
+      {tab === 'historico' && <Client360History {...client360} />}
 
       {tab === 'geral' && (
         <div className="grid gap-6 xl:grid-cols-3">
@@ -166,7 +210,7 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
               <Field label="E-mail"><input name="email" type="email" className="input" /></Field><Field label="Telefone"><input name="phone" className="input" /></Field><label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_primary" /> Responsável principal do cliente</label><SubmitButton className="btn btn-sm" pendingText="…">Adicionar contato</SubmitButton></form>}</section>
         </div>)}
 
-      {tab === 'servicos' && (
+      {tab === 'servicos' && seeSales && (
         <div className="space-y-6">
           {!services?.length ? <Empty title="Nenhum serviço cadastrado" text="Serviços entram ao ativar uma proposta aceita ou pelo formulário abaixo. O cliente vê o nome, o período e a descrição no portal (nunca os valores)." /> : (
             <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Serviço</th><th className="th">Cobrança</th><th className="th">Valor</th><th className="th">Início</th><th className="th">Situação</th><th className="th">No portal</th><th className="th"></th></tr></thead>
@@ -188,16 +232,16 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
               <SubmitButton>Adicionar serviço</SubmitButton></form>)}
         </div>)}
 
-      {tab === 'propostas' && (!proposals?.length ? <Empty title="Sem propostas" /> : (
+      {tab === 'propostas' && seeSales && (!proposals?.length ? <Empty title="Sem propostas" /> : (
         <div className="card overflow-x-auto !p-0"><table className="w-full"><tbody>{proposals.map((p) => (
           <tr key={p.id} className="border-b border-line last:border-0"><td className="td"><Link className="font-medium hover:underline" href={`/propostas/${p.id}`}>#{p.number} · {p.title}</Link></td><td className="td">{money(p.total_value)}</td><td className="td"><span className={`badge ${PROPOSAL_STATUS[p.status]?.tone}`}>{PROPOSAL_STATUS[p.status]?.label}</span></td></tr>))}</tbody></table></div>))}
 
-      {tab === 'financeiro' && (!tx?.length ? <Empty title="Sem lançamentos para este cliente" /> : (
+      {tab === 'financeiro' && seeFin && (!tx?.length ? <Empty title="Sem lançamentos para este cliente" /> : (
         <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Descrição</th><th className="th">Vencimento</th><th className="th">Valor</th><th className="th">Situação</th></tr></thead>
           <tbody>{tx.map((t) => (<tr key={t.id} className="border-b border-line last:border-0"><td className="td">{t.description}</td><td className="td">{dateBR(t.due_date)}</td><td className="td">{money(t.amount)}</td>
             <td className="td"><span className={`badge ${['previsto', 'emitido'].includes(t.status) && t.due_date < today ? 'border-danger/40 text-danger' : ''}`}>{['previsto', 'emitido'].includes(t.status) && t.due_date < today ? 'Em atraso' : TX_STATUS_LABEL(t.direction as 'in' | 'out', t.status)}</span></td></tr>))}</tbody></table></div>))}
 
-      {tab === 'fase2' && <div className="card max-w-2xl text-sm"><Pending>Fase 2</Pending><p className="mt-3 text-muted">Projetos, entregáveis, documentos, relatórios, campanhas e Brand Center por cliente serão adicionados na Fase 2/3 sobre este mesmo cadastro (as tabelas de projeto já referenciarão <code>clients.id</code>).</p></div>}
+
     </>
   );
 }
