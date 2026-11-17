@@ -21,7 +21,7 @@ async function saveGoal(fd: FormData) {
   'use server';
   const { supabase } = await requireModule('metas');
   const viewMonth = String(fd.get('view_month') ?? '');
-  const back = /^\\d{4}-(0[1-9]|1[0-2])$/.test(viewMonth) ? `/metas?m=${viewMonth}` : '/metas';
+  const back = /^\d{4}-(0[1-9]|1[0-2])$/.test(viewMonth) ? `/metas?m=${viewMonth}` : '/metas';
   const r = schema.safeParse(Object.fromEntries(fd));
   if (!r.success) flash(back, 'err', r.error.issues[0].message);
   const { period, ...rest } = r.data;
@@ -40,7 +40,7 @@ export default async function Metas({ searchParams }: { searchParams: Promise<{ 
   const today = todayBR();
   const [currentYear, currentMonth] = today.split('-').map(Number);
   const { m: selectedMonth } = await searchParams;
-  const selection = /^(20\\d{2})-(0[1-9]|1[0-2])$/.exec(selectedMonth ?? '');
+  const selection = /^(20\d{2})-(0[1-9]|1[0-2])$/.exec(selectedMonth ?? '');
   const y = selection ? Number(selection[1]) : currentYear;
   const mo = selection ? Number(selection[2]) : currentMonth;
   const cur = monthRange(y, mo), year = { from: `${y}-01-01`, to: `${y}-12-31` };
