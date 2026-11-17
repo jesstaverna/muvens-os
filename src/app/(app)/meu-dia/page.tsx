@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AlertCircle, CalendarDays, ClipboardCheck, Clock3, FileText, ListTodo } from 'lucide-react';
+import { AlertCircle, CalendarDays, ClipboardCheck, ListTodo } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Empty } from '@/components/ui';
 import { LinkButton } from '@/components/LinkButton';
@@ -105,7 +105,7 @@ export default async function MeuDia() {
 
       <section className="mb-7 grid gap-3 sm:grid-cols-3" aria-label="Resumo de trabalho">
         <SummaryCard href="/projetos?view=lista&me=1" icon={<ListTodo className="h-5 w-5" />} title="Minhas tarefas ativas" count={tasksCount} />
-        <SummaryCard href="/aprovacoes" icon={<ClipboardCheck className="h-5 w-5" />} title="Peças em aprovação" count={approvalsCount} />
+        {approvalsAccess && <SummaryCard href="/aprovacoes" icon={<ClipboardCheck className="h-5 w-5" />} title="Peças em aprovação" count={approvalsCount} />}
         <SummaryCard href="/alertas" icon={<AlertCircle className="h-5 w-5" />} title="Alertas não lidos" count={alertsCount} />
       </section>
 
