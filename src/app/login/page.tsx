@@ -11,7 +11,7 @@ async function signIn(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email: String(formData.get('email') ?? '').trim(), password: String(formData.get('password') ?? '') });
   if (error) flash('/login', 'err', 'E-mail ou senha inválidos.'); // mensagem genérica: não revela se o e-mail existe
-  redirect('/dashboard');
+  redirect('/meu-dia');
 }
 
 export const metadata = { title: 'Entrar' };

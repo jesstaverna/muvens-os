@@ -27,7 +27,7 @@ export async function updateSession(request: NextRequest) {
   }
   if (data.user && path === '/login') {
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+    url.pathname = '/meu-dia';
     return NextResponse.redirect(url);
   }
   return response;

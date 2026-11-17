@@ -20,6 +20,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!s.profile.active || s.profile.role === 'cliente') redirect('/sem-acesso');
 
   const items = MODULES.filter((m) => m.roles.includes(s.profile.role)).map(({ key, label, href, icon, phase, done, group }) => ({ key, label, href, icon, group, phase: done ? 1 : phase }));
+  const quickLinks = [
+    ...(['admin', 'comercial'].includes(s.profile.role) ? [
+      { label: 'Novo lead', href: '/crm/novo' },
+      { label: 'Nova proposta', href: '/propostas/nova' },
+    ] : []),
+    ...(['admin', 'comercial', 'designer', 'trafego'].includes(s.profile.role) ? [
+      { label: 'Nova tarefa', href: '/projetos/tarefas/nova' },
+    ] : []),
+    ...(['admin', 'financeiro'].includes(s.profile.role) ? [
+      { label: 'Novo lançamento', href: '/financeiro?tab=novo' },
+    ] : []),
+  ];
   const supabase = await createClient();
   const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null);
 
@@ -32,7 +44,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <Suspense><Flash /></Suspense>
-      <AppShell items={items} userName={s.profile.full_name || s.profile.email || 'Usuário'} roleLabel={ROLE_LABEL[s.profile.role]} signOut={signOut} topBar={<><GlobalSearch items={items} />{bell}<ThemeToggle /></>}>{children}</AppShell>
+      <AppShell items={items} userName={s.profile.full_name || s.profile.email || 'Usuário'} userId={s.profile.id} roleLabel={ROLE_LABEL[s.profile.role]} signOut={signOut} topBar={<>
+          {quickLinks.length > 0 && (
+            <details className="relative z-20">
+              <summary className="btn btn-sm btn-dark cursor-pointer list-none" aria-label="Abrir ações rápidas">+ Criar</summary>
+              <div className="absolute right-0 top-full z-30 mt-2 w-48 rounded-xl border border-line bg-surface p-2 shadow-xl">
+                {quickLinks.map((item) => (
+                  <Link key={item.href} href={item.href} className="block rounded-lg px-3 py-2 text-sm hover:bg-subtle">{item.label}</Link>
+                ))}
+              </div>
+            </details>
+          )}
+          <GlobalSearch items={items} />{bell}<ThemeToggle />
+        </>}>{children}</AppShell>
     </>
   );
 }
