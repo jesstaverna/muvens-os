@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Stat, Tabs, Empty, Field, Pending } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
@@ -13,6 +14,7 @@ type Tx = { id: string; direction: 'in' | 'out'; description: string; amount: nu
 export default async function Financeiro({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string; from?: string; to?: string; status?: string }> }) {
   const { supabase } = await requireModule('financeiro');
   const sp = await searchParams;
+  if (!sp.tab) redirect('/financeiro/resumo');
   const tab = ['lancamentos', 'receber', 'pagar', 'recorrentes', 'novo'].includes(sp.tab ?? '') ? sp.tab! : 'lancamentos';
   const today = todayBR();
   const year = today.slice(0, 4);
@@ -77,7 +79,7 @@ export default async function Financeiro({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Financeiro" subtitle={`Previsto → emitido → efetivamente recebido/pago. Resumo de ${year}.`} actions={<LinkButton href={nav('novo')} className="btn btn-primary">Novo lançamento</LinkButton>} />
+      <PageHeader title="Financeiro" subtitle={`Previsto → emitido → efetivamente recebido/pago. Resumo de ${year}.`} actions={<><LinkButton href="/financeiro/resumo">Visão financeira</LinkButton><LinkButton href={nav('novo')} className="btn btn-primary">Novo lançamento</LinkButton></>} />
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Recebido no ano" value={money(recebidoAno)} tone="lime" />
         <Stat label="Pago no ano" value={money(pagoAno)} hint={`Resultado: ${money(recebidoAno - pagoAno)}`} />
