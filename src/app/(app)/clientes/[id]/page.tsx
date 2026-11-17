@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
-import { PageHeader, Stat, Tabs, Empty, Pending, Field } from '@/components/ui';
+import { PageHeader, Stat, Tabs, Empty, Field } from '@/components/ui';
 import { SubmitButton } from '@/components/SubmitButton';
 import { ClientForm } from '../ClientForm';
 import { addContact, addService, removeContact, saveClient, updateContact, updateService } from '../actions';
@@ -48,14 +48,14 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
         <Stat label="Comercial" value={<span className="text-lg">{client.status === 'ativo' ? 'Cliente ativo' : client.status}</span>} hint={seeSales ? `${(proposals ?? []).length} proposta(s) · ${(services ?? []).filter((s) => s.status === 'ativo').length} serviço(s) ativo(s)` : undefined} />
         {seeSales && <Stat label="Mensalidade (MRR)" value={money(mrr)} />}
         {seeFin && <Stat label="Financeiro" value={overdue.length ? <span className="text-danger">{overdue.length} em atraso</span> : <span className="text-ok">Em dia</span>} hint={`${money(open.reduce((a, t) => a + Number(t.amount), 0))} a receber · ${money(received)} recebido`} />}
-        <div className="card"><div className="text-xs font-medium uppercase tracking-wider text-muted">Operacional</div><div className="mt-3"><Pending>Projetos e entregas — Fase 2</Pending></div></div>
+        <div className="card"><div className="text-xs font-medium uppercase tracking-wider text-muted">Operacional</div><div className="mt-3"><Link href={`/projetos?view=projetos&client=${id}`} className="text-sm font-medium underline underline-offset-4 hover:text-lime-text">Ver projetos e entregas →</Link></div></div>
       </section>
 
       <Tabs current={tab} items={[
         { key: 'geral', label: 'Dados e contatos', href: base },
         ...(seeSales ? [{ key: 'servicos', label: 'Serviços', href: `${base}?tab=servicos` }, { key: 'propostas', label: 'Propostas', href: `${base}?tab=propostas` }] : []),
         ...(seeFin ? [{ key: 'financeiro', label: 'Financeiro', href: `${base}?tab=financeiro` }] : []),
-        { key: 'fase2', label: 'Projetos · Documentos · Campanhas', href: `${base}?tab=fase2` },
+        { key: 'fase2', label: 'Operação e arquivos', href: `${base}?tab=fase2` },
       ]} />
 
       {tab === 'geral' && (
@@ -106,7 +106,34 @@ export default async function ClientePage({ params, searchParams }: { params: Pr
           <tbody>{tx.map((t) => (<tr key={t.id} className="border-b border-line last:border-0"><td className="td">{t.description}</td><td className="td">{dateBR(t.due_date)}</td><td className="td">{money(t.amount)}</td>
             <td className="td"><span className={`badge ${['previsto', 'emitido'].includes(t.status) && t.due_date < today ? 'border-danger/40 text-danger' : ''}`}>{['previsto', 'emitido'].includes(t.status) && t.due_date < today ? 'Em atraso' : TX_STATUS_LABEL(t.direction as 'in' | 'out', t.status)}</span></td></tr>))}</tbody></table></div>))}
 
-      {tab === 'fase2' && <div className="card max-w-2xl text-sm"><Pending>Fase 2</Pending><p className="mt-3 text-muted">Projetos, entregáveis, documentos, relatórios, campanhas e Brand Center por cliente serão adicionados na Fase 2/3 sobre este mesmo cadastro (as tabelas de projeto já referenciarão <code>clients.id</code>).</p></div>}
+      {tab === 'fase2' && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <section className="card">
+            <h2 className="text-base font-semibold">Projetos e entregas</h2>
+            <p className="mt-2 text-sm text-muted">Acompanhe os projetos, tarefas e entregáveis vinculados a este cliente.</p>
+            <LinkButton href={`/projetos?view=projetos&client=${id}`} className="mt-4">Ver projetos</LinkButton>
+          </section>
+          <section className="card">
+            <h2 className="text-base font-semibold">Calendário operacional</h2>
+            <p className="mt-2 text-sm text-muted">Consulte os prazos e as entregas agendadas para este cliente.</p>
+            <LinkButton href={`/calendario?client=${id}`} className="mt-4">Ver calendário</LinkButton>
+          </section>
+          {['admin', 'comercial', 'designer', 'trafego'].includes(role) && (
+            <section className="card">
+              <h2 className="text-base font-semibold">Brand Center e arquivos</h2>
+              <p className="mt-2 text-sm text-muted">Acesse identidade visual, referências e materiais organizados.</p>
+              <LinkButton href={`/brand/${id}`} className="mt-4">Abrir Brand Center</LinkButton>
+            </section>
+          )}
+          {['admin', 'comercial'].includes(role) && (
+            <section className="card">
+              <h2 className="text-base font-semibold">Portal do Cliente</h2>
+              <p className="mt-2 text-sm text-muted">Gerencie acessos, solicitações e documentos compartilhados.</p>
+              <LinkButton href="/portal" className="mt-4">Gerenciar portal</LinkButton>
+            </section>
+          )}
+        </div>
+      )}
     </>
   );
 }

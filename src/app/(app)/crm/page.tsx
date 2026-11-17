@@ -53,7 +53,7 @@ export default async function CRM({ searchParams }: { searchParams: Promise<SP> 
 
   return (
     <>
-      <PageHeader title="CRM e Leads" subtitle="Funil comercial da Muvens." actions={<><LinkButton href="/configuracoes#funil" className="btn">Personalizar etapas</LinkButton><LinkButton href="/crm/novo" className="btn btn-primary">Novo lead</LinkButton></>} />
+      <PageHeader title="CRM e Leads" subtitle="Funil comercial da Muvens." actions={<><LinkButton href="/configuracoes?tab=funil" className="btn">Personalizar etapas</LinkButton><LinkButton href="/crm/novo" className="btn btn-primary">Novo lead</LinkButton></>} />
 
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Leads no mês" value={c.total ?? 0} />
