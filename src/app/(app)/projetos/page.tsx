@@ -13,38 +13,57 @@ import { createPlan, saveBoardSettings, saveRate } from './actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateBR, money } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
+import { ProductionOverview, type ProductionProject } from '@/components/ProductionOverview';
+import { filterProductionTasks, type ProductionFocus } from '@/lib/projects/production';
 
 export const metadata = { title: 'Projetos e Tarefas' };
-type SP = { by?: string; d?: string; view?: string; client?: string; project?: string; me?: string; m?: string };
+type SP = { by?: string; d?: string; view?: string; client?: string; project?: string; me?: string; m?: string; owner?: string; priority?: string; focus?: string; q?: string };
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
 export default async function Projetos({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('projetos');
   const sp = await searchParams;
-  const views = ['kanban', 'timeline', 'calendario', 'lista', 'metricas', 'pessoas', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
-  const view = views.includes(sp.view ?? '') ? sp.view! : 'kanban';
+  const views = ['visao', 'kanban', 'timeline', 'calendario', 'lista', 'metricas', 'pessoas', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
+  const view = views.includes(sp.view ?? '') ? sp.view! : 'visao';
   const today = todayBR();
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
   const canPlan = profile.role === 'admin' || profile.role === 'comercial';
 
-  const [{ data: clients }, { data: projects }] = await Promise.all([
+  const [{ data: clients }, { data: projects }, { data: people }] = await Promise.all([
     supabase.from('clients').select('id, name').order('name'),
     supabase.from('projects').select('id, name, status, due_on, client_id, clients(name), owner:profiles!projects_owner_id_fkey(full_name, email)').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name, email').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
   ]);
+  const validClient = sp.client && /^[0-9a-f-]{36}$/.test(sp.client) ? sp.client : null;
+  const validProject = sp.project && /^[0-9a-f-]{36}$/.test(sp.project) ? sp.project : null;
+  const validOwner = sp.owner && (people ?? []).some((p) => p.id === sp.owner) ? sp.owner : null;
+  const ownerFilter = sp.me ? profile.id : validOwner;
+  const focusOptions: ProductionFocus[] = ['todas', 'atrasadas', 'hoje', 'proximos7', 'revisao', 'aguardando_cliente', 'sem_responsavel', 'prioritarias'];
+  const focus: ProductionFocus = focusOptions.includes(sp.focus as ProductionFocus) ? sp.focus as ProductionFocus : 'todas';
+  const priority = sp.priority && sp.priority in PRIORITY ? sp.priority : '';
+  const search = (sp.q ?? '').trim().slice(0, 100);
 
-  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name, email), co:task_assignees(who:profiles(full_name, email)), tc:task_contacts(c:client_contacts(name, role_title)), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
-  if (sp.project && /^[0-9a-f-]{36}$/.test(sp.project)) tq = tq.eq('project_id', sp.project);
-  if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) tq = tq.eq('projects.client_id', sp.client);
-  if (sp.me) { const { data: co } = await supabase.from('task_assignees').select('task_id').eq('user_id', profile.id); const ids = (co ?? []).map((c) => c.task_id); tq = ids.length ? tq.or(`assignee_id.eq.${profile.id},id.in.(${ids.join(',')})`) : tq.eq('assignee_id', profile.id); }
-  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' || view === 'metricas' || view === 'pessoas' ? { data: [] as never[] } : await tq;
+
+  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name, email), co:task_assignees(user_id, who:profiles(full_name, email)), tc:task_contacts(c:client_contacts(name, role_title)), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
+  if (validProject) tq = tq.eq('project_id', validProject);
+  if (validClient) tq = tq.eq('projects.client_id', validClient);
+  if (ownerFilter) {
+    const { data: co } = await supabase.from('task_assignees').select('task_id').eq('user_id', ownerFilter).limit(1000);
+    const ids = (co ?? []).map((c) => c.task_id);
+    tq = ids.length ? tq.or(`assignee_id.eq.${ownerFilter},id.in.(${ids.join(',')})`) : tq.eq('assignee_id', ownerFilter);
+  }
+  const { data: tasksRaw, error: tasksError } = ['entregaveis', 'rentabilidade', 'avisos', 'metricas', 'pessoas'].includes(view)
+    ? { data: [] as never[], error: null } : await tq;
 
   const { data: waits } = (tasksRaw ?? []).length ? await supabase.from('task_client_wait').select('task_id, client_wait_days').in('task_id', (tasksRaw ?? []).map((t: any) => t.id)) : { data: [] as { task_id: string; client_wait_days: number }[] };
   const waitOf = new Map((waits ?? []).map((w) => [w.task_id, Number(w.client_wait_days)]));
-  const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => ({ client_wait_days: waitOf.get(t.id) ?? 0,
+  const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => {
+    const delay = lateness({ status: t.status, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, client_wait_days: waitOf.get(t.id) ?? 0 }, today);
+    return ({ client_wait_days: waitOf.get(t.id) ?? 0,
     id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: (one(t.assignee) ? personName(one(t.assignee)) : null), contacts: (t.tc ?? []).map((x: any) => ({ name: one(x.c)?.name, role: one(x.c)?.role_title ?? null })).filter((c: any) => c.name), assignees: (t.co ?? []).map((c: any) => personName(one(c.who), '')).filter(Boolean),
     client: one(one(t.projects)?.clients)?.name ?? null, project: one(t.projects)?.name ?? null, out_of_scope: t.out_of_scope,
-    late: lateness({ status: t.status, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, client_wait_days: waitOf.get(t.id) ?? 0 }, today).late,
-  }));
+    late: delay.late, effective_due: delay.due, assignee_id: t.assignee_id, assignee_ids: (t.co ?? []).map((x: any) => x.user_id).filter(Boolean),
+  }); });
 
   const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, assignees: t.assignees, contacts: t.contacts, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
   const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
