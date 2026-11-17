@@ -5,11 +5,11 @@ import { useState, useTransition } from 'react';
 import { moveTask } from './actions';
 import { AREAS } from '@/lib/projects/board';
 
-export interface KTask { id: string; title: string; status: string; priority: string; due_on: string | null; assignee: string | null; assignees: string[]; contacts: { name: string; role: string | null }[]; client: string | null; project: string | null; out_of_scope: boolean; late: boolean; starts_on: string | null; review_due_on: string | null; changes_due_on: string | null; area: string | null; origin: string; project_id: string; client_wait_days: number }
+export interface KTask { id: string; title: string; status: string; priority: string; due_on: string | null; assignee: string | null; assignees: string[]; contacts: { name: string; role: string | null }[]; client: string | null; project: string | null; out_of_scope: boolean; late: boolean; starts_on: string | null; review_due_on: string | null; changes_due_on: string | null; area: string | null; origin: string; project_id: string; client_wait_days: number; assignee_id: string | null; assignee_ids: string[]; effective_due: string | null }
 const COLS = [['solicitada', 'Solicitadas'], ['aguardando_cliente', 'Aguardando cliente'], ['a_fazer', 'A fazer'], ['em_andamento', 'Em andamento'], ['produzido', 'Produzido'], ['enviado', 'Enviado ao cliente'], ['ajustes', 'Ajustes'], ['aprovado', 'Aprovado'], ['entregue', 'Entregue']] as const;
 const PRI: Record<string, string> = { urgente: 'bg-danger', alta: 'bg-amber-500', media: 'bg-blue-500', baixa: 'bg-muted' };
 
-export function TaskBoard({ tasks }: { tasks: KTask[] }) {
+export function TaskBoard({ tasks, canMove = true }: { tasks: KTask[]; canMove?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +17,7 @@ export function TaskBoard({ tasks }: { tasks: KTask[] }) {
 
   function move(id: string, status: string) {
     const t = tasks.find((x) => x.id === id);
-    if (!t || t.status === status) return;
+    if (!canMove || !t || t.status === status) return;
     setError(null);
     start(async () => { const err = await moveTask(id, status); if (err) setError(err); router.refresh(); });
   }
@@ -28,21 +28,21 @@ export function TaskBoard({ tasks }: { tasks: KTask[] }) {
         {COLS.map(([key, label]) => {
           const items = tasks.filter((t) => t.status === key);
           return (
-            <section key={key} aria-label={label} onDragOver={(e) => { e.preventDefault(); setOver(key); }} onDragLeave={() => setOver(null)}
-              onDrop={(e) => { e.preventDefault(); setOver(null); move(e.dataTransfer.getData('text/plain'), key); }}
+            <section key={key} aria-label={label} onDragOver={canMove ? (e) => { e.preventDefault(); setOver(key); } : undefined} onDragLeave={canMove ? () => setOver(null) : undefined}
+              onDrop={canMove ? (e) => { e.preventDefault(); setOver(null); move(e.dataTransfer.getData('text/plain'), key); } : undefined}
               className={`w-72 shrink-0 rounded-2xl border bg-subtle/50 p-3 ${over === key ? 'border-fg' : 'border-line'}`}>
               <header className="mb-3 flex items-baseline justify-between px-1.5"><h3 className="text-sm font-semibold">{label}</h3><span className="text-xs text-muted">{items.length}</span></header>
               <div className="space-y-2.5">
                 {items.map((t) => (
-                  <article key={t.id} draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', t.id)} className="cursor-grab rounded-xl border border-line bg-surface p-3.5 active:cursor-grabbing">
+                  <article key={t.id} draggable={canMove} onDragStart={canMove ? (e) => e.dataTransfer.setData('text/plain', t.id) : undefined} className={"rounded-xl border border-line bg-surface p-3.5 " + (canMove ? "cursor-grab active:cursor-grabbing" : "")}>
                     <div className="flex items-start gap-2"><span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${PRI[t.priority]}`} title={`Prioridade ${t.priority}`} /><Link href={`/projetos/tarefas/${t.id}`} className="text-sm font-medium hover:underline">{t.title}</Link></div>
                     <div className="mt-1 text-xs text-muted">{t.client}{t.project ? ` · ${t.project}` : ''}</div>
-                    <div className="mt-2 flex items-center justify-between text-xs"><span className={t.late ? 'font-medium text-danger' : 'text-muted'}>{t.due_on ? t.due_on.split('-').reverse().slice(0, 2).join('/') : 'Sem prazo'}{t.late ? ' · atrasada' : ''}</span><span className="text-muted">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].map((n) => n.split(' ')[0]).join(', ') || 'Sem resp.'}</span></div>
+                    <div className="mt-2 flex items-center justify-between text-xs"><span className={t.late ? 'font-medium text-danger' : 'text-muted'}>{t.effective_due ? t.effective_due.split('-').reverse().slice(0, 2).join('/') : 'Sem prazo'}{t.effective_due && t.effective_due !== t.due_on ? ' · ajustado' : ''}{t.late ? ' · atrasada' : ''}</span><span className="text-muted">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].map((n) => n.split(' ')[0]).join(', ') || 'Sem resp.'}</span></div>
                     {(t.area || t.origin === 'cliente') && <div className="mt-2 flex flex-wrap gap-1">{t.area && <span className="badge">{AREAS[t.area]}</span>}{t.origin === 'cliente' && <span className="badge bg-lime/40">Pedido do cliente</span>}</div>}
                     {t.contacts.length > 0 && <div className="mt-2 text-xs text-muted" title="Contatos do cliente">Cliente: {t.contacts.map((c) => c.name.split(' ')[0]).join(', ')}</div>}
                     {t.out_of_scope && <div className="mt-2 rounded-md bg-amber-500/15 px-2 py-1 text-[11px] text-warn">Fora do escopo contratado</div>}
-                    <label className="sr-only" htmlFor={`mv-${t.id}`}>Mover {t.title}</label>
-                    <select id={`mv-${t.id}`} value={t.status} onChange={(e) => move(t.id, e.target.value)} className="mt-2 w-full rounded-lg border border-line bg-surface px-2 py-1 text-xs">{COLS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+                    {canMove && <><label className="sr-only" htmlFor={`mv-${t.id}`}>Mover {t.title}</label>
+                      <select id={`mv-${t.id}`} value={t.status} onChange={(e) => move(t.id, e.target.value)} className="mt-2 w-full rounded-lg border border-line bg-surface px-2 py-1 text-xs">{COLS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></>}
                   </article>))}
                 {!items.length && <p className="px-1.5 py-6 text-center text-xs text-muted">—</p>}
               </div>

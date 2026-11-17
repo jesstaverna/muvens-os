@@ -6,13 +6,15 @@ import { createProject } from '../actions';
 import { PROJECT_STATUS } from '@/lib/domain';
 
 export const metadata = { title: 'Novo projeto' };
-export default async function NovoProjeto() {
+export default async function NovoProjeto({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
+  const { client } = await searchParams;
   const { supabase, profile } = await requireModule('projetos');
   const [{ data: clients }, { data: people }] = await Promise.all([supabase.from('clients').select('id, name').order('name'), supabase.from('profiles').select('id, full_name, email').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name')]);
+  const chosenClient = (clients ?? []).some((item) => item.id === client) ? client : '';
   return (
     <><PageHeader title="Novo projeto" />
       <form action={createProject} className="card max-w-3xl space-y-5"><div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Cliente *"><select name="client_id" required className="input"><option value="">Selecione…</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+        <Field label="Cliente *"><select name="client_id" required defaultValue={chosenClient} className="input"><option value="">Selecione…</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
         <Field label="Nome do projeto *"><input name="name" required className="input" placeholder="Social media — novembro" /></Field>
         <Field label="Situação"><select name="status" defaultValue="em_andamento" className="input">{Object.entries(PROJECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
         <Field label="Responsável"><select name="owner_id" defaultValue={profile.id} className="input"><option value="">—</option>{people?.map((p) => <option key={p.id} value={p.id}>{personName(p)}</option>)}</select></Field>

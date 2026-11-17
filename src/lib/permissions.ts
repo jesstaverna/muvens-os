@@ -54,7 +54,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'brand', group: 'Clientes', label: 'Brand Center', href: '/brand', roles: ['admin', 'comercial', 'designer', 'trafego'], phase: 2, done: true, icon: 'palette', summary: 'Biblioteca de identidades visuais por cliente.' },
   { key: 'portal', group: 'Clientes', label: 'Portal do Cliente', href: '/portal', roles: ['admin', 'comercial'], phase: 2, done: true, icon: 'door-open', summary: 'Solicitações, arquivos e acessos do portal.' },
 
-  { key: 'projetos', group: 'Operação', label: 'Projetos e Tarefas', href: '/projetos', roles: STAFF, phase: 2, done: true, icon: 'list-checks', summary: 'Projetos, Kanban e entregáveis.' },
+  { key: 'projetos', group: 'Operação', label: 'Projetos e Produção', href: '/projetos', roles: STAFF, phase: 2, done: true, icon: 'list-checks', summary: 'Projetos, Kanban e entregáveis.' },
   { key: 'calendario', group: 'Operação', label: 'Calendário de Produção', href: '/calendario', roles: STAFF, phase: 2, done: true, icon: 'calendar', summary: 'Prazos e entregas operacionais.' },
   { key: 'aprovacoes', group: 'Operação', label: 'Aprovações', href: '/aprovacoes', roles: STAFF, phase: 1, icon: 'clipboard-check', summary: 'Peças em revisão interna ou aguardando aprovação.' },
   { key: 'equipe', group: 'Operação', label: 'Equipe por Projeto', href: '/projetos?view=pessoas', roles: STAFF, phase: 2, done: true, icon: 'users-round', summary: 'Pessoas vinculadas aos projetos; planejamento de capacidade virá depois.' },

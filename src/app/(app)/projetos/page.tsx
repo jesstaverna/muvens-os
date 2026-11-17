@@ -13,72 +13,248 @@ import { createPlan, saveBoardSettings, saveRate } from './actions';
 import { PRIORITY, PROJECT_STATUS, TASK_STATUS, fmtMinutes, todayBR } from '@/lib/domain';
 import { dateBR, money } from '@/lib/format';
 import { LinkButton } from '@/components/LinkButton';
+import { ProductionOverview, type ProductionProject } from '@/components/ProductionOverview';
+import { filterProductionTasks, type ProductionFocus } from '@/lib/projects/production';
 
 export const metadata = { title: 'Projetos e Tarefas' };
-type SP = { by?: string; d?: string; view?: string; client?: string; project?: string; me?: string; m?: string };
+type SP = { by?: string; d?: string; view?: string; client?: string; project?: string; me?: string; m?: string; owner?: string; priority?: string; focus?: string; q?: string };
 const one = <T,>(v: T | T[] | null | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
 export default async function Projetos({ searchParams }: { searchParams: Promise<SP> }) {
   const { supabase, profile } = await requireModule('projetos');
   const sp = await searchParams;
-  const views = ['kanban', 'timeline', 'calendario', 'lista', 'metricas', 'pessoas', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
-  const view = views.includes(sp.view ?? '') ? sp.view! : 'kanban';
+  const views = ['visao', 'kanban', 'timeline', 'calendario', 'lista', 'metricas', 'pessoas', 'projetos', 'entregaveis', ...(['admin', 'financeiro'].includes(profile.role) ? ['rentabilidade'] : []), ...(profile.role === 'admin' ? ['avisos'] : [])];
+  const view = views.includes(sp.view ?? '') ? sp.view! : 'visao';
   const today = todayBR();
   const canWrite = ['admin', 'comercial', 'designer', 'trafego'].includes(profile.role);
   const canPlan = profile.role === 'admin' || profile.role === 'comercial';
 
-  const [{ data: clients }, { data: projects }] = await Promise.all([
+  const [{ data: clients }, { data: projects }, { data: people }] = await Promise.all([
     supabase.from('clients').select('id, name').order('name'),
     supabase.from('projects').select('id, name, status, due_on, client_id, clients(name), owner:profiles!projects_owner_id_fkey(full_name, email)').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name, email').in('role', ['admin', 'comercial', 'designer', 'trafego']).eq('active', true).order('full_name'),
   ]);
+  const validClient = sp.client && /^[0-9a-f-]{36}$/.test(sp.client) ? sp.client : null;
+  const validProject = sp.project && /^[0-9a-f-]{36}$/.test(sp.project) ? sp.project : null;
+  const validOwner = sp.owner && (people ?? []).some((p) => p.id === sp.owner) ? sp.owner : null;
+  const ownerFilter = sp.me ? profile.id : validOwner;
+  const focusOptions: ProductionFocus[] = ['todas', 'atrasadas', 'hoje', 'proximos7', 'revisao', 'aguardando_cliente', 'sem_responsavel', 'prioritarias'];
+  const focus: ProductionFocus = focusOptions.includes(sp.focus as ProductionFocus) ? sp.focus as ProductionFocus : 'todas';
+  const priority = sp.priority && sp.priority in PRIORITY ? sp.priority : '';
+  const search = (sp.q ?? '').trim().slice(0, 100);
 
-  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name, email), co:task_assignees(who:profiles(full_name, email)), tc:task_contacts(c:client_contacts(name, role_title)), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
-  if (sp.project && /^[0-9a-f-]{36}$/.test(sp.project)) tq = tq.eq('project_id', sp.project);
-  if (sp.client && /^[0-9a-f-]{36}$/.test(sp.client)) tq = tq.eq('projects.client_id', sp.client);
-  if (sp.me) { const { data: co } = await supabase.from('task_assignees').select('task_id').eq('user_id', profile.id); const ids = (co ?? []).map((c) => c.task_id); tq = ids.length ? tq.or(`assignee_id.eq.${profile.id},id.in.(${ids.join(',')})`) : tq.eq('assignee_id', profile.id); }
-  const { data: tasksRaw } = view === 'projetos' || view === 'entregaveis' || view === 'rentabilidade' || view === 'avisos' || view === 'metricas' || view === 'pessoas' ? { data: [] as never[] } : await tq;
+
+  let tq = supabase.from('tasks').select('id, title, status, priority, due_on, starts_on, review_due_on, changes_due_on, area, origin, out_of_scope, project_id, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name, email), co:task_assignees(user_id, who:profiles(full_name, email)), tc:task_contacts(c:client_contacts(name, role_title)), projects!inner(name, client_id, clients(name))').neq('status', 'cancelada').order('due_on', { ascending: true, nullsFirst: false }).limit(1000);
+  if (validProject) tq = tq.eq('project_id', validProject);
+  if (validClient) tq = tq.eq('projects.client_id', validClient);
+  if (ownerFilter) {
+    const { data: co } = await supabase.from('task_assignees').select('task_id').eq('user_id', ownerFilter).limit(1000);
+    const ids = (co ?? []).map((c) => c.task_id);
+    tq = ids.length ? tq.or(`assignee_id.eq.${ownerFilter},id.in.(${ids.join(',')})`) : tq.eq('assignee_id', ownerFilter);
+  }
+  const { data: tasksRaw, error: tasksError } = ['entregaveis', 'rentabilidade', 'avisos', 'metricas', 'pessoas'].includes(view)
+    ? { data: [] as never[], error: null } : await tq;
 
   const { data: waits } = (tasksRaw ?? []).length ? await supabase.from('task_client_wait').select('task_id, client_wait_days').in('task_id', (tasksRaw ?? []).map((t: any) => t.id)) : { data: [] as { task_id: string; client_wait_days: number }[] };
   const waitOf = new Map((waits ?? []).map((w) => [w.task_id, Number(w.client_wait_days)]));
-  const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => ({ client_wait_days: waitOf.get(t.id) ?? 0,
+  const tasks: KTask[] = (tasksRaw ?? []).map((t: any) => {
+    const delay = lateness({ status: t.status, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, client_wait_days: waitOf.get(t.id) ?? 0 }, today);
+    return ({ client_wait_days: waitOf.get(t.id) ?? 0,
     id: t.id, title: t.title, status: t.status, priority: t.priority, due_on: t.due_on, starts_on: t.starts_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, area: t.area, origin: t.origin, project_id: t.project_id, assignee: (one(t.assignee) ? personName(one(t.assignee)) : null), contacts: (t.tc ?? []).map((x: any) => ({ name: one(x.c)?.name, role: one(x.c)?.role_title ?? null })).filter((c: any) => c.name), assignees: (t.co ?? []).map((c: any) => personName(one(c.who), '')).filter(Boolean),
     client: one(one(t.projects)?.clients)?.name ?? null, project: one(t.projects)?.name ?? null, out_of_scope: t.out_of_scope,
-    late: lateness({ status: t.status, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, client_wait_days: waitOf.get(t.id) ?? 0 }, today).late,
-  }));
+    late: delay.late, effective_due: delay.due, assignee_id: t.assignee_id, assignee_ids: (t.co ?? []).map((x: any) => x.user_id).filter(Boolean),
+  }); });
 
-  const boardTasks: BoardTask[] = tasks.map((t) => ({ id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on, due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on, project_id: t.project_id, project: `${t.client ?? ''} · ${t.project ?? ''}`, assignee: t.assignee, assignees: t.assignees, contacts: t.contacts, links: 0, comments: 0, client_wait_days: t.client_wait_days }));
-  const qs = (extra: Record<string, string>) => { const p = new URLSearchParams({ ...(sp.client ? { client: sp.client } : {}), ...(sp.project ? { project: sp.project } : {}), ...(sp.me ? { me: '1' } : {}), ...extra }); return `/projetos?${p}`; };
-  const TABS = [{ key: 'kanban', label: 'Kanban' }, { key: 'timeline', label: 'Linha do tempo' }, { key: 'calendario', label: 'Calendário' }, { key: 'lista', label: 'Lista' }, { key: 'metricas', label: 'Métricas' }, { key: 'pessoas', label: 'Pessoas por projeto' }, { key: 'projetos', label: 'Projetos por cliente' }, { key: 'entregaveis', label: 'Entregáveis contratados' }, ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []), ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : [])];
-  const late = tasks.filter((t) => t.late).length;
+  const visibleTasks = filterProductionTasks(tasks, { focus, priority, query: search, today });
+  const boardTasks: BoardTask[] = visibleTasks.map((t) => ({
+    id: t.id, title: t.title, status: t.status, area: t.area, starts_on: t.starts_on,
+    due_on: t.due_on, review_due_on: t.review_due_on, changes_due_on: t.changes_due_on,
+    project_id: t.project_id, project: (t.client ?? '') + ' · ' + (t.project ?? ''),
+    assignee: t.assignee, assignees: t.assignees, contacts: t.contacts,
+    links: 0, comments: 0, client_wait_days: t.client_wait_days,
+  }));
+  const visibleProjects = (projects ?? []).filter((p) => (!validClient || p.client_id === validClient) && (!validProject || p.id === validProject));
+  const productionProjects: ProductionProject[] = visibleProjects.map((p) => ({
+    id: p.id, name: p.name, client_id: p.client_id,
+    client_name: one(p.clients)?.name ?? 'Cliente sem nome',
+    status: p.status, due_on: p.due_on,
+    owner_name: personName(one(p.owner), 'Sem responsável'),
+  }));
+  const qs = (extra: Record<string, string>) => {
+    const p = new URLSearchParams({
+      ...(validClient ? { client: validClient } : {}),
+      ...(validProject ? { project: validProject } : {}),
+      ...(sp.me ? { me: '1' } : ownerFilter ? { owner: ownerFilter } : {}),
+      ...(priority ? { priority } : {}),
+      ...(search ? { q: search } : {}),
+      ...(focus !== 'todas' ? { focus } : {}),
+      ...extra,
+    });
+    if (p.get('focus') === 'todas') p.delete('focus');
+    Object.entries(extra).forEach(([key, value]) => { if (!value) p.delete(key); });
+    return '/projetos?' + p.toString();
+  };
+  const TABS = [
+    { key: 'visao', label: 'Visão da produção' },
+    { key: 'kanban', label: 'Kanban' },
+    { key: 'lista', label: 'Lista de tarefas' },
+    { key: 'timeline', label: 'Linha do tempo' },
+    { key: 'calendario', label: 'Calendário' },
+    { key: 'projetos', label: 'Projetos por cliente' },
+    { key: 'pessoas', label: 'Equipe por projeto' },
+    { key: 'entregaveis', label: 'Entregáveis contratados' },
+    { key: 'metricas', label: 'Métricas' },
+    ...(views.includes('rentabilidade') ? [{ key: 'rentabilidade', label: 'Rentabilidade' }] : []),
+    ...(views.includes('avisos') ? [{ key: 'avisos', label: 'Prazos e avisos' }] : []),
+  ];
+  const late = visibleTasks.filter((t) => t.late).length;
+  const filterActive = Boolean(validClient || validProject || ownerFilter || priority || search || focus !== 'todas');
+  const newTaskHref = validProject ? '/projetos/tarefas/nova?project=' + validProject : '/projetos/tarefas/nova';
+  const newProjectHref = validClient ? '/projetos/novo?client=' + validClient : '/projetos/novo';
 
   return (
     <>
-      <PageHeader title="Projetos e Tarefas" subtitle="Produção por cliente, com fluxo de aprovação, entregáveis e controle de horas."
-        actions={canWrite ? <>{['admin', 'comercial'].includes(profile.role) && <LinkButton href="/portal/visualizar" className="btn">Ver como o cliente</LinkButton>}<LinkButton href="/projetos/novo" className="btn">Novo projeto</LinkButton><LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton></> : undefined} />
-      <Tabs current={view} items={TABS.map((t) => ({ ...t, href: `/projetos?view=${t.key}` }))} />
+      <PageHeader title="Central de Produção" subtitle="Planejamento, responsáveis, tarefas, prazos e aprovações em uma única operação."
+        actions={<>
+          {canWrite && <>
+            {['admin', 'comercial'].includes(profile.role) && <LinkButton href="/portal/visualizar" className="btn btn-sm">Ver como o cliente</LinkButton>}
+            <LinkButton href={newProjectHref} className="btn btn-sm">Novo projeto</LinkButton>
+            <LinkButton href={newTaskHref} className="btn btn-primary btn-sm">Nova tarefa</LinkButton>
+          </>}
+        </>} />
+      <Tabs current={view} items={TABS.map((t) => ({ ...t, href: qs({ view: t.key }) }))} />
 
-      {(view === 'kanban' || view === 'lista' || view === 'timeline' || view === 'calendario') && (
+      {['visao', 'kanban', 'lista', 'timeline', 'calendario', 'projetos'].includes(view) && (
+        <section aria-label="Filtros de produção" className="mb-6 rounded-2xl border border-line bg-surface p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold">Filtrar produção</h2>
+              <p className="mt-0.5 text-xs text-muted">Cliente, projeto, pessoa e prazo permanecem ao mudar de visualização.</p>
+            </div>
+            {filterActive && <Link href={'/projetos?view=' + view} className="text-xs font-medium underline underline-offset-4">Limpar filtros</Link>}
+          </div>
+          <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <input type="hidden" name="view" value={view} />
+            <label><span className="label">Cliente</span>
+              <select name="client" defaultValue={validClient ?? ''} className="input" aria-label="Cliente">
+                <option value="">Todos os clientes</option>
+                {clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Projeto</span>
+              <select name="project" defaultValue={validProject ?? ''} className="input" aria-label="Projeto">
+                <option value="">Todos os projetos</option>
+                {projects?.filter((p) => !validClient || p.client_id === validClient).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Responsável</span>
+              <select name="owner" defaultValue={validOwner ?? ''} className="input" aria-label="Responsável">
+                <option value="">Toda a equipe</option>
+                {people?.map((p) => <option key={p.id} value={p.id}>{personName(p)}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Prioridade</span>
+              <select name="priority" defaultValue={priority} className="input" aria-label="Prioridade">
+                <option value="">Todas as prioridades</option>
+                {Object.entries(PRIORITY).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}
+              </select>
+            </label>
+            <label><span className="label">Situação / prazo</span>
+              <select name="focus" defaultValue={focus} className="input" aria-label="Situação e prazo">
+                <option value="todas">Todas as tarefas</option>
+                <option value="atrasadas">Atrasadas</option>
+                <option value="hoje">Com prazo hoje</option>
+                <option value="proximos7">Próximos 7 dias</option>
+                <option value="revisao">Em revisão / aprovação</option>
+                <option value="aguardando_cliente">Aguardando conteúdo</option>
+                <option value="sem_responsavel">Sem responsável</option>
+                <option value="prioritarias">Urgentes e altas</option>
+              </select>
+            </label>
+            <label className="sm:col-span-2"><span className="label">Buscar tarefa, cliente ou projeto</span>
+              <input name="q" type="search" maxLength={100} defaultValue={search} placeholder="Ex.: carrossel de novembro" className="input" />
+            </label>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex min-h-10 items-center gap-2 text-sm">
+                <input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} />
+                Só minhas
+              </label>
+              <button className="btn btn-dark">Aplicar filtros</button>
+            </div>
+          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3 text-xs text-muted">
+            <span>{visibleTasks.length} tarefa(s) encontrada(s){view === 'projetos' ? ' para contagem dos projetos' : ''}</span>
+            {late > 0 && <Link href={qs({ view: 'lista', focus: 'atrasadas' })} className="font-medium text-danger underline underline-offset-4">{late} com prazo em atraso</Link>}
+            {sp.me && <span>Filtro “Só minhas” inclui responsáveis principal e secundários.</span>}
+            {tasksError && <span role="alert" className="font-medium text-danger">Falha ao carregar tarefas. Verifique o acesso e atualize a página.</span>}
+          </div>
+        </section>
+      )}
+
+      {view === 'visao' && <ProductionOverview
+        tasks={visibleTasks} projects={productionProjects} today={today} canWrite={canWrite}
+        focusUrl={(selected) => qs({ view: 'lista', focus: selected })}
+        filterActive={filterActive}
+      />}
+
+      {['kanban', 'lista', 'timeline', 'calendario'].includes(view) && (
         <>
-          <form method="get" className="mb-5 flex flex-wrap items-end gap-2"><input type="hidden" name="view" value={view} />
-            <select name="client" defaultValue={sp.client ?? ''} className="input w-52" aria-label="Cliente"><option value="">Todos os clientes</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-            <select name="project" defaultValue={sp.project ?? ''} className="input w-60" aria-label="Projeto"><option value="">Todos os projetos</option>{projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-            <label className="flex items-center gap-2 px-2 pb-2.5 text-sm"><input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} /> Só minhas</label>
-            <button className="btn btn-dark">Filtrar</button>{late > 0 && <span className="pb-2.5 text-sm text-danger">{late} atrasada(s)</span>}</form>
-          {!tasks.length ? <Empty title="Nenhuma tarefa" text="Crie um projeto para o cliente e adicione tarefas. Ao assinar um contrato, o projeto de onboarding é criado automaticamente." action={canWrite ? <LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton> : undefined} />
-            : view === 'kanban' ? <TaskBoard tasks={tasks} /> : view === 'timeline' ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : view === 'calendario' ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : (
-              <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th><th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th></tr></thead>
-                <tbody>{tasks.map((t) => (<tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td"><Link className="font-medium hover:underline" href={`/projetos/tarefas/${t.id}`}>{t.title}</Link>{t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">fora do escopo</span>}</td>
-                  <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td><td className="td">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].join(', ') || '—'}</td><td className={`td whitespace-nowrap ${t.late ? 'font-medium text-danger' : ''}`}>{dateBR(t.due_on)}</td>
-                  <td className={`td ${PRIORITY[t.priority].tone}`}>{PRIORITY[t.priority].label}</td><td className="td"><span className={`badge ${TASK_STATUS[t.status].tone}`}>{TASK_STATUS[t.status].label}</span></td></tr>))}</tbody></table></div>)}
-        </>)}
+          {!visibleTasks.length
+            ? <Empty title="Nenhuma tarefa encontrada" text={filterActive ? 'Tente limpar os filtros ou selecionar outra empresa e projeto.' : 'Crie um projeto e adicione tarefas para começar a produção.'}
+                action={canWrite ? <LinkButton href={newTaskHref} className="btn btn-primary">Nova tarefa</LinkButton> : undefined} />
+            : view === 'kanban'
+              ? <TaskBoard tasks={visibleTasks} canMove={canWrite} />
+              : view === 'timeline'
+                ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => '/projetos/tarefas/' + id} />
+                : view === 'calendario'
+                  ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => '/projetos/tarefas/' + id} />
+                  : <div className="card overflow-x-auto !p-0"><table className="w-full">
+                    <thead><tr className="border-b border-line">
+                      <th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th>
+                      <th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th>
+                    </tr></thead>
+                    <tbody>{visibleTasks.map((t) => <tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60">
+                      <td className="td"><Link className="font-medium hover:underline" href={'/projetos/tarefas/' + t.id}>{t.title}</Link>
+                        {t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">Fora do escopo</span>}</td>
+                      <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td>
+                      <td className="td">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].join(', ') || 'Sem responsável'}</td>
+                      <td className={'td whitespace-nowrap ' + (t.late ? 'font-medium text-danger' : '')}>{dateBR(t.effective_due)}
+                        {t.effective_due !== t.due_on && <div className="text-[11px] text-muted">Prazo ajustado</div>}</td>
+                      <td className={'td ' + (PRIORITY[t.priority]?.tone ?? '')}>{PRIORITY[t.priority]?.label ?? t.priority}</td>
+                      <td className="td"><span className={'badge ' + (TASK_STATUS[t.status]?.tone ?? '')}>{TASK_STATUS[t.status]?.label ?? t.status}</span></td>
+                    </tr>)}</tbody>
+                  </table></div>}
+        </>
+      )}
 
-      {view === 'projetos' && (!projects?.length ? <Empty title="Nenhum projeto" action={canWrite ? <LinkButton href="/projetos/novo" className="btn btn-primary">Novo projeto</LinkButton> : undefined} /> : (
-        <div className="space-y-8">{[...new Set(projects.map((p) => p.client_id))].map((cid) => {
-          const list = projects.filter((p) => p.client_id === cid); const cname = one(list[0].clients)?.name;
-          return (<section key={cid}><h2 className="mb-3 text-base font-semibold"><Link href={`/clientes/${cid}`} className="hover:underline">{cname}</Link></h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{list.map((p) => (<Link key={p.id} href={`/projetos/${p.id}`} className="card block !p-5 transition hover:bg-subtle/60"><div className="font-medium">{p.name}</div>
-              <div className="mt-1 text-xs text-muted">{PROJECT_STATUS[p.status]}{p.due_on ? ` · prazo ${dateBR(p.due_on)}` : ''}</div><div className="mt-3 text-xs text-muted">{personName(one(p.owner), 'Sem responsável')}</div></Link>))}</div></section>);
-        })}</div>))}
+      {view === 'projetos' && (!visibleProjects.length
+        ? <Empty title="Nenhum projeto encontrado" text={filterActive ? 'Nenhum projeto corresponde ao cliente ou projeto selecionado.' : 'Crie um projeto para começar.'}
+            action={canWrite ? <LinkButton href={newProjectHref} className="btn btn-primary">Novo projeto</LinkButton> : undefined} />
+        : <div className="space-y-7">{[...new Set(visibleProjects.map((p) => p.client_id))].map((cid) => {
+          const list = visibleProjects.filter((p) => p.client_id === cid);
+          const cname = one(list[0].clients)?.name ?? 'Cliente';
+          return <section key={cid}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold"><Link href={'/clientes/' + cid} className="hover:underline">{cname}</Link></h2>
+              <Link href={'/clientes/' + cid + '?tab=operacao'} className="text-xs font-medium underline underline-offset-4">Abrir Cliente 360°</Link>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{list.map((p) => {
+              const related = visibleTasks.filter((t) => t.project_id === p.id);
+              const open = related.filter((t) => !['aprovado', 'entregue', 'cancelada'].includes(t.status));
+              const delayed = open.filter((t) => t.late).length;
+              return <Link key={p.id} href={'/projetos/' + p.id} className="card block !p-5 transition hover:bg-subtle/60">
+                <div className="font-semibold">{p.name}</div>
+                <div className="mt-1 text-xs text-muted">{PROJECT_STATUS[p.status] ?? p.status}{p.due_on ? ' · prazo ' + dateBR(p.due_on) : ''}</div>
+                <div className="mt-3 text-xs text-muted">{personName(one(p.owner), 'Sem responsável')}</div>
+                <div className="mt-4 flex items-center gap-2 border-t border-line pt-3 text-xs">
+                  <span className="rounded-md bg-subtle px-2 py-1">{open.length} tarefa(s) aberta(s)</span>
+                  {delayed > 0 && <span className="font-medium text-danger">{delayed} atrasada(s)</span>}
+                </div>
+              </Link>;
+            })}</div>
+          </section>;
+        })}</div>
+      )}
 
       {view === 'entregaveis' && <Entregaveis supabase={supabase} clients={clients ?? []} projects={projects ?? []} canPlan={canPlan} />}
       {view === 'rentabilidade' && <Rentabilidade supabase={supabase} />}
