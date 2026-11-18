@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowUpRight, BarChart3, CalendarDays, CheckCircle2, FileText, Megaphone, Plus, Target } from 'lucide-react';
+import { ArrowUpRight, BarChart3, CalendarDays, CheckCircle2, FileText, Link2, Megaphone, Plus, Target } from 'lucide-react';
 import { requireModule } from '@/lib/session';
 import { Empty, Field, PageHeader, Stat, Tabs } from '@/components/ui';
 import { LinkButton } from '@/components/LinkButton';
@@ -11,6 +11,8 @@ import {
 } from '@/lib/marketing';
 import { saveMarketingActivity } from './actions';
 import { PlanForm } from '@/components/MarketingPlanForm';
+import { MarketingTrackingPanel } from '@/components/MarketingTrackingPanel';
+import { MarketingLaunchChecklist } from '@/components/MarketingLaunchChecklist';
 
 export const metadata={title:'Central de Marketing | MUVENS OS'};
 type SP={plan?:string;tab?:string};
@@ -87,6 +89,7 @@ export default async function Marketing({searchParams}:{searchParams:Promise<SP>
        ['criativos','Criativos','Conceitos, formatos, mensagens e CTA',FileText],
        ['conteudos','Calendário editorial','Conteúdos por canal e data',CalendarDays],
        ['checklist','Pré-lançamento','O que validar antes de anunciar',CheckCircle2],
+       ['rastreamento','Links e UTMs','Links por criativo e cálculo do orçamento diário',Link2],
        ['resultados','Resultados','CRM e mensuração sem métricas simuladas',BarChart3],
      ] as const).map(([key,title,desc,Icon])=><Link key={key} href={url(key)}
       className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-5 transition hover:border-fg/40 hover:bg-subtle/50">
@@ -106,8 +109,22 @@ export default async function Marketing({searchParams}:{searchParams:Promise<SP>
     </section>
    </div>}
 
-   {tab in KIND_BY_TAB&&<ActivitySection kind={KIND_BY_TAB[tab]!} planId={plan.id}
+   {tab==='checklist'&&<div className="space-y-6">
+     <MarketingLaunchChecklist planId={plan.id} activities={activities} canEdit={canItem}/>
+     {canItem&&<details className="rounded-2xl border border-line bg-surface p-5">
+       <summary className="cursor-pointer text-sm font-semibold">Editar descrições e cadastrar novas verificações</summary>
+       <div className="mt-5"><ActivitySection kind="checklist" planId={plan.id} activities={activities} canEdit={canItem}/></div>
+     </details>}
+   </div>}
+   {tab!=='checklist'&&tab in KIND_BY_TAB&&<ActivitySection kind={KIND_BY_TAB[tab]!} planId={plan.id}
      activities={activities} canEdit={canItem}/>}
+   {tab==='rastreamento'&&<MarketingTrackingPanel
+     landingUrl={plan.landing_url}
+     campaigns={activities.filter(a=>a.kind==='campanha')}
+     creatives={activities.filter(a=>a.kind==='criativo')}
+     minimumBudget={Number(plan.monthly_budget_min)}
+     maximumBudget={Number(plan.monthly_budget_max)}
+   />}
 
    {tab==='resultados'&&<div className="space-y-6">
      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
