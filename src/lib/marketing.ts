@@ -1,4 +1,4 @@
-export type MarketingTab = 'visao' | 'estrategia' | 'campanhas' | 'publicos' | 'criativos' | 'conteudos' | 'checklist' | 'resultados';
+export type MarketingTab = 'visao' | 'estrategia' | 'campanhas' | 'publicos' | 'criativos' | 'conteudos' | 'checklist' | 'rastreamento' | 'resultados';
 export type MarketingKind = 'campanha' | 'publico' | 'criativo' | 'conteudo' | 'checklist';
 export type MarketingStatus = 'rascunho' | 'planejado' | 'ativo' | 'pausado' | 'concluido';
 export type ActivityStatus = 'ideia' | 'planejado' | 'em_producao' | 'em_revisao' | 'aprovado' | 'ativo' | 'pausado' | 'concluido';
@@ -23,7 +23,8 @@ export const MARKETING_TABS: {key:MarketingTab; label:string}[] = [
   {key:'visao',label:'Visão geral'}, {key:'estrategia',label:'Estratégia'},
   {key:'campanhas',label:'Tráfego pago'}, {key:'publicos',label:'Públicos'},
   {key:'criativos',label:'Criativos'}, {key:'conteudos',label:'Calendário editorial'},
-  {key:'checklist',label:'Pré-lançamento'}, {key:'resultados',label:'Resultados'},
+  {key:'checklist',label:'Pré-lançamento'}, {key:'rastreamento',label:'Links e UTMs'},
+  {key:'resultados',label:'Resultados'},
 ];
 export const KIND_BY_TAB: Partial<Record<MarketingTab,MarketingKind>> = {
   campanhas:'campanha',publicos:'publico',criativos:'criativo',
