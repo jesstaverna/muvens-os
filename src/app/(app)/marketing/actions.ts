@@ -93,3 +93,21 @@ export async function saveMarketingActivity(fd:FormData){
   revalidatePath('/marketing');
   flash(back,'ok',id?'Item atualizado.':'Item adicionado ao planejamento.');
 }
+
+
+/** Marcação manual de conferência. Não testa nem instala serviços da Meta. */
+export async function toggleMarketingChecklist(planId: string, itemId: string, completed: boolean) {
+  const { supabase, profile } = await requireModule('marketing');
+  const back = backTo(planId, 'checklist');
+  if (!canManageActivity(profile.role)) flash(back, 'err', 'Seu perfil não pode atualizar a preparação.');
+  if (!z.string().uuid().safeParse(planId).success || !z.string().uuid().safeParse(itemId).success) {
+    flash('/marketing', 'err', 'Identificador de checklist inválido.');
+  }
+  const { data, error } = await supabase.from('marketing_activities')
+    .update({ status: completed ? 'concluido' : 'planejado', updated_at: new Date().toISOString() })
+    .eq('id', itemId).eq('plan_id', planId).eq('kind', 'checklist')
+    .select('id').maybeSingle();
+  if (error || !data) flash(back, 'err', 'Não foi possível atualizar o checklist.');
+  revalidatePath('/marketing');
+  flash(back, 'ok', completed ? 'Etapa marcada como conferida.' : 'Etapa reaberta.');
+}
