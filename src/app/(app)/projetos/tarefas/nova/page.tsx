@@ -5,6 +5,7 @@ import { SubmitButton } from '@/components/SubmitButton';
 import { createTask } from '../../actions';
 import { PRIORITY } from '@/lib/domain';
 import { AssigneePicker } from '@/components/AssigneePicker';
+import { TASK_CATEGORIES } from '@/lib/projects/task-categories';
 
 export const metadata = { title: 'Nova tarefa' };
 export default async function NovaTarefa({ searchParams }: { searchParams: Promise<{ project?: string }> }) {
@@ -22,6 +23,7 @@ export default async function NovaTarefa({ searchParams }: { searchParams: Promi
         <Field label="Projeto *"><select name="project_id" required defaultValue={project ?? ''} className="input"><option value="">Selecione…</option>{projects?.map((p: any) => <option key={p.id} value={p.id}>{(Array.isArray(p.clients) ? p.clients[0] : p.clients)?.name} — {p.name}</option>)}</select></Field>
         <Field label="Nome da tarefa *" hint="Digite somente o nome. O sistema adicionará automaticamente #00001 e [CLIENTE] ao criar."><input name="title" required className="input" placeholder="Ex.: Criar calendário editorial" /></Field>
         <div className="sm:col-span-2"><AssigneePicker people={people ?? []} selected={[]} primary={null} /></div>
+        <Field label="Categoria"><select name="category" className="input" defaultValue=""><option value="">Selecione…</option>{Object.entries(TASK_CATEGORIES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></Field>
         <Field label="Área"><select name="area" className="input" defaultValue=""><option value="">—</option><option value="diagramacao">Diagramação</option><option value="social_media">Social Media</option><option value="outro">Outra</option></select></Field>
         <Field label="Início"><input type="date" name="starts_on" className="input" /></Field>
         <Field label="Entrega"><input type="date" name="due_on" className="input" /></Field>
