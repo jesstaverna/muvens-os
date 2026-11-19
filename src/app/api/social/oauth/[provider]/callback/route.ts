@@ -31,7 +31,7 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{provider:str
   const error=req.nextUrl.searchParams.get('error');
   if(error){
     const r=outcome(base,'err','A autorização foi cancelada ou recusada pela plataforma.');
-    r.cookies.delete(responseCookie);
+    r.cookies.set(responseCookie,'',{httpOnly:true,secure:base.startsWith('https:'),sameSite:'lax',path:'/api/social/oauth/'+provider,maxAge:0});
     return r;
   }
   const code=req.nextUrl.searchParams.get('code');
@@ -71,11 +71,11 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{provider:str
     }).select('id').single();
     if(dbError||!data)throw new Error('Falha ao guardar a autorização temporária.');
     const redirect=NextResponse.redirect(new URL('/configuracoes/redes?pending='+data.id,base));
-    redirect.cookies.delete(responseCookie);
+    redirect.cookies.set(responseCookie,'',{httpOnly:true,secure:base.startsWith('https:'),sameSite:'lax',path:'/api/social/oauth/'+provider,maxAge:0});
     return redirect;
   }catch{
     const r=outcome(base,'err','Não foi possível concluir a autorização. Confira permissões e URLs no aplicativo oficial.');
-    r.cookies.delete(responseCookie);
+    r.cookies.set(responseCookie,'',{httpOnly:true,secure:base.startsWith('https:'),sameSite:'lax',path:'/api/social/oauth/'+provider,maxAge:0});
     return r;
   }
 }
