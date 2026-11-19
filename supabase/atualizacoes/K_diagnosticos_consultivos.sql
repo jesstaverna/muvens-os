@@ -6,7 +6,7 @@ create table if not exists public.digital_diagnostics (
   contact_name text,
   client_id uuid references public.clients(id) on delete set null,
   lead_id uuid references public.leads(id) on delete set null,
-  scopes text[] not null default '{}' check (array_length(scopes,1) between 1 and 6 and scopes <@ array['site','landing_page','identidade_visual','instagram','trafego_pago','google_business']::text[]),
+  scopes text[] not null default '{}' check (array_length(scopes,1) between 1 and 7 and scopes <@ array['site','landing_page','identidade_visual','instagram','linkedin','trafego_pago','google_business']::text[]),
   links jsonb not null default '{}'::jsonb check (jsonb_typeof(links)='object'),
   context text,
   report jsonb,
@@ -36,7 +36,7 @@ create policy digital_diagnostics_staff on public.digital_diagnostics
 create table if not exists public.digital_diagnostic_assets (
   id uuid primary key default gen_random_uuid(),
   report_id uuid not null references public.digital_diagnostics(id) on delete cascade,
-  scope text not null check (scope in ('site','landing_page','identidade_visual','instagram','trafego_pago','google_business')),
+  scope text not null check (scope in ('site','landing_page','identidade_visual','instagram','linkedin','trafego_pago','google_business')),
   storage_path text not null unique,
   file_name text not null,
   mime text not null check (mime in ('image/png','image/jpeg','image/webp')),
