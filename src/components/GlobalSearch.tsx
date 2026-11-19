@@ -20,6 +20,11 @@ export function GlobalSearch({ items }: { items: NavItem[] }) {
     const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setOpen((o) => !o); } if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   }, []);
+  useEffect(() => {
+    const listener = () => setOpen(true);
+    window.addEventListener('muvens:open-search', listener);
+    return () => window.removeEventListener('muvens:open-search', listener);
+  }, []);
   useEffect(() => { if (open) { setQ(''); setHits([]); setSel(0); setTimeout(() => input.current?.focus(), 30); } }, [open]);
 
   const modules = q.trim().length >= 1 ? items.filter((i) => i.label.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 4) : items.slice(0, 6);
