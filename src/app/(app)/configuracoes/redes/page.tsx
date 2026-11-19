@@ -18,15 +18,15 @@ type Connection={
   id:string;platform:string;display_name:string;remote_id:string;status:string;last_sync_at:string|null;last_error:string|null;
 };
 export default async function Redes({searchParams}:{searchParams:Promise<{pending?:string}>}){
-  const {profile}=await requireModule('configuracoes');
+  const {profile,supabase}=await requireModule('configuracoes');
   if(profile.role!=='admin')return <div className="card"><p className="text-sm text-muted">Somente administradores podem autorizar conexões de redes sociais.</p></div>;
   const q=await searchParams;
-  const admin=createAdminClient();
-  const {data:client}=await admin.from('clients').select('id').eq('name','MUVENS').maybeSingle();
+  const admin=process.env.SUPABASE_SERVICE_ROLE_KEY?createAdminClient():null;
+  const {data:client}=await supabase.from('clients').select('id').eq('name','MUVENS').maybeSingle();
   const [{data:conns,error:listError},{data:auth}]=await Promise.all([
-    client?admin.from('social_connections').select('id,platform,display_name,remote_id,status,last_sync_at,last_error')
+    client?supabase.from('social_connections').select('id,platform,display_name,remote_id,status,last_sync_at,last_error')
       .eq('client_id',client.id).order('platform'):Promise.resolve({data:[],error:null}),
-    q.pending&&/^[a-f0-9-]{36}$/i.test(q.pending)
+    admin&&q.pending&&/^[a-f0-9-]{36}$/i.test(q.pending)
       ?admin.from('social_oauth_pending').select('*').eq('id',q.pending).eq('created_by',profile.id)
         .gt('expires_at',new Date().toISOString()).maybeSingle()
       :Promise.resolve({data:null,error:null}),
@@ -47,6 +47,7 @@ export default async function Redes({searchParams}:{searchParams:Promise<{pendin
   return <>
     <PageHeader title="Integrações de redes sociais" subtitle="Conecte os perfis oficiais da MUVENS para importar resultados automaticamente."
       actions={<Link href="/configuracoes?tab=integracoes" className="btn">← Configurações</Link>}/>
+    {!admin&&<div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">A chave privada do Supabase ainda não está configurada neste ambiente. A autorização oficial só ficará disponível após a configuração segura do servidor.</div>}
     <div className="mb-6 rounded-2xl border border-[#DCEA1E]/40 bg-[#DCEA1E]/10 p-5 text-sm">
       <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0"/>
       <div><p className="font-semibold">Autorização somente leitura para indicadores</p>
@@ -90,7 +91,7 @@ export default async function Redes({searchParams}:{searchParams:Promise<{pendin
         <article key={p.platform} className="card lg:col-span-1">
           <h3 className="text-base font-semibold">{p.name}</h3>
           <p className="mb-5 mt-2 min-h-12 text-sm leading-6 text-muted">{p.description}</p>
-          {providerIsConfigured(p.platform as 'meta'|'linkedin')
+          {admin&&providerIsConfigured(p.platform as 'meta'|'linkedin')
             ?<a href={'/api/social/oauth/'+p.platform+'/start'} className="btn btn-primary inline-flex w-full justify-center gap-2"><Link2 className="h-4 w-4"/> Autorizar com {p.platform==='meta'?'Meta':'LinkedIn'}</a>
             :<div className="rounded-xl border border-dashed border-line bg-subtle px-4 py-3 text-xs leading-5 text-muted">
               <TriangleAlert className="mb-2 h-4 w-4"/> Aplicativo ainda não configurado no servidor. Veja o guia de implantação.
