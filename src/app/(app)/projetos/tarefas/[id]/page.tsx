@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { personName } from '@/lib/people';
+import { taskDisplayTitle } from '@/lib/projects/task-label';
+import { TASK_CATEGORIES } from '@/lib/projects/task-categories';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
@@ -61,14 +63,14 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <PageHeader title={t.title} subtitle={`${one(proj?.clients)?.name ?? ''} · ${proj?.name}`} actions={<><span className={`badge ${st.tone}`}>{st.label}</span><LinkButton href={`/projetos/${proj?.id}`} className="btn btn-sm">← Projeto</LinkButton></>} />
+      <PageHeader title={taskDisplayTitle(t.task_number, one(proj?.clients)?.name, t.title)} subtitle={`${one(proj?.clients)?.name ?? ''} · ${proj?.name}`} actions={<><span className={`badge ${st.tone}`}>{st.label}</span><LinkButton href={`/projetos/${proj?.id}`} className="btn btn-sm">← Projeto</LinkButton></>} />
       {t.out_of_scope && <div className="card mb-6 border-amber-500/40 bg-amber-500/10 text-sm"><b className="text-warn">Fora do escopo contratado.</b> {t.out_of_scope_note ?? 'Orçar à parte.'}</div>}
       {canWrite && next[t.status] && <div className="mb-6 flex flex-wrap items-center gap-3 card !p-4">{next[t.status]}</div>}
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <form action={updateTask.bind(null, id)} className="card space-y-5"><h2 className="text-base font-semibold">Detalhes e briefing</h2><fieldset disabled={!canWrite} className="space-y-5">
-            <div className="grid gap-5 sm:grid-cols-2"><Field label="Título"><input name="title" defaultValue={t.title} required className="input" /></Field>
+            <div className="grid gap-5 sm:grid-cols-2"><Field label="Nome da tarefa (número e cliente automáticos)"><input name="title" defaultValue={t.title} required className="input" /></Field>
               <div className="sm:col-span-2"><AssigneePicker people={people ?? []} selected={(coRows ?? []).map((c) => c.user_id as string)} primary={t.assignee_id} disabled={!canWrite} /></div>
               <Field label="Início"><input type="date" name="starts_on" defaultValue={t.starts_on ?? ''} className="input" /></Field>
               <Field label="Entrega"><input type="date" name="due_on" defaultValue={t.due_on ?? ''} className={`input ${late ? 'border-danger' : ''}`} /></Field>
@@ -76,6 +78,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
               <Field label="Entrega das alterações (equipe)" hint="Até quando a equipe refaz os ajustes. Sugerida ao registrar ajustes."><input type="date" name="changes_due_on" defaultValue={t.changes_due_on ?? ''} className="input" /></Field>
               <Field label="Serviço do cliente"><select name="service_id" defaultValue={t.service_id ?? ''} className="input"><option value="">—</option>{(services ?? []).filter((sv: { client_id: string }) => sv.client_id === proj?.client_id).map((sv: { id: string; service: string }) => <option key={sv.id} value={sv.id}>{sv.service}</option>)}</select></Field>
               <Field label="Área"><select name="area" defaultValue={t.area ?? ''} className="input"><option value="">—</option><option value="diagramacao">Diagramação</option><option value="social_media">Social Media</option><option value="outro">Outra</option></select></Field>
+              <Field label="Categoria"><select name="category" defaultValue={t.category ?? ''} className="input"><option value="">—</option>{Object.entries(TASK_CATEGORIES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></Field>
               <Field label="Prioridade"><select name="priority" defaultValue={t.priority} className="input">{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field></div>
             <Field label="Briefing (interno)"><textarea name="briefing" rows={6} defaultValue={t.briefing ?? ''} className="input" /></Field>
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-start"><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" name="internal" defaultChecked={t.internal} /> Interna (oculta no portal)</label>
