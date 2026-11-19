@@ -15,7 +15,7 @@ export async function GET(req:NextRequest){
   }
   try{
     const result=await syncAllSocialConnections();
-    return NextResponse.json({ok:result.failed===0,...result},{status:result.failed?207:200});
+    return NextResponse.json(result,{status:result.failed?207:200});
   }catch{
     return NextResponse.json({ok:false,error:'sync_failed'},{status:500});
   }
