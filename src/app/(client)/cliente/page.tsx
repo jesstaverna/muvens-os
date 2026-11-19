@@ -15,7 +15,8 @@ export default async function Inicio() {
   return (
     <>
       <h1 className="h1">Olá, {o.client_name}</h1>
-      <p className="mt-1.5 text-sm text-muted">Acompanhe projetos, aprove peças e fale com a equipe Muvens.</p>
+      <p className="mt-1.5 text-sm text-muted">Acompanhe projetos, solicite demandas, aprove peças e fale com a equipe Muvens.</p>
+      <Link href="/cliente/solicitar" className="btn btn-primary mt-5">Solicitar nova demanda</Link>
       <section className="my-8 grid gap-4 sm:grid-cols-3">
         <Stat label="Aguardando sua aprovação" value={o.awaiting_approval} tone={o.awaiting_approval ? 'lime' : undefined} href="/cliente/aprovacoes" />
         <Stat label="Projetos em andamento" value={o.projects_active} href="/cliente/projetos" />
