@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2,
+  AlertCircle, ArrowLeft, ArrowRight, CalendarDays,
   CircleDot, Clock3, FilterX, GripVertical, ListFilter, Search, Users, X,
 } from 'lucide-react';
 import { useMemo, useRef, useState, useTransition } from 'react';
