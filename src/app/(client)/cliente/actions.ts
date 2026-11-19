@@ -27,13 +27,17 @@ const ok = /^[0-9a-f-]{36}$/;
 export async function createClientTask(fd: FormData) {
   const { supabase } = await requirePortal();
   const due = String(fd.get('due_on') ?? '').trim();
+  const description = String(fd.get('description') ?? '').trim();
+  const objective = String(fd.get('objective') ?? '').trim().slice(0, 300);
+  const deliverables = String(fd.get('deliverables') ?? '').trim().slice(0, 300);
+  const briefing = [description, objective && 'Objetivo: ' + objective, deliverables && 'Formato/quantidade: ' + deliverables].filter(Boolean).join('\n\n');
   const { data, error } = await supabase.rpc('portal_create_task', {
-    p_project: String(fd.get('project_id') ?? ''), p_area: String(fd.get('area') ?? ''), p_title: String(fd.get('title') ?? ''), p_description: String(fd.get('description') ?? ''),
+    p_project: String(fd.get('project_id') ?? ''), p_area: String(fd.get('area') ?? ''), p_title: String(fd.get('title') ?? ''), p_description: briefing,
     p_due: due || null, p_link: String(fd.get('link') ?? '').trim() || null,
   });
-  if (error) flash('/cliente/quadro/nova', 'err', error.code === '22023' ? error.message : error.code === '42501' ? 'Escolha um dos seus projetos.' : 'Não foi possível enviar. Tente novamente.');
+  if (error) flash('/cliente/solicitar', 'err', error.code === '22023' ? error.message : error.code === '42501' ? 'Escolha um dos seus projetos.' : 'Não foi possível enviar. Tente novamente.');
   revalidatePath('/cliente', 'layout');
-  flash(`/cliente/quadro/${data}`, 'ok', 'Demanda enviada! A equipe vai analisar e definir os prazos.');
+  flash(`/cliente/quadro/${data}`, 'ok', 'Solicitação recebida! Ela entrou na coluna Solicitação de cliente. A equipe vai analisar e definir os responsáveis e prazos.');
 }
 
 export async function addTaskLink(taskId: string, fd: FormData) {
