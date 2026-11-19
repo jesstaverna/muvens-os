@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { personName } from '@/lib/people';
 import { taskDisplayTitle } from '@/lib/projects/task-label';
+import { TASK_CATEGORIES } from '@/lib/projects/task-categories';
 import { AssigneePicker } from '@/components/AssigneePicker';
 import { notFound } from 'next/navigation';
 import { requireModule } from '@/lib/session';
@@ -77,6 +78,7 @@ export default async function TarefaPage({ params }: { params: Promise<{ id: str
               <Field label="Entrega das alterações (equipe)" hint="Até quando a equipe refaz os ajustes. Sugerida ao registrar ajustes."><input type="date" name="changes_due_on" defaultValue={t.changes_due_on ?? ''} className="input" /></Field>
               <Field label="Serviço do cliente"><select name="service_id" defaultValue={t.service_id ?? ''} className="input"><option value="">—</option>{(services ?? []).filter((sv: { client_id: string }) => sv.client_id === proj?.client_id).map((sv: { id: string; service: string }) => <option key={sv.id} value={sv.id}>{sv.service}</option>)}</select></Field>
               <Field label="Área"><select name="area" defaultValue={t.area ?? ''} className="input"><option value="">—</option><option value="diagramacao">Diagramação</option><option value="social_media">Social Media</option><option value="outro">Outra</option></select></Field>
+              <Field label="Categoria"><select name="category" defaultValue={t.category ?? ''} className="input"><option value="">—</option>{Object.entries(TASK_CATEGORIES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></Field>
               <Field label="Prioridade"><select name="priority" defaultValue={t.priority} className="input">{Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></Field></div>
             <Field label="Briefing (interno)"><textarea name="briefing" rows={6} defaultValue={t.briefing ?? ''} className="input" /></Field>
             <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-start"><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" name="internal" defaultChecked={t.internal} /> Interna (oculta no portal)</label>
