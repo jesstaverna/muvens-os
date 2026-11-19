@@ -6,7 +6,7 @@ create table if not exists public.digital_diagnostics (
   contact_name text,
   client_id uuid references public.clients(id) on delete set null,
   lead_id uuid references public.leads(id) on delete set null,
-  scopes text[] not null default '{}' check (array_length(scopes,1) between 1 and 7 and scopes <@ array['site','landing_page','identidade_visual','instagram','linkedin','trafego_pago','google_business']::text[]),
+  scopes text[] not null default '{}' check (cardinality(scopes) between 1 and 7 and scopes <@ array['site','landing_page','identidade_visual','instagram','linkedin','trafego_pago','google_business']::text[]),
   links jsonb not null default '{}'::jsonb check (jsonb_typeof(links)='object'),
   context text,
   report jsonb,
