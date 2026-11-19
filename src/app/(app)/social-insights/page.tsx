@@ -96,7 +96,7 @@ export default async function SocialInsights({searchParams}:{searchParams:Promis
       {posts?.length?<ul className="divide-y divide-line">{posts.map((p:any)=><li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div className="min-w-0">
           <div className="text-sm font-medium">{p.post_url?<a href={p.post_url} target="_blank" rel="noopener noreferrer" className="underline">{p.post_title}</a>:p.post_title}</div>
-          <p className="mt-1 text-xs text-muted">{PLATFORMS[p.platform as keyof typeof PLATFORMS]??p.platform} · {dateBR(p.published_on)} · Alcance {formatNumber(p.reach)} · Interações {formatNumber(p.interactions)}</p>
+          <p className="mt-1 text-xs text-muted">{PLATFORMS[p.platform as keyof typeof PLATFORMS]??p.platform} · {dateBR(p.published_on)} · {p.reach>0?'Alcance '+formatNumber(p.reach):p.views>0?'Visualizações únicas '+formatNumber(p.views):'Alcance indisponível'} · Interações {formatNumber(p.interactions)}</p>
         </div>
         <form action={deleteSocialPost.bind(null,p.id)}><button type="submit" className="btn btn-sm">Excluir</button></form>
       </li>)}</ul>:<p className="text-sm text-muted">Nenhum post com métricas registrado. Adicione um post para começar.</p>}
