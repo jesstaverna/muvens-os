@@ -108,7 +108,8 @@ export default async function Config({ searchParams }: { searchParams: Promise<{
 
       {tab === 'integracoes' && (
       <section className="card"><h2 className="mb-4 text-base font-semibold">Integrações</h2>
-        <p className="mb-4 text-sm text-muted">Nenhuma integração externa está conectada. Cada linha abaixo está <b>pendente</b>; o sistema só marcará como ativa após uma chamada real bem-sucedida.</p>
+        <p className="mb-4 text-sm text-muted">Configure os aplicativos oficiais para habilitar as conexões. O status de cada rede é consultado em tempo real, sem simular contas conectadas.</p>
+        <Link href="/configuracoes/redes" className="btn btn-primary mb-5">Conectar Instagram, Facebook e LinkedIn</Link>
         <ul className="divide-y divide-line">{INTEGRATIONS.map((i) => <li key={i.name} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><div><div className="font-medium">{i.name}</div><div className="text-xs text-muted">{i.need}</div></div><span className="flex gap-2"><span className="badge">{i.phase}</span><Pending>Pendente</Pending></span></li>)}</ul></section>
       )}
 
