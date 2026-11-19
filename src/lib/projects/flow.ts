@@ -33,6 +33,7 @@ export function statusPath(from: string, to: string): string[] | null {
 /** O que acontece ao soltar/criar um cartão numa coluna. */
 export function columnTarget(col: ColumnKey): { status: string; area?: 'diagramacao' | 'social_media' | 'outro' } {
   switch (col) {
+    case 'solicitacoes_cliente': return { status: 'solicitada' };
     case 'diagramacao': return { status: 'a_fazer', area: 'diagramacao' };
     case 'social_media': return { status: 'a_fazer', area: 'social_media' };
     case 'outro': return { status: 'a_fazer', area: 'outro' };
