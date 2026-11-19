@@ -82,7 +82,7 @@ async function instagram(conn:Connection,token:string,start:string,cutOff:string
     };
   }));
   if(!posts.some(p=>p.hasReach))warnings.push('Não foi possível consultar o alcance individual dos posts do Instagram.');
-  return {period,posts,warnings};
+  return {period,posts:posts.map(({hasReach,...post})=>post),warnings};
 }
 async function facebook(conn:Connection,token:string,start:string,cutOff:string):Promise<{period:PeriodData;posts:PostData[];warnings:string[]}>{
   const period=zero(),warnings=[
