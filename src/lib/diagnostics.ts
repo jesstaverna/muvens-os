@@ -5,6 +5,7 @@ export const DIAGNOSTIC_AREAS = {
   landing_page: 'Landing page',
   identidade_visual: 'Identidade visual',
   instagram: 'Feed do Instagram',
+  linkedin: 'Página ou perfil do LinkedIn',
   trafego_pago: 'Tráfego pago',
   google_business: 'Perfil da Empresa no Google',
 } as const;
@@ -26,7 +27,7 @@ export const reportSchema = z.object({
     strengths: z.array(z.string().trim().min(3).max(400)).max(7),
     findings: z.array(findingSchema).max(12),
     limitations: z.array(z.string().trim().min(3).max(500)).max(6),
-  })).min(1).max(6),
+  })).min(1).max(7),
   next_steps: z.array(z.string().trim().min(4).max(500)).min(1).max(8),
 });
 export type DiagnosticReport = z.infer<typeof reportSchema>;
