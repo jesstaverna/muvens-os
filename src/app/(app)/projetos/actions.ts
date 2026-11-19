@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { parseDuration } from '@/lib/domain';
 import { resolveAssignees } from '@/lib/projects/assignees';
+import { TASK_CATEGORIES } from '@/lib/projects/task-categories';
 
 const optId = z.preprocess((v) => v || null, z.string().uuid().nullable());
 const optDate = z.preprocess((v) => v || null, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida').nullable());
@@ -43,6 +44,7 @@ export async function updateProject(id: string, fd: FormData) {
 const taskSchema = z.object({
   title: z.string().trim().min(2, 'Informe o título da tarefa'), briefing: optText, assignee_id: optId, due_on: optDate, starts_on: optDate, review_due_on: optDate, changes_due_on: optDate,
   service_id: optId,
+  category: z.preprocess((v) => v || null, z.enum(Object.keys(TASK_CATEGORIES) as [keyof typeof TASK_CATEGORIES, ...(keyof typeof TASK_CATEGORIES)[]]).nullable()),
   area: z.preprocess((v) => v || null, z.enum(['diagramacao', 'social_media', 'outro']).nullable()),
   priority: z.enum(['baixa', 'media', 'alta', 'urgente']).default('media'),
 });
