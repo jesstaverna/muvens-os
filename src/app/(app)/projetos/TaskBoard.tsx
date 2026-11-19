@@ -10,10 +10,12 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { moveTask } from './actions';
 import { AREAS } from '@/lib/projects/board';
 import { taskDisplayTitle } from '@/lib/projects/task-label';
+import { TASK_CATEGORIES, taskCategoryLabel } from '@/lib/projects/task-categories';
 
 export interface KTask {
   id: string;
   task_number: number | null;
+  category: string | null;
   title: string;
   status: string;
   priority: string;
@@ -103,6 +105,7 @@ function BoardCard({
         {task.origin==='cliente'?<span className="rounded-full bg-[#DCEA1E]/20 px-2 py-1 text-[10px] font-medium text-fg">Cliente</span>
           :task.area&&AREAS[task.area]?<span className="truncate text-[10px] text-muted">{AREAS[task.area]}</span>:null}
       </div>
+      {task.category && <div className="mt-2"><span className="rounded-md border border-line bg-subtle px-2 py-1 text-[10px] font-medium text-muted">{taskCategoryLabel(task.category)}</span></div>}
       {task.out_of_scope && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-1.5 text-[10px] font-medium text-warn">Fora do escopo contratado</div>}
       {canWrite&&<label className="mt-3 flex items-center gap-2 border-t border-line/70 pt-2.5 text-[11px] text-muted">
         <span className="shrink-0">Mover:</span>
@@ -122,6 +125,7 @@ export function TaskBoard({tasks,canWrite=true}:{tasks:KTask[];canWrite?:boolean
   const [over,setOver]=useState<string|null>(null);
   const [term,setTerm]=useState('');
   const [priority,setPriority]=useState('todos');
+  const [category,setCategory]=useState('todos');
   const [assignee,setAssignee]=useState('todos');
   const [lateOnly,setLateOnly]=useState(false);
   const [activeOnly,setActiveOnly]=useState(false);
@@ -130,6 +134,7 @@ export function TaskBoard({tasks,canWrite=true}:{tasks:KTask[];canWrite?:boolean
   const owners=useMemo(()=>[...new Set(tasks.flatMap(people))].sort((a,b)=>a.localeCompare(b,'pt-BR')), [tasks]);
   const filtered=useMemo(()=>tasks.filter(task=>{
     if (priority!=='todos' && task.priority!==priority) return false;
+    if (category!=='todos' && task.category!==category) return false;
     if (assignee==='sem_responsavel' && people(task).length>0) return false;
     if (assignee!=='todos' && assignee!=='sem_responsavel' && !people(task).includes(assignee)) return false;
     if (lateOnly && !task.late) return false;
@@ -138,7 +143,7 @@ export function TaskBoard({tasks,canWrite=true}:{tasks:KTask[];canWrite?:boolean
       if (!words.includes(term.trim().toLocaleLowerCase('pt-BR'))) return false;
     }
     return true;
-  }),[tasks,term,priority,assignee,lateOnly]);
+  }),[tasks,term,priority,category,assignee,lateOnly]);
   const displayedColumns=activeOnly?COLS.filter(c=>MAIN_COLS.has(c.key)):COLS;
   const totalActive=tasks.filter(t=>!['entregue','aprovado'].includes(t.status)).length;
   const totalTriage=tasks.filter(t=>t.status==='solicitada').length;
@@ -159,8 +164,8 @@ export function TaskBoard({tasks,canWrite=true}:{tasks:KTask[];canWrite?:boolean
     });
   }
 
-  const reset=()=>{setTerm('');setPriority('todos');setAssignee('todos');setLateOnly(false);};
-  const hasFilters=Boolean(term.trim()||priority!=='todos'||assignee!=='todos'||lateOnly);
+  const reset=()=>{setTerm('');setPriority('todos');setCategory('todos');setAssignee('todos');setLateOnly(false);};
+  const hasFilters=Boolean(term.trim()||priority!=='todos'||category!=='todos'||assignee!=='todos'||lateOnly);
   return <section aria-label="Quadro de produção" className="space-y-4">
     <div className="grid gap-3 sm:grid-cols-3">
       {[
@@ -183,6 +188,10 @@ export function TaskBoard({tasks,canWrite=true}:{tasks:KTask[];canWrite?:boolean
         className="input !w-auto min-w-[150px] !py-2">
         <option value="todos">Todos os responsáveis</option><option value="sem_responsavel">Sem responsável</option>
         {owners.map(o=><option key={o} value={o}>{o}</option>)}
+      </select>
+      <select value={category} onChange={e=>setCategory(e.target.value)} aria-label="Filtrar por categoria" className="input !w-auto min-w-[150px] !py-2">
+        <option value="todos">Todas as categorias</option>
+        {Object.entries(TASK_CATEGORIES).map(([k,label])=><option key={k} value={k}>{label}</option>)}
       </select>
       <select value={priority} onChange={e=>setPriority(e.target.value)} aria-label="Filtrar por prioridade"
         className="input !w-auto min-w-[130px] !py-2">
