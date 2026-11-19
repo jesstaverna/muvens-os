@@ -13,8 +13,8 @@ const number = (v: unknown) => Number(v ?? 0).toLocaleString('pt-BR');
 const value = (v: unknown) => Number(v ?? 0);
 const first = <T,>(v:T|T[]|null|undefined):T|null => Array.isArray(v)?v[0]??null:v??null;
 type TaskRow = { id:string;task_number:number|null;title:string;status:string;category:string|null;due_on:string|null;projects:{name:string;clients:{name:string}|{name:string}[]|null}|{name:string;clients:{name:string}|{name:string}[]|null}[]|null };
-type SocialPeriod={platform:string;reach:number;engagements:number;link_clicks:number};
-type SocialPost={id:string;post_title:string;platform:string;post_url:string|null;published_on:string;reach:number;interactions:number};
+type SocialPeriod={platform:string;reach:number;impressions:number;engagements:number;link_clicks:number;source:string;metric_flags:Record<string,unknown>|null};
+type SocialPost={id:string;post_title:string;platform:string;post_url:string|null;published_on:string;reach:number;views:number;interactions:number};
 
 export default async function Inicio(){
   const {supabase,profile}=await requireModule('dashboard');
@@ -40,14 +40,19 @@ export default async function Inicio(){
     social?supabase.from('clients').select('id').eq('name','MUVENS').maybeSingle():Promise.resolve({data:null,error:null}),
   ]);
   const [{data:metrics,error:metricsError},{data:bestPosts,error:postsError}]=internalClient.data?.id?await Promise.all([
-    supabase.from('social_period_metrics').select('platform,reach,engagements,link_clicks')
+    supabase.from('social_period_metrics').select('platform,reach,impressions,engagements,link_clicks,source,metric_flags')
       .eq('client_id',internalClient.data.id).eq('period_start',from).eq('period_end',to),
-    supabase.from('social_post_metrics').select('id,post_title,platform,post_url,published_on,reach,interactions')
+    supabase.from('social_post_metrics').select('id,post_title,platform,post_url,published_on,reach,views,interactions')
       .eq('client_id',internalClient.data.id).gte('published_on',from).lte('published_on',to)
       .order('reach',{ascending:false}).limit(3),
   ]):[{data:null,error:null},{data:null,error:null}];
   const channels=(metrics??[]) as SocialPeriod[];
-  const posts=(bestPosts??[]) as SocialPost[];
+  const posts=((bestPosts??[]) as SocialPost[]).sort((a,b)=>Math.max(value(b.reach),value(b.views))-Math.max(value(a.reach),value(a.views))).slice(0,3);
+  const observed=(p:SocialPeriod,key:'reach'|'engagements'|'link_clicks')=>p.source==='manual'||p.metric_flags?.[key]===true;
+  const metricTotal=(key:'reach'|'engagements'|'link_clicks')=>{
+    const measured=channels.filter(p=>observed(p,key));
+    return measured.length?number(measured.reduce((n,p)=>n+value(p[key]),0)):'—';
+  };
   const kpi=(financial.data??{}) as Record<string,unknown>;
   const tasksView=(tasks.data??[]) as TaskRow[];
   const titleOf=(t:TaskRow)=>taskDisplayTitle(t.task_number,first(first(t.projects)?.clients)?.name,t.title);
@@ -100,9 +105,9 @@ export default async function Inicio(){
       {metricsError||postsError?<p className="mb-4 rounded-xl bg-amber-500/10 p-3 text-sm">Métricas sociais indisponíveis. Confira a configuração do módulo.</p>:null}
       <div className="grid gap-3 sm:grid-cols-3">
         {[
-          ['Alcance registrado',channels.length?number(channels.reduce((n,p)=>n+value(p.reach),0)):'—','Soma por rede, sem deduplicação'],
-          ['Interações',channels.length?number(channels.reduce((n,p)=>n+value(p.engagements),0)):'—','Curtidas, comentários e outras interações registradas'],
-          ['Cliques em links',channels.length?number(channels.reduce((n,p)=>n+value(p.link_clicks),0)):'—','Cliques informados nos relatórios'],
+          ['Alcance registrado',metricTotal('reach'),'Somente redes que fornecem alcance verificável'],
+          ['Interações',metricTotal('engagements'),'Métricas verificadas por rede'],
+          ['Cliques em links',metricTotal('link_clicks'),'Cliques informados nos relatórios'],
         ].map(([label,total,hint])=><div key={label} className="rounded-xl border border-line bg-subtle/40 p-4">
           <div className="text-xs text-muted">{label}</div><div className="mt-2 text-2xl font-semibold tabular-nums">{total}</div>
           <p className="mt-1 text-[11px] text-muted">{hint}</p>
@@ -112,18 +117,18 @@ export default async function Inicio(){
         <div><h3 className="mb-3 text-sm font-semibold">Alcance por canal</h3>
           {channels.length?<div className="space-y-2">{channels.map(p=><div key={p.platform} className="flex items-center justify-between rounded-xl border border-line p-3">
             <div><div className="text-sm font-semibold">{platforms[p.platform]??p.platform}</div><div className="mt-1 text-xs text-muted">{number(p.engagements)} interações</div></div>
-            <div className="text-sm font-semibold">{number(p.reach)}</div>
+            <div className="text-right"><div className="text-sm font-semibold">{observed(p,'reach')?number(p.reach):'—'}</div><div className="text-[10px] text-muted">{observed(p,'reach')?'alcance':p.platform==='linkedin'?'impressões '+number(p.impressions):'alcance indisponível'}</div></div>
           </div>)}</div>:<p className="rounded-xl border border-dashed border-line p-4 text-sm text-muted">Ainda não há alcance registrado neste mês.</p>}
         </div>
-        <div><h3 className="mb-3 text-sm font-semibold">Posts com melhores resultados</h3>
+        <div><h3 className="mb-3 text-sm font-semibold">Posts em destaque</h3>
           {posts.length?<ol className="space-y-2">{posts.map((p,i)=><li key={p.id} className="flex gap-3 rounded-xl border border-line p-3">
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#DCEA1E]/25 text-xs font-bold">{i+1}</span>
             <div><div className="text-sm font-semibold">{p.post_url?<a href={p.post_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{p.post_title}</a>:p.post_title}</div>
-              <p className="mt-1 text-xs text-muted">{platforms[p.platform]??p.platform} · {number(p.reach)} alcance · {number(p.interactions)} interações</p></div>
+              <p className="mt-1 text-xs text-muted">{platforms[p.platform]??p.platform} · {p.reach>0?number(p.reach)+' alcance':p.views>0?number(p.views)+' visualizações':'Alcance indisponível'} · {number(p.interactions)} interações</p></div>
           </li>)}</ol>:<p className="rounded-xl border border-dashed border-line p-4 text-sm text-muted">Sem posts avaliados neste mês. Adicione dados reais para criar o ranking.</p>}
         </div>
       </div>
-      <p className="mt-4 text-[11px] text-muted">Fonte: registros manuais. Conexão automática com as redes sociais ainda não configurada.</p>
+      <p className="mt-4 text-[11px] text-muted">Fonte: relatórios manuais ou APIs oficiais autorizadas. Alcance, visualizações e impressões únicas são métricas diferentes; valores não disponíveis aparecem como “—”.</p>
     </section>}
     <div className="grid gap-5 lg:grid-cols-2">
       {sales&&<section className="rounded-2xl border border-line bg-surface p-5">
