@@ -20,7 +20,7 @@ export default async function NovaTarefa({ searchParams }: { searchParams: Promi
     <><PageHeader title="Nova tarefa" />
       <form action={createTask} className="card max-w-3xl space-y-5"><div className="grid gap-5 sm:grid-cols-2">
         <Field label="Projeto *"><select name="project_id" required defaultValue={project ?? ''} className="input"><option value="">Selecione…</option>{projects?.map((p: any) => <option key={p.id} value={p.id}>{(Array.isArray(p.clients) ? p.clients[0] : p.clients)?.name} — {p.name}</option>)}</select></Field>
-        <Field label="Título *"><input name="title" required className="input" /></Field>
+        <Field label="Nome da tarefa *" hint="Digite somente o nome. O sistema adicionará automaticamente #00001 e [CLIENTE] ao criar."><input name="title" required className="input" placeholder="Ex.: Criar calendário editorial" /></Field>
         <div className="sm:col-span-2"><AssigneePicker people={people ?? []} selected={[]} primary={null} /></div>
         <Field label="Área"><select name="area" className="input" defaultValue=""><option value="">—</option><option value="diagramacao">Diagramação</option><option value="social_media">Social Media</option><option value="outro">Outra</option></select></Field>
         <Field label="Início"><input type="date" name="starts_on" className="input" /></Field>
