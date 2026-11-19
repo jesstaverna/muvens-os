@@ -9,9 +9,11 @@ import {
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { moveTask } from './actions';
 import { AREAS } from '@/lib/projects/board';
+import { taskDisplayTitle } from '@/lib/projects/task-label';
 
 export interface KTask {
   id: string;
+  task_number: number | null;
   title: string;
   status: string;
   priority: string;
@@ -74,7 +76,7 @@ function BoardCard({
         {canWrite && <GripVertical className="h-[16px] w-[16px] shrink-0 text-muted/40 opacity-0 transition group-hover:opacity-100" aria-hidden="true"/>}
       </div>
       <Link href={'/projetos/tarefas/'+task.id} className="block break-words text-[13px] font-semibold leading-[1.55] text-fg hover:underline">
-        {task.title}
+        {taskDisplayTitle(task.task_number, task.client, task.title)}
       </Link>
       {task.project && <p className="mt-1.5 truncate text-[11px] text-muted" title={task.project}>{task.project}</p>}
 
