@@ -26,12 +26,7 @@ const GROUP_LABELS: Record<string,string> = {
   'Inteligência e sistema': 'SISTEMA',
 };
 const NAV_STORAGE_KEY = 'muvens-nav-v2';
-const dark = {
-  bg: 'bg-[#0C0E0D]',
-  line: 'border-white/10',
-  muted: 'text-white/45',
-  regular: 'text-white/65',
-};
+const dark = { bg: 'bg-[#0C0E0D]' };
 const getInitials = (fullName: string) => fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p=>p[0]?.toUpperCase()).join('') || 'MU';
 
 export function Sidebar({ items, userName, roleLabel, signOut, collapsed, onToggle }: Props) {
@@ -98,7 +93,7 @@ export function Sidebar({ items, userName, roleLabel, signOut, collapsed, onTogg
         <button type="button" onClick={openSearch} title="Buscar em todo o sistema (Ctrl+K)"
           className={'flex h-10 w-full items-center rounded-xl border border-white/10 bg-white/[.055] text-white/60 transition hover:border-white/20 hover:bg-white/[.09] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#DCEA1E] ' + (compact ? 'justify-center' : 'gap-2.5 px-3')}>
           <Search className="h-4 w-4 shrink-0" strokeWidth={1.7}/>
-          {!compact && <><span className="flex-1 text-left text-xs">Buscar no sistema</span><kbd className="rounded border border-white/15 px-1.5 py-0.5 text-[10px] text-white/40">⌘K</kbd></>}
+          {!compact && <><span className="flex-1 text-left text-xs">Buscar no sistema</span><kbd className="rounded border border-white/15 px-1.5 py-0.5 text-[10px] text-white/40">Ctrl K</kbd></>}
         </button>
         <Link href={quick.href} onClick={()=>setMobileOpen(false)} title={quick.label}
           className={'flex h-10 items-center justify-center rounded-xl bg-[#DCEA1E] text-xs font-semibold text-[#0A0A0A] transition hover:bg-[#C9D71B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#DCEA1E] ' + (compact ? '' : 'gap-2')}>
