@@ -3,8 +3,9 @@ import { adjustedDue, columnOf, lateness, timelineRange } from './board';
 
 describe('quadro do cliente', () => {
   it('coloca cada status na coluna certa', () => {
-    expect(columnOf({ status: 'solicitada', area: 'diagramacao' })).toBe('diagramacao');
+    expect(columnOf({ status: 'solicitada', area: 'diagramacao' })).toBe('solicitacoes_cliente');
     expect(columnOf({ status: 'a_fazer', area: 'social_media' })).toBe('social_media');
+    expect(columnOf({ status: 'a_fazer', area: 'diagramacao' })).toBe('diagramacao');
     expect(columnOf({ status: 'aguardando_cliente', area: null })).toBe('outro');
     expect(columnOf({ status: 'produzido', area: 'diagramacao' })).toBe('andamento');
     expect(columnOf({ status: 'enviado', area: 'social_media' })).toBe('aprovacao');
