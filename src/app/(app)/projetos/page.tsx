@@ -53,19 +53,19 @@ export default async function Projetos({ searchParams }: { searchParams: Promise
 
   return (
     <>
-      <PageHeader title="Projetos e Tarefas" subtitle="Produção por cliente, com fluxo de aprovação, entregáveis e controle de horas."
+      <PageHeader title="Projetos e Tarefas" subtitle="Planeje, distribua e acompanhe a produção da agência em um só lugar."
         actions={canWrite ? <>{['admin', 'comercial'].includes(profile.role) && <LinkButton href="/portal/visualizar" className="btn">Ver como o cliente</LinkButton>}<LinkButton href="/projetos/novo" className="btn">Novo projeto</LinkButton><LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton></> : undefined} />
       <Tabs current={view} items={TABS.map((t) => ({ ...t, href: `/projetos?view=${t.key}` }))} />
 
       {(view === 'kanban' || view === 'lista' || view === 'timeline' || view === 'calendario') && (
         <>
-          <form method="get" className="mb-5 flex flex-wrap items-end gap-2"><input type="hidden" name="view" value={view} />
-            <select name="client" defaultValue={sp.client ?? ''} className="input w-52" aria-label="Cliente"><option value="">Todos os clientes</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-            <select name="project" defaultValue={sp.project ?? ''} className="input w-60" aria-label="Projeto"><option value="">Todos os projetos</option>{projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <form method="get" className="mb-4 flex flex-wrap items-end gap-2 rounded-2xl border border-line bg-surface p-3"><input type="hidden" name="view" value={view} />
+            <select name="client" defaultValue={sp.client ?? ''} className="input !w-auto min-w-[170px] !py-2" aria-label="Cliente"><option value="">Todos os clientes</option>{clients?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+            <select name="project" defaultValue={sp.project ?? ''} className="input !w-auto min-w-[180px] !py-2" aria-label="Projeto"><option value="">Todos os projetos</option>{projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             <label className="flex items-center gap-2 px-2 pb-2.5 text-sm"><input type="checkbox" name="me" value="1" defaultChecked={!!sp.me} /> Só minhas</label>
-            <button className="btn btn-dark">Filtrar</button>{late > 0 && <span className="pb-2.5 text-sm text-danger">{late} atrasada(s)</span>}</form>
+            <button className="btn btn-dark !py-2">Aplicar filtros</button>{late > 0 && <span className="pb-2.5 text-sm text-danger">{late} atrasada(s)</span>}</form>
           {!tasks.length ? <Empty title="Nenhuma tarefa" text="Crie um projeto para o cliente e adicione tarefas. Ao assinar um contrato, o projeto de onboarding é criado automaticamente." action={canWrite ? <LinkButton href="/projetos/tarefas/nova" className="btn btn-primary">Nova tarefa</LinkButton> : undefined} />
-            : view === 'kanban' ? <TaskBoard tasks={tasks} /> : view === 'timeline' ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : view === 'calendario' ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : (
+            : view === 'kanban' ? <TaskBoard tasks={tasks} canWrite={canWrite} /> : view === 'timeline' ? <TimelineView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : view === 'calendario' ? <CalendarView tasks={boardTasks} today={today} hrefFor={(id) => `/projetos/tarefas/${id}`} /> : (
               <div className="card overflow-x-auto !p-0"><table className="w-full"><thead><tr className="border-b border-line"><th className="th">Tarefa</th><th className="th">Cliente / projeto</th><th className="th">Responsável</th><th className="th">Prazo</th><th className="th">Prioridade</th><th className="th">Status</th></tr></thead>
                 <tbody>{tasks.map((t) => (<tr key={t.id} className="border-b border-line last:border-0 hover:bg-subtle/60"><td className="td"><Link className="font-medium hover:underline" href={`/projetos/tarefas/${t.id}`}>{t.title}</Link>{t.out_of_scope && <span className="ml-2 badge border-amber-500/40 text-warn">fora do escopo</span>}</td>
                   <td className="td text-muted">{t.client}<div className="text-xs">{t.project}</div></td><td className="td">{[...new Set([...(t.assignee ? [t.assignee] : []), ...t.assignees])].join(', ') || '—'}</td><td className={`td whitespace-nowrap ${t.late ? 'font-medium text-danger' : ''}`}>{dateBR(t.due_on)}</td>

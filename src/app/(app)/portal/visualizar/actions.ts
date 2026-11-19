@@ -12,8 +12,9 @@ const fail = (e: { code?: string; message: string }) => (e.code === '23514' || e
 export async function moveCard(taskId: string, column: string): Promise<string | null> {
   const { supabase } = await requireModule('portal');
   if (!uuid.test(taskId) || !isCol(column)) return 'Cartão inválido.';
-  const { data: t } = await supabase.from('tasks').select('status, area').eq('id', taskId).maybeSingle();
+  const { data: t } = await supabase.from('tasks').select('status, area, origin').eq('id', taskId).maybeSingle();
   if (!t) return 'Tarefa não encontrada.';
+  if (column === 'solicitacoes_cliente' && t.origin !== 'cliente') return 'Somente demandas abertas pelo cliente podem entrar nesta coluna.';
   const tgt = columnTarget(column);
   const path = statusPath(t.status, tgt.status);
   if (path === null) return 'Esta tarefa já foi entregue/cancelada: só um administrador pode reabrir.';

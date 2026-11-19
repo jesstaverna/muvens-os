@@ -24,8 +24,8 @@ export default async function Quadro({ searchParams }: { searchParams: Promise<{
   return (
     <>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div><h1 className="h1">Quadro de demandas</h1><p className="mt-1.5 text-sm text-muted">Acompanhe prazos, responsáveis e links. Peça novas demandas e alterações por aqui.</p></div>
-        <LinkButton href="/cliente/quadro/nova" className="btn btn-primary">Nova demanda</LinkButton>
+        <div><h1 className="h1">Quadro de demandas</h1><p className="mt-1.5 text-sm text-muted">Acompanhe seus pedidos, pessoas responsáveis, aprovações e entregas em um só lugar. Novas solicitações entram na primeira coluna.</p></div>
+        <LinkButton href="/cliente/solicitar" className="btn btn-primary">Solicitar demanda</LinkButton>
       </div>
       {waiting > 0 && <div className="mb-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm"><b className="text-warn">{waiting} {waiting === 1 ? 'item aguarda' : 'itens aguardam'} você</b> — aprovação ou envio de conteúdo (cartões destacados).</div>}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -33,7 +33,7 @@ export default async function Quadro({ searchParams }: { searchParams: Promise<{
         {board.projects.length > 1 && <nav aria-label="Projeto" className="flex flex-wrap gap-1.5 text-sm"><Link href={q(view, '')} className={`badge ${project ? '' : 'bg-lime/40'}`}>Todos</Link>{board.projects.map((p) => <Link key={p.id} href={q(view, p.id)} className={`badge ${project === p.id ? 'bg-lime/40' : ''}`}>{p.name}</Link>)}</nav>}
       </div>
       {services.length > 0 && <nav aria-label="Serviço" className="mb-5 flex flex-wrap items-center gap-1.5 text-sm"><span className="mr-1 text-xs text-muted">Serviço:</span><Link href={q(view, project, '')} className={`badge ${service ? '' : 'bg-lime/40'}`}>Todos</Link>{services.map((x) => <Link key={x.id} href={q(view, project, x.id)} className={`badge ${service === x.id ? 'bg-lime/40' : ''}`}>{x.name}</Link>)}</nav>}
-      {!board.tasks.length ? <div className="rounded-2xl border border-dashed border-line p-12 text-center text-sm text-muted">{board.projects.length ? 'Ainda não há demandas. Clique em “Nova demanda” para começar.' : 'Ainda não há projetos compartilhados com você.'}</div>
+      {!board.tasks.length ? <div className="rounded-2xl border border-dashed border-line p-12 text-center text-sm text-muted">{board.projects.length ? 'Ainda não há demandas. Clique em “Solicitar demanda” para começar.' : 'Ainda não há projetos compartilhados com você.'}</div>
         : view === 'timeline' ? <TimelineView tasks={tasks} today={today} hrefFor={href} />
         : view === 'lista' ? <ListView tasks={tasks} today={today} hrefFor={href} viewer="cliente" />
         : view === 'calendario' ? <CalendarView tasks={tasks} today={today} hrefFor={href} />

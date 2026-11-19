@@ -5,7 +5,7 @@ import { Card } from '@/components/BoardViews';
 import { COLUMNS, columnOf, lateness, type BoardTask } from '@/lib/projects/board';
 import { addCard, moveCard } from './actions';
 
-const TONE: Record<string, string> = { diagramacao: 'bg-violet-500', social_media: 'bg-pink-500', outro: 'bg-muted', andamento: 'bg-blue-500', aprovacao: 'bg-amber-500', ajustes: 'bg-danger', aprovados: 'bg-lime', finalizados: 'bg-ok' };
+const TONE: Record<string, string> = { solicitacoes_cliente: 'bg-[#DCEA1E]', diagramacao: 'bg-violet-500', social_media: 'bg-pink-500', outro: 'bg-muted', andamento: 'bg-blue-500', aprovacao: 'bg-amber-500', ajustes: 'bg-danger', aprovados: 'bg-lime', finalizados: 'bg-ok' };
 const CAN_ADD = ['diagramacao', 'social_media', 'andamento'];
 
 /** Quadro da visão do cliente com edição estilo Trello: arrastar para mudar de coluna e "+ Adicionar cartão" em cada coluna de entrada. */

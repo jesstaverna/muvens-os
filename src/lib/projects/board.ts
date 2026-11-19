@@ -7,15 +7,17 @@ export interface BoardTask {
 }
 
 export const COLUMNS = [
+  { key: 'solicitacoes_cliente', label: 'Solicitação de cliente' },
   { key: 'diagramacao', label: 'Diagramação' }, { key: 'social_media', label: 'Social Media' }, { key: 'outro', label: 'Outras demandas' },
   { key: 'andamento', label: 'Em andamento' }, { key: 'aprovacao', label: 'Aprovação' }, { key: 'ajustes', label: 'Solicitação de ajustes' },
   { key: 'aprovados', label: 'Aprovados' }, { key: 'finalizados', label: 'Finalizados' },
 ] as const;
 export type ColumnKey = (typeof COLUMNS)[number]['key'];
 
-/** Em qual coluna do quadro o cartão aparece. Demandas que ainda não começaram ficam na coluna da sua área. */
+/** Em qual coluna do quadro o cartão aparece. Pedidos novos do cliente ficam em Solicitação de cliente; demandas triadas sem início aparecem na coluna da área. */
 export function columnOf(t: Pick<BoardTask, 'status' | 'area'>): ColumnKey {
   switch (t.status) {
+    case 'solicitada': return 'solicitacoes_cliente';
     case 'em_andamento': case 'produzido': return 'andamento';
     case 'enviado': return 'aprovacao';
     case 'ajustes': return 'ajustes';

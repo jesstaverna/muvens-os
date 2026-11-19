@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireModule } from '@/lib/session';
 import { PageHeader, Tabs, Empty, Field, Stat } from '@/components/ui';
 import { LinkButton } from '@/components/LinkButton';
+import { CopyButton } from '@/components/ClientButtons';
 import { SubmitButton } from '@/components/SubmitButton';
 import { DocUploader } from './DocUploader';
 import { AccessForm } from './AccessForm';
@@ -48,6 +49,7 @@ export default async function PortalGestao({ searchParams }: { searchParams: Pro
 
       {tab === 'acessos' && (
         <div className="space-y-6">
+          <section className="card"><h2 className="mb-2 text-base font-semibold">Link para solicitar demandas</h2><p className="mb-4 text-sm text-muted">Envie este endereço ao cliente. Ele entra com seu login e cria uma solicitação que aparece diretamente na coluna “Solicitação de cliente” do quadro da equipe.</p><div className="flex flex-wrap items-center gap-2"><span className="min-w-0 break-all rounded-lg border border-line bg-subtle px-3 py-2 text-xs">{appUrl()}/solicitar</span><CopyButton text={appUrl() + '/solicitar'} label="Copiar link da página"/></div></section>
           {profile.role === 'admin' ? <AccessForm clients={clients ?? []} contacts={contacts ?? []} loginUrl={`${appUrl().replace(/\/$/, '')}/login`} defaults={{ email: sp.email, name: sp.name, client: sp.c, mode: sp.mode }} /> : <div className="card text-sm text-muted">Somente administradores geram links de acesso. Peça a um administrador.</div>}
           <div className="card text-sm"><h2 className="mb-2 text-base font-semibold">Como funciona o acesso do cliente</h2><ol className="list-decimal space-y-1.5 pl-5 text-muted">
             <li>Preencha o formulário acima: o sistema cria o login, vincula à empresa e entrega um <b>link</b> (a pessoa cria a senha) ou <b>login e senha</b>. Repita para cada usuário da empresa.</li>
