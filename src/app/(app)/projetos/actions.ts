@@ -1,5 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { statusPath } from '@/lib/projects/flow';
 import { z } from 'zod';
 import { flash, requireModule } from '@/lib/session';
 import { parseDuration } from '@/lib/domain';
@@ -77,9 +78,23 @@ export async function updateTask(id: string, fd: FormData) {
 
 /** Kanban: devolve mensagem de erro (ou null). As regras do fluxo de aprovação vêm do banco. */
 export async function moveTask(id: string, status: string): Promise<string | null> {
-  const { supabase } = await requireModule('projetos');
-  const { error } = await supabase.from('tasks').update({ status }).eq('id', id);
-  if (error) return error.code === '23514' || error.code === '42501' ? error.message : 'Não foi possível mover a tarefa.';
+  const { supabase, profile } = await requireModule('projetos');
+  if (!['admin', 'comercial', 'designer', 'trafego'].includes(profile.role)) return 'Seu perfil não pode editar tarefas.';
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return 'Identificador de tarefa inválido.';
+  const allowed = ['solicitada','aguardando_cliente','a_fazer','em_andamento','produzido','enviado','ajustes','aprovado','entregue'];
+  if (!allowed.includes(status)) return 'Etapa inválida.';
+  const { data: task, error: readErr } = await supabase.from('tasks').select('id,status,origin').eq('id', id).maybeSingle();
+  if (readErr || !task) return 'Tarefa não encontrada.';
+  if (task.status === status) return null;
+  if (status === 'solicitada' && task.origin !== 'cliente') return 'A triagem é exclusiva para pedidos feitos pelo cliente.';
+  // Preserva o histórico do fluxo: etapas não podem ser puladas por alteração direta.
+  const path = status === 'aguardando_cliente' && ['solicitada','a_fazer','em_andamento'].includes(task.status)
+    ? ['aguardando_cliente'] : statusPath(task.status, status);
+  if (path === null) return 'Movimentação não permitida. Abra a tarefa para conferir as próximas ações.';
+  for (const step of path) {
+    const { error } = await supabase.from('tasks').update({ status: step }).eq('id', id);
+    if (error) return error.code === '23514' || error.code === '42501' ? error.message : 'Não foi possível mover a tarefa.';
+  }
   revalidatePath('/projetos');
   return null;
 }
