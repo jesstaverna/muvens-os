@@ -3,7 +3,7 @@ import { COLUMNS, adjustedDue, columnOf, lateness, peopleOf, timelineRange, type
 import { CLIENT_TASK_STATUS } from '@/lib/domain';
 import { dateBR } from '@/lib/format';
 
-const COL_TONE: Record<string, string> = { diagramacao: 'bg-violet-500', social_media: 'bg-pink-500', outro: 'bg-muted', andamento: 'bg-blue-500', aprovacao: 'bg-amber-500', ajustes: 'bg-danger', aprovados: 'bg-lime', finalizados: 'bg-ok' };
+const COL_TONE: Record<string, string> = { solicitacoes_cliente: 'bg-[#DCEA1E]', diagramacao: 'bg-violet-500', social_media: 'bg-pink-500', outro: 'bg-muted', andamento: 'bg-blue-500', aprovacao: 'bg-amber-500', ajustes: 'bg-danger', aprovados: 'bg-lime', finalizados: 'bg-ok' };
 const ago = (n: number) => (n === 1 ? '1 dia' : `${n} dias`);
 
 function LateBadge({ t, today, viewer }: { t: BoardTask; today: string; viewer: 'cliente' | 'equipe' }) {
