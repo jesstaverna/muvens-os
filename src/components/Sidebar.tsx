@@ -62,7 +62,7 @@ export function Sidebar({ items, userName, roleLabel, signOut, collapsed, onTogg
       ? {href:'/propostas/nova',label:'Nova proposta'}
       : items.find(i=>i.key==='projetos')
         ? {href:'/projetos',label:'Ver projetos'}
-        : {href:'/dashboard',label:'Ir ao painel'};
+        : {href:'/inicio',label:'Ir ao painel'};
 
   const openSearch = () => {
     setMobileOpen(false);
@@ -78,7 +78,7 @@ export function Sidebar({ items, userName, roleLabel, signOut, collapsed, onTogg
 
   const header = (compact:boolean) => (
     <header className={compact ? 'px-3 pb-5 pt-6' : 'px-5 pb-5 pt-6'}>
-      <Link href="/dashboard" onClick={()=>setMobileOpen(false)} title="Ir ao Dashboard"
+      <Link href="/inicio" onClick={()=>setMobileOpen(false)} title="Ir ao Dashboard"
         className={'flex items-center rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#DCEA1E] ' + (compact ? 'justify-center' : 'gap-3')}>
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#DCEA1E]/25 bg-[#1B2018]">
           <img src="/logo-muvens.svg" alt="Muvens" className="h-7 w-7 object-contain"/>

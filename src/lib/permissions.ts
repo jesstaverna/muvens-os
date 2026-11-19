@@ -13,7 +13,7 @@ export const STAFF: Role[] = ['admin', 'comercial', 'financeiro', 'designer', 't
 
 export type ModuleKey =
   | 'dashboard' | 'crm' | 'diagnosticos' | 'prospeccao' | 'atendimento-ia' | 'propostas' | 'contratos' | 'clientes' | 'brand' | 'projetos'
-  | 'calendario' | 'trafego' | 'financeiro' | 'metas' | 'relatorios' | 'ia' | 'portal' | 'automacoes' | 'configuracoes';
+  | 'calendario' | 'trafego' | 'social-insights' | 'financeiro' | 'metas' | 'relatorios' | 'ia' | 'portal' | 'automacoes' | 'configuracoes';
 
 export interface ModuleDef {
   key: ModuleKey;
@@ -31,7 +31,7 @@ export interface ModuleDef {
 }
 
 export const MODULES: ModuleDef[] = [
-  { key: 'dashboard', group: 'Visão geral', label: 'Dashboard', href: '/dashboard', roles: STAFF, phase: 1, icon: 'layout-dashboard', summary: 'Visão executiva com dados reais.' },
+  { key: 'dashboard', group: 'Visão geral', label: 'Início', href: '/inicio', roles: STAFF, phase: 1, icon: 'layout-dashboard', summary: 'Resumo executivo da operação, marketing e resultados.' },
   { key: 'crm', group: 'Comercial', label: 'CRM e Leads', href: '/crm', roles: ['admin', 'comercial'], phase: 1, icon: 'kanban', summary: 'Funil, leads e follow-ups.' },
   { key: 'diagnosticos', group: 'Comercial', label: 'Diagnósticos', href: '/diagnosticos', roles: ['admin', 'comercial'], phase: 1, icon: 'clipboard-check', summary: 'Auditorias digitais com evidências, IA e relatório compartilhável.' },
   { key: 'prospeccao', group: 'Comercial', label: 'Prospecção', href: '/prospeccao', roles: ['admin', 'comercial'], phase: 3, done: true, icon: 'radar', summary: 'Descoberta, análise e abordagem de novos clientes.' },
@@ -44,6 +44,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'projetos', group: 'Clientes e produção', label: 'Projetos e Tarefas', href: '/projetos', roles: STAFF, phase: 2, done: true, icon: 'list-checks', summary: 'Kanban, lista e controle de entregáveis.' },
   { key: 'calendario', group: 'Clientes e produção', label: 'Calendário de Produção', href: '/calendario', roles: STAFF, phase: 2, done: true, icon: 'calendar', summary: 'Prazos e entregas de produção.' },
 
+  { key: 'social-insights', group: 'Marketing', label: 'Desempenho das Redes', href: '/social-insights', roles: ['admin','comercial','trafego'], phase: 1, icon: 'chart-no-axes-combined', summary: 'Alcance, interações e ranking dos conteúdos com métricas verificadas.' },
   { key: 'trafego', group: 'Marketing', label: 'Tráfego Pago', href: '/trafego', roles: ['admin', 'trafego'], phase: 3, icon: 'bar-chart-3', summary: 'Meta Ads e Google Ads por cliente.',
     planned: ['Investimento, CTR, CPC, CPM, CPL, ROAS', 'Alertas de custo por lead e orçamento', 'Relatórios compartilháveis', 'Integrações pendentes: contas e tokens Meta/Google'] },
   { key: 'financeiro', group: 'Finanças', label: 'Financeiro', href: '/financeiro', roles: ['admin', 'financeiro'], phase: 1, icon: 'wallet', summary: 'Entradas, saídas, recorrências e previsão.' },
